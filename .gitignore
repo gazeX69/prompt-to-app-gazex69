@@ -1,0 +1,133 @@
+# =========================
+# Dependencies
+# =========================
+node_modules/
+.pnpm-store/
+.npm/
+
+runtime/node_modules/
+frontend/node_modules/
+
+# =========================
+# Python
+# =========================
+venv/
+.venv/
+backend/venv/
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.pytest_cache/
+.mypy_cache/
+
+# =========================
+# Build Outputs
+# =========================
+frontend/dist/
+runtime/dist/
+
+backend/build/
+runtime/build/
+
+out/
+coverage/
+
+.next/
+.nuxt/
+.storybook-out/
+
+vite.svg
+
+# =========================
+# Runtime / Temp
+# =========================
+tmp/
+temp/
+.cache/
+logs/
+
+runtime/.cache/
+runtime/.turbo/
+runtime/tmp/
+
+*.log
+
+# =========================
+# Generated Workspace
+# =========================
+workspaces/
+workshop/
+generated/
+sandbox/
+runtime-output/
+
+# =========================
+# Environment / Secrets
+# =========================
+.env
+.env.*
+!.env.example
+
+*.pem
+*.key
+*.crt
+
+# =========================
+# Database
+# =========================
+*.db
+*.sqlite
+*.sqlite3
+
+prisma/dev.db
+
+# =========================
+# User Generated Assets
+# =========================
+uploads/
+sessions/
+
+# =========================
+# Private Docs / Logs
+# =========================
+docs/
+
+ERROR_LOG.md
+LogAI.md
+WORKLOG.md
+
+runtime/ERROR_LOG.md
+runtime/WORKLOG.md
+
+# =========================
+# Testing
+# =========================
+playwright-report/
+test-results/
+
+# =========================
+# Docker
+# =========================
+docker-data/
+
+# =========================
+# Editor / OS
+# =========================
+.vscode/
+.idea/
+
+.DS_Store
+Thumbs.db
+
+# =========================
+# Archives
+# =========================
+*.tgz
+*.zip
+
+# Local testing
+test_*.py
+append.py

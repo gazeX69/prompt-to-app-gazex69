@@ -1,0 +1,129 @@
+import { useEffect, useState } from 'react'
+import { useAgentStore } from '../stores/agent.store'
+import type { AgentState } from '../stores/agent.store'
+import { CheckCircle2, Circle, Loader2, XCircle } from 'lucide-react'
+
+const STAGES = [
+  { id: 'planning', label: 'AI Planning' },
+  { id: 'scaffolding', label: 'Scaffolding Template' },
+  { id: 'generating', label: 'Feature Generation' },
+  { id: 'writing', label: 'Writing Files' },
+  { id: 'installing', label: 'Installing Dependencies' },
+  { id: 'building', label: 'Building Project' },
+  { id: 'repairing', label: 'Auto Repair (if needed)' },
+  { id: 'launching', label: 'Launching Dev Server' },
+  { id: 'starting_preview', label: 'Starting Preview' },
+  { id: 'preview_ready', label: 'Preview Ready' },
+  { id: 'success', label: 'Completed' }
+]
+
+function getStageIndex(state: AgentState): number {
+  if (state === 'idle') return -1
+  if (state === 'failed' || state === 'success') return STAGES.length
+  return STAGES.findIndex(s => s.id === state)
+}
+
+export function ProgressView() {
+  const { state, activities, startTime } = useAgentStore()
+  const [elapsed, setElapsed] = useState(0)
+  const [lastActiveStage, setLastActiveStage] = useState(-1)
+
+  useEffect(() => {
+    if (!startTime || state === 'idle' || state === 'success' || state === 'failed') return
+    const interval = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startTime) / 1000))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [startTime, state])
+
+  useEffect(() => {
+    if (state !== 'failed' && state !== 'success' && state !== 'idle') {
+       const index = STAGES.findIndex(s => s.id === state)
+       if (index > lastActiveStage) setLastActiveStage(index)
+    }
+  }, [state, lastActiveStage])
+
+  const currentIndex = getStageIndex(state)
+
+  return (
+    <div className="w-full max-w-4xl mx-auto flex flex-col space-y-6 animate-in fade-in duration-500">
+      
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border pb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200">Orchestration Progress</h2>
+          <p className="text-[13px] text-gray-500 mt-1">Executing AI generation pipeline...</p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-mono text-gray-300 font-light">
+            {Math.floor(elapsed / 60).toString().padStart(2, '0')}:{(elapsed % 60).toString().padStart(2, '0')}
+          </div>
+          <div className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mt-1">
+            Elapsed Time
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        {/* Stages List */}
+        <div className="space-y-4">
+          <h3 className="text-[11px] text-gray-500 uppercase tracking-wider font-semibold mb-2">Execution Stages</h3>
+          {STAGES.map((stage, i) => {
+            let status = 'pending'
+            if (state === 'failed') {
+              if (i === lastActiveStage) status = 'failed'
+              else if (i < lastActiveStage) status = 'completed'
+              else status = 'pending'
+            } else {
+              if (i < currentIndex || state === 'success') status = 'completed'
+              else if (i === currentIndex) status = 'active'
+            }
+
+            // Skip repairing stage visually if we passed it without repairing
+            if (stage.id === 'repairing' && status !== 'active' && !activities.some(a => a.message.includes('Repaired') || a.message.includes('failed'))) {
+               // We just grey it out if we never hit it
+               if (status === 'completed') status = 'pending' 
+            }
+
+            return (
+              <div key={stage.id} className={`flex items-center space-x-3 text-[13px] transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
+                {status === 'completed' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+                {status === 'active' && <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />}
+                {status === 'pending' && <Circle className="w-4 h-4 text-gray-600" />}
+                {status === 'failed' && <XCircle className="w-4 h-4 text-red-500" />}
+                <span className={`${status === 'active' ? 'text-gray-200 font-medium' : 'text-gray-400'}`}>
+                  {stage.label}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Live Activity Stream */}
+        <div className="flex flex-col bg-background rounded-xl border border-border overflow-hidden h-[300px]">
+          <div className="px-4 py-2 border-b border-border bg-panel flex items-center justify-between">
+            <span className="text-[11px] text-gray-400 uppercase tracking-wider font-semibold">Activity Stream</span>
+            {state === 'failed' && <span className="text-[11px] text-red-400 font-medium bg-red-500/10 px-2 py-0.5 rounded">Failed</span>}
+            {state === 'success' && <span className="text-[11px] text-green-400 font-medium bg-green-500/10 px-2 py-0.5 rounded">Success</span>}
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[12px]">
+            {activities.length === 0 ? (
+              <div className="text-gray-600 italic">Waiting for events...</div>
+            ) : (
+              activities.map((act) => (
+                <div key={act.id} className="flex space-x-3 text-gray-300 animate-in slide-in-from-right-2 fade-in">
+                  <span className="text-gray-500 shrink-0">
+                    {new Date(act.timestamp).toLocaleTimeString([], { hour12: false })}
+                  </span>
+                  <span className={act.message.toLowerCase().includes('error') || act.message.toLowerCase().includes('failed') ? 'text-red-400' : 'text-gray-300'}>
+                    {act.message}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
