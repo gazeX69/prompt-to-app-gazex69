@@ -65,8 +65,11 @@ class RuntimeEntry:
     preview_url: Optional[str]
     process_status: str
     popen: subprocess.Popen
+    last_healthcheck: Optional[float] = None
+    error: Optional[str] = None
 
 _runtime_registry: Dict[str, RuntimeEntry] = {}
+_runtime_status_snapshots: Dict[str, dict] = {}
 
 DEFAULT_TIMEOUT_SECONDS = 180
 
@@ -96,6 +99,52 @@ async def _emit_runtime_lifecycle(
         payload["error"] = error
     await emit_runtime_lifecycle_event(payload)
 
+
+def _runtime_entry_to_status(entry: RuntimeEntry) -> dict:
+    return {
+        "project_id": entry.project_id,
+        "run_id": entry.run_id,
+        "status": entry.process_status,
+        "port": int(entry.assigned_port) if entry.assigned_port else None,
+        "pid": entry.process_pid,
+        "url": entry.preview_url,
+        "started_at": entry.started_at,
+        "last_healthcheck": entry.last_healthcheck,
+        "error": entry.error,
+    }
+
+
+def _record_runtime_status(entry: RuntimeEntry | dict) -> dict:
+    status = _runtime_entry_to_status(entry) if isinstance(entry, RuntimeEntry) else entry
+    project_id = status.get("project_id")
+    if project_id:
+        _runtime_status_snapshots[project_id] = status
+    return status
+
+
+def get_runtime_status(project_id: str | None = None) -> dict:
+    if project_id:
+        entry = _runtime_registry.get(project_id)
+        if entry:
+            return _runtime_entry_to_status(entry)
+        if project_id in _runtime_status_snapshots:
+            return _runtime_status_snapshots[project_id]
+        return {
+            "project_id": project_id,
+            "run_id": None,
+            "status": "stopped",
+            "port": None,
+            "pid": None,
+            "url": None,
+            "started_at": None,
+            "last_healthcheck": None,
+            "error": None,
+        }
+
+    return {
+        "runtimes": [_runtime_entry_to_status(entry) for entry in _runtime_registry.values()]
+    }
+
 def _kill_process_tree(popen: subprocess.Popen, project_id: str) -> None:
     if popen.returncode is not None:
         return
@@ -106,6 +155,66 @@ def _kill_process_tree(popen: subprocess.Popen, project_id: str) -> None:
             popen.kill()
     except Exception as e:
         print(f"Failed to kill process tree for {project_id}: {e}")
+
+
+async def stop_runtime(project_id: str) -> dict:
+    entry = _runtime_registry.get(project_id)
+    if not entry:
+        return get_runtime_status(project_id)
+
+    await emit_terminal_line(f"[RuntimeStop] stopping runtime PID {entry.process_pid}", "info", project_id)
+    await _emit_runtime_lifecycle(
+        "runtime.stopping",
+        project_id,
+        entry.run_id,
+        f"Stopping runtime PID {entry.process_pid}",
+        selected_port=entry.assigned_port,
+        process_pid=entry.process_pid,
+    )
+    _kill_process_tree(entry.popen, project_id)
+
+    exited = await _wait_for_process_exit(entry.popen)
+    port_released = True
+    if entry.assigned_port and exited:
+        port_released = await _wait_for_port_release(int(entry.assigned_port))
+
+    if not exited or not port_released:
+        entry.process_status = "failed"
+        entry.error = "Runtime stop failed" if not exited else "Runtime port did not release"
+        _record_runtime_status(entry)
+        await _emit_runtime_lifecycle(
+            "runtime.stop.failed",
+            project_id,
+            entry.run_id,
+            entry.error,
+            selected_port=entry.assigned_port,
+            process_pid=entry.process_pid,
+        )
+        return _runtime_entry_to_status(entry)
+
+    stopped_status = {
+        "project_id": entry.project_id,
+        "run_id": entry.run_id,
+        "status": "stopped",
+        "port": int(entry.assigned_port) if entry.assigned_port else None,
+        "pid": entry.process_pid,
+        "url": entry.preview_url,
+        "started_at": entry.started_at,
+        "last_healthcheck": entry.last_healthcheck,
+        "error": None,
+    }
+    _record_runtime_status(stopped_status)
+    del _runtime_registry[project_id]
+    await emit_terminal_line("[RuntimeStop] runtime stopped", "info", project_id)
+    await _emit_runtime_lifecycle(
+        "runtime.stopped",
+        project_id,
+        entry.run_id,
+        "Runtime stopped",
+        selected_port=entry.assigned_port,
+        process_pid=entry.process_pid,
+    )
+    return stopped_status
 
 
 async def _wait_for_process_exit(popen: subprocess.Popen, seconds: float = 10.0) -> bool:
@@ -231,6 +340,46 @@ async def _stream_reader(stream: asyncio.StreamReader, type_str: str, project_id
         pass
     except Exception as e:
         await emit_terminal_line(f"Stream read error: {e}", "stderr", project_id)
+
+
+def _start_dev_stream_reader_thread(
+    popen_pipe,
+    type_str: str,
+    project_id: str,
+    lines_list: list[str],
+    loop: asyncio.AbstractEventLoop,
+    parser_callback=None,
+    prefix: str = "",
+) -> threading.Thread:
+    def reader() -> None:
+        try:
+            while True:
+                line = popen_pipe.readline()
+                if not line:
+                    break
+                decoded = prefix + line.decode("utf-8", errors="replace").rstrip("\r\n")
+                if not decoded.strip() and type_str != "info":
+                    continue
+                lines_list.append(decoded)
+                asyncio.run_coroutine_threadsafe(
+                    emit_terminal_line(decoded, type_str, project_id),
+                    loop,
+                )
+                if parser_callback:
+                    clean = _ANSI_RE.sub("", decoded)
+                    asyncio.run_coroutine_threadsafe(parser_callback(clean), loop)
+        except Exception as e:
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    emit_terminal_line(f"Stream read error: {e}", "stderr", project_id),
+                    loop,
+                )
+            except RuntimeError:
+                pass
+
+    thread = threading.Thread(target=reader, name=f"runtime-stream-{project_id}-{type_str}", daemon=True)
+    thread.start()
+    return thread
 
 
 async def _stream_command_popen(
@@ -526,6 +675,7 @@ async def run_dev_server_array_async(
                 popen=popen
             )
             _runtime_registry[server_key] = entry
+            _record_runtime_status(entry)
             
             msg_reg = f"[RuntimeRegistry] registered runtime port={allocated_port} pid={popen.pid}"
             print(msg_reg)
@@ -546,6 +696,8 @@ async def run_dev_server_array_async(
                     url = f"http://127.0.0.1:{selected_port}"
                     entry.assigned_port = selected_port
                     entry.process_status = "starting"
+                    entry.last_healthcheck = time.time()
+                    _record_runtime_status(entry)
                     await _emit_runtime_lifecycle(
                         "runtime.healthcheck.started",
                         project_id,
@@ -562,6 +714,8 @@ async def run_dev_server_array_async(
                     url = f"http://127.0.0.1:{selected_port}"
                     entry.assigned_port = selected_port
                     entry.process_status = "starting"
+                    entry.last_healthcheck = time.time()
+                    _record_runtime_status(entry)
                     await _emit_runtime_lifecycle(
                         "runtime.healthcheck.started",
                         project_id,
@@ -575,9 +729,10 @@ async def run_dev_server_array_async(
 
             stdout_lines = []
             stderr_lines = []
+            loop = asyncio.get_running_loop()
 
-            asyncio.create_task(_stream_reader_sync(popen.stdout, 'stdout', project_id, stdout_lines, detect_port, prefix=prefix))
-            asyncio.create_task(_stream_reader_sync(popen.stderr, 'stderr', project_id, stderr_lines, detect_port, prefix=prefix))
+            _start_dev_stream_reader_thread(popen.stdout, 'stdout', project_id, stdout_lines, loop, detect_port, prefix=prefix)
+            _start_dev_stream_reader_thread(popen.stderr, 'stderr', project_id, stderr_lines, loop, detect_port, prefix=prefix)
 
             collision = False
             for _ in range(60):
@@ -587,6 +742,9 @@ async def run_dev_server_array_async(
                     if verified:
                         entry.preview_url = url
                         entry.process_status = "running"
+                        entry.last_healthcheck = time.time()
+                        entry.error = None
+                        _record_runtime_status(entry)
                         await _emit_runtime_lifecycle(
                             "runtime.ready",
                             project_id,
@@ -602,6 +760,9 @@ async def run_dev_server_array_async(
 
                     entry.process_status = "failed"
                     runtime_error = f"Runtime health verification failed: {verify_error}"
+                    entry.last_healthcheck = time.time()
+                    entry.error = runtime_error
+                    _record_runtime_status(entry)
                     await emit_terminal_line(f"[Runtime] {runtime_error}", "stderr", project_id)
                     await _emit_runtime_lifecycle(
                         "runtime.healthcheck.failed",
@@ -632,6 +793,8 @@ async def run_dev_server_array_async(
                     err = f"Dev server crashed (Exit {popen.returncode})"
                     await emit_terminal_line(f"[Runtime] {err}", "stderr", project_id)
                     entry.process_status = "failed"
+                    entry.error = err
+                    _record_runtime_status(entry)
                     await _emit_runtime_lifecycle(
                         "runtime.crashed",
                         project_id,
@@ -665,6 +828,8 @@ async def run_dev_server_array_async(
             _kill_process_tree(popen, project_id)
             if server_key in _runtime_registry:
                 _runtime_registry[server_key].process_status = "failed"
+                _runtime_registry[server_key].error = "Timed out waiting for dev server to become ready"
+                _record_runtime_status(_runtime_registry[server_key])
                 del _runtime_registry[server_key]
             err = "Timed out waiting for dev server to become ready"
             await emit_terminal_line(f"[Runtime] {err}", "stderr", project_id)
@@ -689,6 +854,8 @@ async def run_dev_server_array_async(
         except Exception as e:
             if server_key in _runtime_registry:
                 _runtime_registry[server_key].process_status = "crashed"
+                _runtime_registry[server_key].error = f"Runtime spawn failed: {e}"
+                _record_runtime_status(_runtime_registry[server_key])
                 del _runtime_registry[server_key]
             import traceback
             logger.error("[Runtime] Unhandled exception: %s\n%s", e, traceback.format_exc())

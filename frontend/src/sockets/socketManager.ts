@@ -24,6 +24,17 @@ function onAgentActivity(data: { message: string; project_id: string }) {
 
 function onPreviewReady(data: { project_id: string; url: string; run_id?: string; workspace?: string }) {
   usePreviewStore.getState().setUrl(data.url, data.run_id)
+  usePreviewStore.getState().setRuntimeStatus({
+    project_id: data.project_id,
+    run_id: data.run_id || null,
+    status: 'running',
+    port: parsePreviewPort(data.url),
+    pid: null,
+    url: data.url,
+    started_at: null,
+    last_healthcheck: null,
+    error: null,
+  })
   useAgentStore.getState().setState('PREVIEW_READY')
   useAgentStore.getState().addActivity(`Preview mounted at ${data.url} (run: ${data.run_id || 'unknown'})`)
 }
@@ -39,6 +50,17 @@ function onRuntimeError(data: StructuredRuntimeError) {
 
 function onRuntimeLifecycleEvent(data: RuntimeLifecycleEvent) {
   useAgentStore.getState().setRuntimeLifecycleEvent(data)
+  usePreviewStore.getState().setRuntimeStatus({
+    project_id: data.workspaceId || null,
+    run_id: data.sessionId || null,
+    status: lifecycleStatus(data.type),
+    port: data.selectedPort ?? data.requestedPort ?? null,
+    pid: data.processPid ?? null,
+    url: data.selectedPort ? `http://127.0.0.1:${data.selectedPort}` : null,
+    started_at: null,
+    last_healthcheck: data.timestamp ?? null,
+    error: data.error?.message || null,
+  })
   if (
     data.type === 'runtime.spawn.started' ||
     data.type === 'runtime.stopping' ||
@@ -49,6 +71,22 @@ function onRuntimeLifecycleEvent(data: RuntimeLifecycleEvent) {
     data.type === 'runtime.crashed'
   ) {
     usePreviewStore.getState().clear()
+  }
+}
+
+function lifecycleStatus(type: RuntimeLifecycleEvent['type']): string {
+  if (type === 'runtime.ready') return 'running'
+  if (type === 'runtime.stopped') return 'stopped'
+  if (type === 'runtime.spawn.failed' || type === 'runtime.stop.failed' || type === 'runtime.healthcheck.failed' || type === 'runtime.crashed') return 'failed'
+  return 'starting'
+}
+
+function parsePreviewPort(url: string): number | null {
+  try {
+    const parsed = new URL(url)
+    return parsed.port ? Number(parsed.port) : null
+  } catch {
+    return null
   }
 }
 

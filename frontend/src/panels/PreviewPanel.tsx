@@ -1,16 +1,48 @@
-import { useEffect, useState } from 'react'
-import { RotateCw, ExternalLink, Globe, AlertTriangle, WifiOff, Loader2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { RotateCw, ExternalLink, Globe, AlertTriangle, WifiOff, Loader2, Square } from 'lucide-react'
 import { usePreviewStore } from '../stores/preview.store'
 import { useAgentStore } from '../stores/agent.store'
 import { useTerminalStore } from '../stores/terminal.store'
+import { useWorkspaceStore } from '../stores/workspace.store'
+import { api } from '../services/api'
 
 export default function PreviewPanel() {
-  const { url, isReloading, refreshToken, hardRefresh } = usePreviewStore()
+  const { url, isReloading, refreshToken, hardRefresh, runtimeStatus, setRuntimeStatus, clear } = usePreviewStore()
   const { state, activities, runtimeState, latestRuntimeLifecycleEvent } = useAgentStore()
   const { lines } = useTerminalStore()
+  const activeWorkspaceId = useWorkspaceStore((store) => store.activeWorkspaceId)
   
   const runId = usePreviewStore(state => state.runId) || 'legacy'
   const [iframeUrl, setIframeUrl] = useState('')
+  const [isStopping, setIsStopping] = useState(false)
+
+  const runtimeProjectId = useMemo(() => (
+    runtimeStatus?.project_id
+      || latestRuntimeLifecycleEvent?.workspaceId
+      || activeWorkspaceId
+      || null
+  ), [activeWorkspaceId, latestRuntimeLifecycleEvent?.workspaceId, runtimeStatus?.project_id])
+
+  useEffect(() => {
+    if (!runtimeProjectId) return
+
+    let cancelled = false
+    const loadRuntimeStatus = async () => {
+      try {
+        const status = await api.get<any>(`/runtime/${runtimeProjectId}`, { timeout: 5000 })
+        if (!cancelled) setRuntimeStatus(status)
+      } catch {
+        // Runtime ownership status is best-effort in the preview chrome.
+      }
+    }
+
+    loadRuntimeStatus()
+    const interval = window.setInterval(loadRuntimeStatus, 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [runtimeProjectId, setRuntimeStatus])
 
   useEffect(() => {
     if (url) {
@@ -48,6 +80,22 @@ export default function PreviewPanel() {
     if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }
 
+  const stopRuntime = async () => {
+    if (!runtimeProjectId || isStopping) return
+    setIsStopping(true)
+    try {
+      const status = await api.post<any>(`/runtime/${runtimeProjectId}/stop`, {}, { timeout: 15000 })
+      setRuntimeStatus(status)
+      clear()
+    } finally {
+      setIsStopping(false)
+    }
+  }
+
+  const ownerRun = runtimeStatus?.run_id || (runId !== 'legacy' ? runId : null)
+  const ownerPort = runtimeStatus?.port ?? latestRuntimeLifecycleEvent?.selectedPort ?? latestRuntimeLifecycleEvent?.requestedPort
+  const canStopRuntime = Boolean(runtimeProjectId && runtimeStatus?.status && runtimeStatus.status !== 'stopped' && runtimeStatus.status !== 'failed')
+
   return (
     <div className="flex flex-col h-full bg-background min-w-0">
       {/* Browser Chrome */}
@@ -61,7 +109,7 @@ export default function PreviewPanel() {
         <div className="flex-1 min-w-0">
           <div className="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Preview</div>
           <div className="h-7 bg-background border border-border rounded flex items-center px-3 text-[12px] text-gray-300 truncate max-w-xl">
-            {displayUrl}
+            {displayUrl}{ownerPort ? ` · :${ownerPort}` : ''}{ownerRun ? ` · ${ownerRun}` : ''}
           </div>
         </div>
         
@@ -83,6 +131,9 @@ export default function PreviewPanel() {
           </button>
           <button onClick={openPreview} disabled={!url} className="p-1.5 text-gray-500 hover:text-gray-200 hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed rounded transition-colors" title="Open preview in browser">
             <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={stopRuntime} disabled={!canStopRuntime || isStopping} className="p-1.5 text-gray-500 hover:text-gray-200 hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed rounded transition-colors" title="Stop runtime">
+            {isStopping ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Square className="w-3.5 h-3.5" />}
           </button>
         </div>
       </div>
