@@ -7,7 +7,7 @@ import { useWorkspaceStore } from '../stores/workspace.store'
 import { api } from '../services/api'
 
 export default function PreviewPanel() {
-  const { url, isReloading, refreshToken, hardRefresh, runtimeStatus, setRuntimeStatus, clear } = usePreviewStore()
+  const { url, isReloading, refreshToken, hardRefresh, runtimeStatus, generationFailure, setRuntimeStatus, clear } = usePreviewStore()
   const { state, activities, runtimeState, latestRuntimeLifecycleEvent } = useAgentStore()
   const { lines } = useTerminalStore()
   const activeWorkspaceId = useWorkspaceStore((store) => store.activeWorkspaceId)
@@ -155,9 +155,13 @@ export default function PreviewPanel() {
                 <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
                 </div>
-                <p className="text-[14px] font-semibold text-gray-200">Execution Failed</p>
+                <p className="text-[14px] font-semibold text-gray-200">
+                  {generationFailure ? 'Generation Failed Before Runtime' : 'Execution Failed'}
+                </p>
                 <p className="text-[12px] mt-2 text-red-400 max-w-sm">
-                  {activities.slice(-1)[0]?.message || 'A fatal error occurred during runtime.'}
+                  {generationFailure
+                    ? `${generationFailure.stage}: ${generationFailure.message}`
+                    : activities.slice(-1)[0]?.message || 'A fatal error occurred during runtime.'}
                 </p>
                 <div className="mt-6 w-full max-w-md bg-black/40 rounded-lg p-3 text-left border border-border/50">
                   <p className="text-[10px] text-gray-500 uppercase font-semibold mb-2">Last Terminal Output</p>

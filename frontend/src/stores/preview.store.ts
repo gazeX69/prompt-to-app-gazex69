@@ -12,13 +12,23 @@ export interface RuntimeStatusSnapshot {
   error: string | null
 }
 
+export interface GenerationFailureSnapshot {
+  project_id: string | null
+  run_id: string | null
+  stage: string
+  message: string
+  timestamp: number | null
+}
+
 interface PreviewStore {
   url: string | null
   runId: string | null
   runtimeStatus: RuntimeStatusSnapshot | null
+  generationFailure: GenerationFailureSnapshot | null
   refreshToken: number
   setUrl: (url: string | null, runId?: string | null) => void
   setRuntimeStatus: (runtimeStatus: RuntimeStatusSnapshot | null) => void
+  setGenerationFailure: (generationFailure: GenerationFailureSnapshot | null) => void
   clear: () => void
   hardRefresh: () => void
   isReloading: boolean
@@ -29,13 +39,16 @@ export const usePreviewStore = create<PreviewStore>((set) => ({
   url: null,
   runId: null,
   runtimeStatus: null,
+  generationFailure: null,
   refreshToken: 0,
   setUrl: (url, runId = null) => set((state) => ({
     url,
     runId,
+    generationFailure: null,
     refreshToken: state.refreshToken + 1,
   })),
   setRuntimeStatus: (runtimeStatus) => set({ runtimeStatus }),
+  setGenerationFailure: (generationFailure) => set({ generationFailure }),
   clear: () => set((state) => ({
     url: null,
     runId: null,

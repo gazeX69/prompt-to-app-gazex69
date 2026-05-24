@@ -217,6 +217,31 @@ async def stop_runtime(project_id: str) -> dict:
     return stopped_status
 
 
+async def record_pre_runtime_failure(
+    project_id: str,
+    error: str,
+    *,
+    stage: str = "pre_runtime",
+    run_id: str | None = None,
+) -> dict:
+    if project_id in _runtime_registry:
+        await stop_runtime(project_id)
+
+    status = {
+        "project_id": project_id,
+        "run_id": run_id,
+        "status": "failed",
+        "port": None,
+        "pid": None,
+        "url": None,
+        "started_at": None,
+        "last_healthcheck": int(time.time() * 1000),
+        "error": f"{stage}: {error}" if stage else error,
+    }
+    _record_runtime_status(status)
+    return status
+
+
 async def _wait_for_process_exit(popen: subprocess.Popen, seconds: float = 10.0) -> bool:
     attempts = max(1, int(seconds / 0.25))
     for _ in range(attempts):

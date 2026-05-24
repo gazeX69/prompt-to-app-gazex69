@@ -1,5 +1,6 @@
 import socketio
 import logging
+import time
 from typing import Optional
 from backend.runtime_contract import (
     ExecutionState,
@@ -126,5 +127,32 @@ async def emit_runtime_lifecycle_event(payload: dict):
     await sio.emit('runtime_lifecycle_event', payload)
     await sio.emit('execution_event', {
         'type': 'runtime_lifecycle_event',
+        **payload,
+    })
+
+
+async def emit_generation_failure(
+    project_id: str,
+    message: str,
+    *,
+    stage: str = "pre_runtime",
+    detail: Optional[dict] = None,
+    run_id: Optional[str] = None,
+):
+    """
+    Broadcast a generation failure that happened before a verified runtime was ready.
+    """
+    payload = {
+        "project_id": project_id,
+        "run_id": run_id,
+        "stage": stage,
+        "message": message,
+        "detail": detail or {},
+        "timestamp": int(time.time() * 1000),
+    }
+    await sio.emit('generation_failure', payload)
+    await sio.emit('execution_event', {
+        'type': 'generation_failed',
+        'state': ExecutionState.FAILED.value,
         **payload,
     })

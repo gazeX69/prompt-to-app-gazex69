@@ -16,6 +16,9 @@ function onAgentState(state: string) {
   if (normalizedState === 'STARTING_PREVIEW' || normalizedState === 'FAILED') {
     usePreviewStore.getState().clear()
   }
+  if (normalizedState === 'STARTING_PREVIEW') {
+    usePreviewStore.getState().setGenerationFailure(null)
+  }
 }
 
 function onAgentActivity(data: { message: string; project_id: string }) {
@@ -74,6 +77,39 @@ function onRuntimeLifecycleEvent(data: RuntimeLifecycleEvent) {
   }
 }
 
+function onGenerationFailed(data: {
+  project_id?: string | null
+  run_id?: string | null
+  stage?: string
+  message?: string
+  timestamp?: number | null
+}) {
+  const stage = data.stage || 'pre_runtime'
+  const message = data.message || 'Generation failed before runtime launch'
+  usePreviewStore.getState().clear()
+  usePreviewStore.getState().setGenerationFailure({
+    project_id: data.project_id || null,
+    run_id: data.run_id || null,
+    stage,
+    message,
+    timestamp: data.timestamp ?? Date.now(),
+  })
+  usePreviewStore.getState().setRuntimeStatus({
+    project_id: data.project_id || null,
+    run_id: data.run_id || null,
+    status: 'failed',
+    port: null,
+    pid: null,
+    url: null,
+    started_at: null,
+    last_healthcheck: data.timestamp ?? Date.now(),
+    error: `${stage}: ${message}`,
+  })
+  useAgentStore.getState().setState('FAILED')
+  useAgentStore.getState().setRuntimeState('FAILED')
+  useAgentStore.getState().addActivity(`Generation failed before runtime (${stage})`)
+}
+
 function lifecycleStatus(type: RuntimeLifecycleEvent['type']): string {
   if (type === 'runtime.ready') return 'running'
   if (type === 'runtime.stopped') return 'stopped'
@@ -90,7 +126,11 @@ function parsePreviewPort(url: string): number | null {
   }
 }
 
-function onExecutionEvent(data: { type: string; state?: string; code?: string; message?: string }) {
+function onExecutionEvent(data: { type: string; state?: string; code?: string; message?: string; project_id?: string | null; run_id?: string | null; stage?: string; timestamp?: number }) {
+  if (data.type === 'generation_failed') {
+    onGenerationFailed(data)
+    return
+  }
   if (data.type === 'state_transition' && data.state) {
     const normalizedState = normalizeExecutionState(data.state)
     useAgentStore.getState().setState(normalizedState)
