@@ -19,9 +19,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.routes.generate import router as generate_router
 from backend.routes.execute import router as execute_router
+from backend.routes.workspaces import router as workspaces_router
 from backend.sockets.manager import sio, emit_terminal_line, emit_agent_state, emit_agent_activity, emit_preview_ready
 from backend.core.config import settings
 from backend.runtime_client.client import runtime_client
+from backend.core.skills.registry import register_skill
+from backend.core.skills.builtin.react_vite import ReactViteSkill
+from backend.core.skills.builtin.node_backend import NodeBackendSkill
+from backend.core.skills.builtin.laravel import LaravelSkill
+from backend.core.skills.builtin.php_basic import PhpBasicSkill
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -54,8 +60,17 @@ async def _bridge_runtime_event(event_type: str, payload: dict):
         await emit_agent_activity(f"Dev server started on port {payload.get('port', '?')}", None)
 
 
+def _register_builtin_skills():
+    register_skill(ReactViteSkill())
+    register_skill(NodeBackendSkill())
+    register_skill(PhpBasicSkill())
+    register_skill(LaravelSkill())
+    logger.info("Built-in skills registered: react-vite, node-backend, php-basic, laravel")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _register_builtin_skills()
     runtime_client.set_event_callback(_bridge_runtime_event)
     bg_task = asyncio.create_task(runtime_client.start_event_stream())
     logger.info("Runtime event stream bridge started")
@@ -84,6 +99,44 @@ fastapi_app.add_middleware(
 
 fastapi_app.include_router(generate_router, prefix="/generate", tags=["Generation"])
 fastapi_app.include_router(execute_router, prefix="/execute", tags=["Execution"])
+fastapi_app.include_router(workspaces_router, prefix="/workspaces", tags=["Workspaces"])
+
+
+# ── Skill & Scan Routes ───────────────────────────────────────────
+
+from fastapi import Query
+from backend.core.skills.registry import get_skills_metadata
+from backend.core.scanner.engine import scan_project
+from backend.core.router.routes import route_for_scan
+from backend.models.schemas import SkillMetaSchema, ScanResultSchema, RouteResultSchema
+
+
+@fastapi_app.get("/skills", response_model=list[SkillMetaSchema])
+def list_skills():
+    """Return all registered skill metadata."""
+    return [SkillMetaSchema(
+        name=m.name, type=m.type, language=m.language,
+        capabilities=m.capabilities, tags=m.tags, description=m.description,
+    ) for m in get_skills_metadata()]
+
+
+@fastapi_app.post("/scan", response_model=ScanResultSchema)
+def scan_endpoint(project_path: str = Query(..., description="Absolute path to project")):
+    """Scan a project directory and return structured detection results."""
+    result = scan_project(project_path)
+    return ScanResultSchema(**result.to_dict())
+
+
+@fastapi_app.post("/route-from-scan", response_model=RouteResultSchema)
+async def route_from_scan(project_path: str = Query(..., description="Absolute path to project")):
+    """Scan a project and return the routing plan."""
+    scan = scan_project(project_path)
+    route = await route_for_scan(scan)
+    return RouteResultSchema(
+        primary=route.primary_name,
+        activated=route.activated_names,
+        fallback_count=len(route.fallbacks),
+    )
 
 # Wrap the FastAPI application with Socket.IO
 app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
@@ -92,3 +145,8 @@ app = socketio.ASGIApp(sio, other_asgi_app=fastapi_app)
 @fastapi_app.get("/health")
 def health():
     return {"status": "ok", "version": "2.0.0"}
+
+
+@fastapi_app.get("/debug")
+async def debug():
+    return {"status": "ok", "pid": __import__('os').getpid()}

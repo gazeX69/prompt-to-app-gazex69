@@ -1,3 +1,12 @@
+# Development Status
+
+# DEVELOPMENT IN PROGRESS
+
+> Project ini masih dalam tahap pengembangan aktif dan belum production-ready.
+> Arsitektur masih terus berubah dan beberapa fitur masih dalam tahap stabilisasi.
+
+---
+
 # AI Agent Platform
 
 Sebuah platform AI Agent modular berbasis:
@@ -487,20 +496,7 @@ Gunakan branch terpisah untuk eksperimen besar.
 
 ---
 
-# License
 
-MIT License
-
----
-
-# Development Status
-
-# DEVELOPMENT IN PROGRESS
-
-> Project ini masih dalam tahap pengembangan aktif dan belum production-ready.
-> Arsitektur masih terus berubah dan beberapa fitur masih dalam tahap stabilisasi.
-
----
 # MIT License
 MIT License
 Copyright (c) 2026 gazeX69

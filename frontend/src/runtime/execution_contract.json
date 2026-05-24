@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "scope": "react-vite-ts-runtime",
+  "states": [
+    "IDLE",
+    "SCANNING",
+    "PLANNING",
+    "SCAFFOLDING",
+    "GENERATING",
+    "WRITING",
+    "VALIDATING",
+    "INSTALLING",
+    "BUILDING",
+    "VERIFYING",
+    "STARTING_PREVIEW",
+    "PREVIEW_READY",
+    "REPAIRING",
+    "FAILED",
+    "COMPLETED",
+    "DISCONNECTED",
+    "RECONNECTING"
+  ],
+  "legacyStateAliases": {
+    "idle": "IDLE",
+    "planning": "PLANNING",
+    "scanning": "SCANNING",
+    "scaffolding": "SCAFFOLDING",
+    "generating": "GENERATING",
+    "writing": "WRITING",
+    "validating": "VALIDATING",
+    "installing": "INSTALLING",
+    "building": "BUILDING",
+    "verifying": "VERIFYING",
+    "starting_preview": "STARTING_PREVIEW",
+    "launching": "STARTING_PREVIEW",
+    "preview_ready": "PREVIEW_READY",
+    "repairing": "REPAIRING",
+    "failed": "FAILED",
+    "success": "COMPLETED",
+    "completed": "COMPLETED",
+    "disconnected": "DISCONNECTED",
+    "reconnecting": "RECONNECTING"
+  },
+  "terminalStates": ["FAILED", "COMPLETED"],
+  "transitions": {
+    "IDLE": ["PLANNING", "SCANNING", "DISCONNECTED"],
+    "SCANNING": ["PLANNING", "SCAFFOLDING", "FAILED"],
+    "PLANNING": ["SCAFFOLDING", "FAILED"],
+    "SCAFFOLDING": ["GENERATING", "VALIDATING", "FAILED"],
+    "GENERATING": ["WRITING", "FAILED"],
+    "WRITING": ["VALIDATING", "FAILED"],
+    "VALIDATING": ["INSTALLING", "REPAIRING", "FAILED"],
+    "INSTALLING": ["BUILDING", "FAILED"],
+    "BUILDING": ["STARTING_PREVIEW", "REPAIRING", "FAILED"],
+    "VERIFYING": ["COMPLETED", "FAILED"],
+    "STARTING_PREVIEW": ["PREVIEW_READY", "FAILED"],
+    "PREVIEW_READY": ["VERIFYING", "COMPLETED", "FAILED"],
+    "REPAIRING": ["VALIDATING", "BUILDING", "FAILED"],
+    "FAILED": ["IDLE", "PLANNING"],
+    "COMPLETED": ["IDLE", "PLANNING"],
+    "DISCONNECTED": ["IDLE", "RECONNECTING"],
+    "RECONNECTING": ["IDLE", "DISCONNECTED"]
+  },
+  "errorCodes": {
+    "E_TS_REFERENCE_INVALID": {
+      "category": "typescript_config",
+      "repair": "restore_canonical_contract"
+    },
+    "E_IMPORT_RESOLUTION": {
+      "category": "import_resolution",
+      "repair": "manual_or_llm_feature_patch"
+    },
+    "E_VITE_CONFIG": {
+      "category": "vite_config",
+      "repair": "restore_canonical_contract"
+    },
+    "E_REACT_ROOT_MISSING": {
+      "category": "react_mount",
+      "repair": "restore_canonical_contract"
+    },
+    "E_RUNTIME_BLANK": {
+      "category": "runtime_verification",
+      "repair": "manual_or_llm_feature_patch"
+    },
+    "E_DEPENDENCY_MISSING": {
+      "category": "dependency_policy",
+      "repair": "blocked_without_policy"
+    },
+    "E_BUILD_FAILURE": {
+      "category": "build",
+      "repair": "classify_then_target"
+    },
+    "E_PREVIEW_UNREACHABLE": {
+      "category": "preview",
+      "repair": "runtime_retry_or_fail"
+    },
+    "E_CONTRACT_INVALID": {
+      "category": "environment_contract",
+      "repair": "restore_canonical_contract"
+    }
+  },
+  "dependencyPolicy": {
+    "mode": "declared_only",
+    "allowedDependencies": [
+      "@types/node",
+      "@types/react",
+      "@types/react-dom",
+      "@vitejs/plugin-react",
+      "react",
+      "react-dom",
+      "typescript",
+      "vite"
+    ],
+    "blockedDependencies": [],
+    "undeclaredImportCode": "E_DEPENDENCY_MISSING",
+    "extensionPoints": [
+      "allowlist_addition",
+      "blocked_dependency_reason",
+      "manual_dependency_review"
+    ]
+  }
+}

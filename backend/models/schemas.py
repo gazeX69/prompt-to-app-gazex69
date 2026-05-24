@@ -16,6 +16,7 @@ class GenerateRequest(BaseModel):
     project_type: ProjectType = Field(default=ProjectType.VITE_REACT_TAILWIND)
     auto_repair: bool = Field(default=True, description="Enable self-repair loop on build errors")
     max_repair_attempts: int = Field(default=3, ge=1, le=5)
+    enabled_skills: Optional[list[str]] = Field(default=None, description="Restrict routing to these skills")
 
 
 class GeneratedFile(BaseModel):
@@ -49,3 +50,49 @@ class RepairRequest(BaseModel):
     project_id: str
     build_error: str
     project_type: ProjectType = ProjectType.VITE_REACT_TAILWIND
+
+
+# ── Skill System Schemas ──────────────────────────────────────────
+
+class SkillMetaSchema(BaseModel):
+    name: str
+    type: str
+    language: str
+    capabilities: list[str] = []
+    tags: list[str] = []
+    description: str = ""
+
+
+class ScanRequest(BaseModel):
+    project_path: str
+
+
+class ScanResultSchema(BaseModel):
+    framework: Optional[str] = None
+    language: Optional[str] = None
+    packageManager: Optional[str] = None
+    isMonorepo: bool = False
+    hasBackend: bool = False
+    hasFrontend: bool = False
+    usesTailwind: bool = False
+    usesPrisma: bool = False
+    usesDocker: bool = False
+    ciSystems: list[str] = []
+    configFiles: list[str] = []
+    capabilities: list[str] = []
+
+
+class RouteResultSchema(BaseModel):
+    primary: str = "none"
+    activated: list[str] = []
+    fallback_count: int = 0
+
+
+class DiagnosticSchema(BaseModel):
+    category: str
+    message: str
+    source: str
+    line: Optional[int] = None
+    file: Optional[str] = None
+    code: Optional[str] = None
+    suggestion: Optional[str] = None

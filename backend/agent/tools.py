@@ -18,11 +18,16 @@ FILE_SIZE_LIMIT_BYTES = 512 * 1024  # 512 KB per file
 _UNSAFE_SEGMENT_RE = re.compile(r"[<>:\"\\|?*\x00-\x1f]")
 
 
-def _safe_project_path(project_id: str) -> Path:
+def _safe_project_path(project_id: str, run_id: str = None) -> Path:
     """Resolve project path and ensure it stays inside WORKSPACE_ROOT."""
     if not project_id or "/" in project_id or "\\" in project_id or ".." in project_id:
         raise ValueError(f"Invalid project_id: {project_id!r}")
-    return WORKSPACE_ROOT / project_id
+    base = WORKSPACE_ROOT / project_id
+    if run_id:
+        if "/" in run_id or "\\" in run_id or ".." in run_id:
+            raise ValueError(f"Invalid run_id: {run_id!r}")
+        return base / run_id
+    return base
 
 
 def _validate_relative_path(rel_path: str) -> Path:
@@ -44,27 +49,16 @@ def _validate_relative_path(rel_path: str) -> Path:
     return p
 
 
-def create_project(project_id: str) -> Path:
+def create_project(project_id: str, run_id: str = None) -> Path:
     """Create the project workspace directory if it does not exist."""
-    project_path = _safe_project_path(project_id)
+    project_path = _safe_project_path(project_id, run_id)
     project_path.mkdir(parents=True, exist_ok=True)
     return project_path
 
 
-def write_file(project_id: str, relative_path: str, content: str) -> str:
+def write_file(project_id: str, relative_path: str, content: str, run_id: str = None) -> str:
     """
     Write a file into the project workspace.
-
-    Args:
-        project_id:     Name of the project folder inside WORKSPACE_ROOT.
-        relative_path:  File path relative to the project root (e.g. "src/App.jsx").
-        content:        Text content to write.
-
-    Returns:
-        The absolute string path of the written file.
-
-    Raises:
-        ValueError: On path traversal, invalid names, or oversized content.
     """
     if len(content.encode("utf-8")) > FILE_SIZE_LIMIT_BYTES:
         raise ValueError(
@@ -72,10 +66,9 @@ def write_file(project_id: str, relative_path: str, content: str) -> str:
         )
 
     safe_rel = _validate_relative_path(relative_path)
-    project_path = create_project(project_id)
+    project_path = create_project(project_id, run_id)
     file_path = project_path / safe_rel
 
-    # Resolve and re-check that the final path is still inside the workspace
     resolved = file_path.resolve()
     workspace_resolved = WORKSPACE_ROOT.resolve()
     if not str(resolved).startswith(str(workspace_resolved)):
@@ -88,10 +81,10 @@ def write_file(project_id: str, relative_path: str, content: str) -> str:
 
     return str(file_path)
 
-def append_file(project_id: str, relative_path: str, content: str) -> str:
+def append_file(project_id: str, relative_path: str, content: str, run_id: str = None) -> str:
     """Append content to a file in the project workspace."""
     safe_rel = _validate_relative_path(relative_path)
-    project_path = create_project(project_id)
+    project_path = create_project(project_id, run_id)
     file_path = project_path / safe_rel
 
     resolved = file_path.resolve()
@@ -107,10 +100,10 @@ def append_file(project_id: str, relative_path: str, content: str) -> str:
     return str(file_path)
 
 
-def read_file(project_id: str, relative_path: str) -> str:
+def read_file(project_id: str, relative_path: str, run_id: str = None) -> str:
     """Read a file from the project workspace."""
     safe_rel = _validate_relative_path(relative_path)
-    project_path = _safe_project_path(project_id)
+    project_path = _safe_project_path(project_id, run_id)
     file_path = project_path / safe_rel
 
     if not file_path.exists():
@@ -119,9 +112,9 @@ def read_file(project_id: str, relative_path: str) -> str:
     return file_path.read_text(encoding="utf-8")
 
 
-def list_project_files(project_id: str) -> list[str]:
+def list_project_files(project_id: str, run_id: str = None) -> list[str]:
     """Return all file paths inside the project workspace, relative to it."""
-    project_path = _safe_project_path(project_id)
+    project_path = _safe_project_path(project_id, run_id)
     if not project_path.exists():
         return []
     return [

@@ -26,8 +26,8 @@ RULES:
 ===END===
 
 - All file paths must be relative (e.g., "src/components/Button.tsx").
-- DO NOT generate package.json, vite.config.ts, or tsconfig.json UNLESS you are explicitly adding new libraries.
-- If you add new dependencies, DO update package.json's "dependencies" block, but preserve existing devDependencies.
+- DO NOT generate package.json, vite.config.ts, tsconfig.json, tsconfig.app.json, tsconfig.node.json, index.html, or src/main.tsx.
+- Use the dependencies already present in the canonical template.
 """.strip()
 
 

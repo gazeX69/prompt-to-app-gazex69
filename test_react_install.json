@@ -1,0 +1,1 @@
+{"success":true,"command":"install","stdout":"up to date, audited 137 packages in 1s\n25 packages are looking for funding\n  run `npm fund` for details\n2 moderate severity vulnerabilities\nTo address all issues (including breaking changes), run:\n  npm audit fix --force\nRun `npm audit` for details.","stderr":"","exit_code":0,"error":null}

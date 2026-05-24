@@ -1,72 +1,115 @@
-# =========================
+.orchestration/
+.vscode/
+ERROR_LOG.md
+WORKLOG.md
+runtime/ERROR_LOG.md
+runtime/WORKLOG.md
+
+# =========================================================
 # Dependencies
-# =========================
+# =========================================================
 node_modules/
+**/node_modules/
+
 .pnpm-store/
 .npm/
+.yarn/
 
-runtime/node_modules/
-frontend/node_modules/
-
-# =========================
+# =========================================================
 # Python
-# =========================
+# =========================================================
 venv/
 .venv/
 backend/venv/
 
 __pycache__/
+**/__pycache__/
+
 *.pyc
 *.pyo
 *.pyd
 
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 
-# =========================
+# =========================================================
 # Build Outputs
-# =========================
+# =========================================================
+dist/
+build/
+out/
+
 frontend/dist/
 runtime/dist/
 
 backend/build/
 runtime/build/
 
-out/
-coverage/
+**/dist/
+**/build/
 
 .next/
 .nuxt/
 .storybook-out/
 
+.vite/
+**/.vite/
+
+coverage/
+htmlcov/
+
+*.tsbuildinfo
 vite.svg
 
-# =========================
+# =========================================================
 # Runtime / Temp
-# =========================
+# =========================================================
 tmp/
 temp/
 .cache/
-logs/
+
+**/.cache/
+**/.turbo/
 
 runtime/.cache/
 runtime/.turbo/
 runtime/tmp/
 
+logs/
 *.log
 
-# =========================
-# Generated Workspace
-# =========================
+socket_log.txt
+test_output.txt
+test_cleanup.log
+
+raw_response.html
+rendered_dom.html
+
+screenshot.png
+screenshots/
+captures/
+
+# =========================================================
+# Generated Runtime / Workspace
+# =========================================================
 workspaces/
 workshop/
 generated/
 sandbox/
 runtime-output/
 
-# =========================
+# =========================================================
+# Orchestration Runtime State
+# =========================================================
+.orchestration/sessions/
+.orchestration/cache/
+.orchestration/tmp/
+.orchestration/*.log
+
+# =========================================================
 # Environment / Secrets
-# =========================
+# =========================================================
 .env
 .env.*
 !.env.example
@@ -75,59 +118,102 @@ runtime-output/
 *.key
 *.crt
 
-# =========================
-# Database
-# =========================
-*.db
-*.sqlite
-*.sqlite3
+# =========================================================
+# Runtime Database / Memory
+# =========================================================
+*.db-shm
+*.db-wal
 
-prisma/dev.db
+orchestrator_memory.db
 
-# =========================
+# =========================================================
 # User Generated Assets
-# =========================
+# =========================================================
 uploads/
 sessions/
 
-# =========================
-# Private Docs / Logs
-# =========================
-docs/
-
-ERROR_LOG.md
-LogAI.md
-WORKLOG.md
-
-runtime/ERROR_LOG.md
-runtime/WORKLOG.md
-
-# =========================
-# Testing
-# =========================
+# =========================================================
+# Playwright / Testing Artifacts
+# =========================================================
 playwright-report/
 test-results/
+.playwright/
 
-# =========================
+# =========================================================
 # Docker
-# =========================
+# =========================================================
 docker-data/
 
-# =========================
-# Editor / OS
-# =========================
-.vscode/
+# =========================================================
+# IDE / OS
+# =========================================================
 .idea/
 
 .DS_Store
 Thumbs.db
 
-# =========================
+# =========================================================
 # Archives
-# =========================
+# =========================================================
 *.tgz
 *.zip
+*.tar
+*.gz
 
-# Local testing
-test_*.py
+# =========================================================
+# Local Scratch / Debug Files
+# =========================================================
+scratch_*.py
+scratch_*.json
+
+tmp_*.py
+tmp_*.json
+
+debug_*.py
+debug_*.json
+
 append.py
+
+# =========================================================
+# Allow Important Docs / Contracts
+# =========================================================
+!docs/
+!docs/**
+
+!templates/
+!templates/**
+
+!backend/tests/
+!backend/tests/**
+
+!backend/runtime_contract.py
+!backend/templates/react_vite_contract.py
+
+!frontend/src/runtime/
+!frontend/src/runtime/**
+
+# =========================================================
+# Preserve Engineering Memory
+# =========================================================
+!ENGINEERING_FREEZE.md
+!mutation_contracts.md
+!workspace_schema.md
+!task.md
+
+!runtime/ARCHITECTURE_MAP.md
+!runtime/PLAN.md
+
+!P7_IMPLEMENTATION_SUMMARY.md
+!P7_PHASE_COMPLETE.md
+!P7_README.md
+
+!P8_5_IMPLEMENTATION_SUMMARY.md
+!P8_5_PHASE_COMPLETE.md
+
+!LogAI.md
+
+# =========================================================
+# Optional VSCode Shared Settings
+# =========================================================
+!.vscode/settings.json
+!.vscode/extensions.json

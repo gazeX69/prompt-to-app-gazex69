@@ -1,0 +1,10 @@
+{
+  "template": "react-vite-ts",
+  "version": 1,
+  "runtime": {
+    "rootSelector": "#root",
+    "entrypoint": "/src/main.tsx",
+    "expectedScripts": ["dev", "build", "preview"],
+    "buildCommand": "tsc -b && vite build"
+  }
+}

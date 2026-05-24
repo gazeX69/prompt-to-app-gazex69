@@ -43,6 +43,18 @@ class ApiService {
       body: JSON.stringify(data),
     })
   }
+
+  async scan(projectPath: string): Promise<any> {
+    return this.fetch<any>(`/scan?project_path=${encodeURIComponent(projectPath)}`)
+  }
+
+  async routeFromScan(projectPath: string): Promise<any> {
+    return this.fetch<any>(`/route-from-scan?project_path=${encodeURIComponent(projectPath)}`)
+  }
+
+  async fetchSkills(): Promise<any[]> {
+    return this.fetch<any[]>('/skills')
+  }
 }
 
 export const api = new ApiService()

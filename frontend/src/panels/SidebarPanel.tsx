@@ -1,39 +1,93 @@
-import { FolderDot, Clock, LayoutTemplate, Settings, Zap } from 'lucide-react'
+import { Folder, Clock, Activity, Box, Search, Layers, XCircle } from 'lucide-react'
+import { useWorkspaceStore } from '../stores/workspace.store'
 
-export default function SidebarPanel() {
+interface SidebarPanelProps {
+  activeView: string
+  onViewChange: (view: string) => void
+}
+
+export default function SidebarPanel({ activeView, onViewChange }: SidebarPanelProps) {
+  const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
+  const workspaces = useWorkspaceStore(s => s.workspaces)
+  const closeWorkspace = useWorkspaceStore(s => s.closeWorkspace)
+  
+  const ws = activeWorkspaceId ? workspaces[activeWorkspaceId] : null
+
   return (
-    <div className="h-full w-[72px] bg-panel border-r border-border flex flex-col items-center py-4 select-none shrink-0 z-20">
-      <div className="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center mb-8 shrink-0">
-        <Zap className="w-5 h-5" />
-      </div>
-      
-      <div className="flex-1 flex flex-col items-center space-y-3 w-full">
-        <SidebarItem icon={<FolderDot className="w-5 h-5" />} active />
-        <SidebarItem icon={<Clock className="w-5 h-5" />} />
-        <SidebarItem icon={<LayoutTemplate className="w-5 h-5" />} />
-      </div>
-      
-      <div className="shrink-0 flex flex-col items-center space-y-4 w-full pb-2">
-        <SidebarItem icon={<Settings className="w-5 h-5" />} />
-        <div className="w-8 h-8 rounded-full flex items-center justify-center">
-          <div className="w-2 h-2 rounded-full bg-green-500 relative">
-            <div className="absolute inset-0 rounded-full bg-green-400 animate-ping opacity-50" />
-          </div>
+    <div className="h-full w-64 bg-[#1e1e1e] border-r border-[#333333] flex flex-col text-[#cccccc] text-sm select-none shrink-0 z-20 font-mono">
+      {/* Workspace Header */}
+      <div className="px-4 py-3 flex items-center justify-between border-b border-[#333333]">
+        <div className="font-semibold text-gray-100 uppercase tracking-wider text-xs">
+          {ws?.name || 'No Workspace'}
         </div>
+        <button onClick={closeWorkspace} className="hover:text-red-400 transition-colors" title="Close Workspace">
+          <XCircle className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Navigation Sections */}
+      <div className="flex-1 overflow-y-auto py-2">
+        
+        <SidebarSection title="Observability">
+          <SidebarItem icon={<Activity className="w-4 h-4" />} label="Overview" active={activeView === 'overview'} onClick={() => onViewChange('overview')} />
+          <SidebarItem icon={<Folder className="w-4 h-4" />} label="Repository" active={activeView === 'repository'} onClick={() => onViewChange('repository')} />
+          <SidebarItem icon={<Layers className="w-4 h-4" />} label="Generate" active={activeView === 'generate'} onClick={() => onViewChange('generate')} />
+          <SidebarItem icon={<Clock className="w-4 h-4" />} label="Run History" active={activeView === 'history'} onClick={() => onViewChange('history')} />
+          <SidebarItem icon={<Box className="w-4 h-4" />} label="Artifact Explorer" active={activeView === 'artifacts'} onClick={() => onViewChange('artifacts')} />
+          <SidebarItem icon={<Search className="w-4 h-4" />} label="Runtime Inspector" active={activeView === 'inspector'} onClick={() => onViewChange('inspector')} />
+        </SidebarSection>
+
+        {ws && (
+          <SidebarSection title="Active Workspace">
+            <div className="px-6 py-1 text-xs text-gray-400 flex flex-col space-y-2">
+              <div className="flex justify-between">
+                <span>Ecosystem:</span>
+                <span className="text-blue-400">{ws.ecosystem}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Health:</span>
+                <span className={ws.runtimeHealth === 'healthy' ? 'text-green-400' : 'text-yellow-400'}>
+                  {ws.runtimeHealth}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span>Total Runs:</span>
+                <span>{ws.runCount}</span>
+              </div>
+            </div>
+          </SidebarSection>
+        )}
+
       </div>
     </div>
   )
 }
 
-function SidebarItem({ icon, active = false }: { icon: React.ReactNode, active?: boolean }) {
+function SidebarSection({ title, children }: { title: string, children: React.ReactNode }) {
   return (
-    <div className={`w-12 h-12 rounded-xl flex items-center justify-center cursor-pointer transition-all relative ${
-      active ? 'text-gray-100 bg-accent' : 'text-gray-500 hover:text-gray-300 hover:bg-accent/50'
-    }`}>
-      {active && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-blue-500 rounded-r-full" />
-      )}
+    <div className="mb-4">
+      <div className="px-4 py-1 text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-1">
+        {title}
+      </div>
+      <div className="flex flex-col">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function SidebarItem({ icon, label, active = false, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick?: () => void }) {
+  return (
+    <div 
+      onClick={onClick} 
+      className={`px-6 py-1.5 flex items-center space-x-3 cursor-pointer transition-colors border-l-2 ${
+        active 
+          ? 'bg-[#37373d] text-white border-blue-500' 
+          : 'hover:bg-[#2a2d2e] border-transparent'
+      }`}
+    >
       {icon}
+      <span>{label}</span>
     </div>
   )
 }

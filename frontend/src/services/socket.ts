@@ -6,23 +6,23 @@ class SocketService {
 
   connect(): Socket {
     if (!this.socket) {
+      console.log(`[Socket] Creating singleton connection to ${ENV.WS_URL}...`)
       this.socket = io(ENV.WS_URL, {
-        transports: ["polling", "websocket"],
+        transports: ["websocket"],
         reconnection: true,
         reconnectionAttempts: Infinity,
         reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
       })
 
-      console.log(`[Socket] Connecting to ${ENV.WS_URL}...`)
-
       this.socket.on('connect', () => {
-        console.log(`[Socket] Connected to backend WebSocket`)
+        console.log(`[Socket] Connected (id=${this.socket?.id})`)
       })
 
       this.socket.on('disconnect', (reason) => {
         console.warn(`[Socket] Disconnected: ${reason}`)
       })
-      
+
       this.socket.on('connect_error', (error) => {
         console.error(`[Socket] Connection error:`, error.message)
       })
@@ -34,23 +34,22 @@ class SocketService {
       this.socket.io.on('reconnect', () => {
         console.log(`[Socket] Successfully reconnected!`)
       })
-
-      this.socket.io.engine.on('upgrade', () => {
-        console.log(`[Socket] Transport upgraded to ${this.socket?.io.engine.transport.name}`)
-      })
     }
     return this.socket
   }
 
-  get(): Socket {
-    if (!this.socket) {
-      return this.connect()
-    }
+  get(): Socket | null {
     return this.socket
   }
 
-  disconnect() {
+  isConnected(): boolean {
+    return this.socket?.connected ?? false
+  }
+
+  /** Only for app teardown — DO NOT call on component unmount */
+  destroy() {
     if (this.socket) {
+      this.socket.removeAllListeners()
       this.socket.disconnect()
       this.socket = null
     }

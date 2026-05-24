@@ -33,3 +33,36 @@ Before modifying code, we trace the new strict responsibilities:
 - **Streaming Architecture Direction**: Transitioning towards robust server-sent events for AI tokens, ensuring real-time UI updates without blocking backend threads.
 - **Local Model Strategy**: Infrastructure planned to support local LLMs (e.g., Ollama) via standard OpenAI-compatible REST endpoints for offline execution and privacy.
 - **Extensibility Strategy**: Core domain logic relies strictly on abstract interfaces rather than specific SDKs, protecting the orchestrator from SDK breaking changes.
+
+### SKILL SYSTEM (v3.0+)
+
+- **Skill Registry** (`backend/core/skills/registry.py`): Dynamic plugin system. Skills register with metadata (name, language, capabilities, tags). Lookup by capability, language, or type.
+- **Skill Interface** (`backend/core/skills/interfaces.py`): `BaseSkill` ABC with `can_handle()`, `execute()`, `get_prompt_modifiers()`, `get_detection_hints()`.
+- **Built-in Skills** (`backend/core/skills/builtin/`): `react-vite`, `node-backend`, `laravel` (detection only).
+- **Project Scanner** (`backend/core/scanner/engine.py`): Filesystem-based detection for 15+ frameworks, languages, and tools. Outputs structured `ProjectScanResult`.
+- **Framework Router** (`backend/core/router/routes.py`): Capability-based routing. Takes scan result → matches skills → returns `RouteResult` with primary + activated skills.
+- **Error Observer** (`backend/core/observer/errors.py`): Classifies runtime/build errors into 11 categories (missing dependency, port conflict, syntax error, etc.). Produces structured `Diagnostic` objects.
+- **Project Patcher** (`backend/core/patcher/patch.py`): Safe modification engine. Builds `PatchPlan` from scan → applies targeted edits without destructive overwrite.
+- **Integration Facade** (`backend/core/integration.py`): `prepare_project_context()` links scanner + router + skills for easy consumption by orchestrator.
+
+### NEW REST ENDPOINTS
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/skills` | GET | List all registered skills with metadata |
+| `/scan` | POST | Scan a project directory (returns `ScanResultSchema`) |
+| `/route-from-scan` | POST | Scan + route skills (returns `RouteResultSchema`) |
+
+### FLOW DIAGRAM (New Skill-Based Flow)
+
+```
+Prompt
+  → Project Scan (core/scanner)
+  → Framework Detection (core/scanner/detectors)
+  → Skill Activation (core/skills/registry + core/router)
+  → Planning
+  → File Modification (core/patcher or existing orchestrator)
+  → Runtime Validation
+  → Error Detection (core/observer)
+  → Repair Loop
+```

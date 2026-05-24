@@ -1,4 +1,5 @@
-import { RotateCw, ExternalLink, Globe, AlertTriangle } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { RotateCw, ExternalLink, Globe, AlertTriangle, WifiOff, Loader2 } from 'lucide-react'
 import { usePreviewStore } from '../stores/preview.store'
 import { useAgentStore } from '../stores/agent.store'
 import { useTerminalStore } from '../stores/terminal.store'
@@ -7,7 +8,28 @@ export default function PreviewPanel() {
   const { url, isReloading } = usePreviewStore()
   const { state, activities } = useAgentStore()
   const { lines } = useTerminalStore()
+  
+  const runId = usePreviewStore(state => state.runId) || 'legacy'
+  const [iframeUrl, setIframeUrl] = useState('')
 
+  useEffect(() => {
+    if (url) {
+      setIframeUrl(`${url}?run_id=${runId}&t=${Date.now()}`)
+    } else {
+      setIframeUrl('')
+    }
+  }, [url, runId])
+  
+  useEffect(() => {
+    if (iframeUrl) {
+      console.log(`[PreviewFrame] mounted / updated: ${iframeUrl}`)
+    }
+    return () => {
+      if (iframeUrl) {
+        console.log(`[PreviewFrame] destroyed: ${iframeUrl}`)
+      }
+    }
+  }, [iframeUrl])
 
   return (
     <div className="flex flex-col h-full bg-background border-l border-border min-w-0">
@@ -37,16 +59,17 @@ export default function PreviewPanel() {
       
       {/* Viewport */}
       <div className="flex-1 bg-white relative min-h-0">
-        {url ? (
-          <iframe 
-            src={url} 
-            className="w-full h-full border-none bg-white"
-            title="Preview"
-            sandbox="allow-scripts allow-same-origin allow-forms"
-          />
+        {url && iframeUrl ? (
+            <iframe 
+              key={runId}
+              src={iframeUrl} 
+              className="w-full h-full border-none bg-white"
+              title="Preview"
+              sandbox="allow-scripts allow-same-origin allow-forms"
+            />
         ) : (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-panel text-gray-500 p-8 text-center">
-            {state === 'failed' ? (
+            {state === 'FAILED' ? (
               <>
                 <div className="w-12 h-12 rounded-xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-4">
                   <AlertTriangle className="w-5 h-5 text-red-500" />
@@ -61,6 +84,26 @@ export default function PreviewPanel() {
                     {lines.slice(-3).map(l => l.text).join('\n') || 'No terminal logs captured.'}
                   </p>
                 </div>
+              </>
+            ) : state === 'DISCONNECTED' || state === 'RECONNECTING' ? (
+              <>
+                <div className="w-12 h-12 rounded-xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center mb-4">
+                  <WifiOff className="w-5 h-5 text-yellow-500" />
+                </div>
+                <p className="text-[14px] font-semibold text-gray-200">Connection Lost</p>
+                <p className="text-[12px] mt-2 text-yellow-400 max-w-sm">
+                  {state === 'RECONNECTING' 
+                    ? 'Attempting to reconnect to the backend...'
+                    : 'Backend connection unavailable.'}
+                </p>
+              </>
+            ) : state === 'GENERATING' || state === 'INSTALLING' || state === 'BUILDING' || state === 'REPAIRING' || state === 'STARTING_PREVIEW' || state === 'VERIFYING' ? (
+              <>
+                <div className="w-12 h-12 rounded-xl bg-accent border border-border flex items-center justify-center mb-4">
+                  <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                </div>
+                <p className="text-[13px] font-medium text-gray-200">Building Preview</p>
+                <p className="text-[12px] mt-1 text-gray-500">Waiting for dev server...</p>
               </>
             ) : (
               <>

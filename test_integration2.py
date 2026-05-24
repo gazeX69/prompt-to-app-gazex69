@@ -1,0 +1,72 @@
+"""Full integration test with error tracing."""
+import asyncio
+import httpx
+import socketio
+import time
+
+BACKEND_URL = 'http://127.0.0.1:8000'
+PROJECT_ID = f'test3-{int(time.time())}'
+events = []
+
+
+async def test():
+    sio = socketio.AsyncClient()
+
+    @sio.on('connect')
+    async def on_connect():
+        events.append(('connect',))
+        print('[EVENT] connect')
+
+    @sio.on('agent_state')
+    async def on_state(s):
+        events.append(('agent_state', s))
+        print(f'[EVENT] agent_state = {s}')
+
+    @sio.on('terminal_line')
+    async def on_line(d):
+        text = d.get('text', '')
+        t = d.get('type', '?')
+        events.append(('terminal_line', text, t))
+        print(f'[EVENT] terminal_line [{t}] {text[:150]}')
+
+    @sio.on('preview_ready')
+    async def on_preview(d):
+        events.append(('preview_ready', d))
+        print(f'[EVENT] preview_ready = {d}')
+
+    await sio.connect(BACKEND_URL, transports=['websocket'])
+    print('[TEST] Socket connected')
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        resp = await client.post(f'{BACKEND_URL}/generate', json={
+            'prompt': 'buat halaman login sederhana dengan php',
+            'project_id': PROJECT_ID,
+            'auto_repair': True,
+            'enabled_skills': ['php-basic']
+        })
+        print(f'[TEST] POST status={resp.status_code}')
+
+    deadline = time.time() + 60
+    while time.time() < deadline:
+        await asyncio.sleep(0.5)
+        states = [e for e in events if e[0] == 'agent_state']
+        if states and states[-1][1] in ('success', 'failed'):
+            print(f'\n[TEST] Terminal state: {states[-1][1]}')
+            await asyncio.sleep(1)
+            print('\n=== FULL EVENT SEQUENCE ===')
+            for e in events:
+                if e[0] == 'terminal_line':
+                    print(f'  [{e[2]}] {e[1][:200]}')
+                elif e[0] == 'agent_state':
+                    print(f'  agent_state = {e[1]}')
+                else:
+                    print(f'  {e[0]}')
+            await sio.disconnect()
+            return
+
+    print('[TEST] TIMEOUT')
+    await sio.disconnect()
+
+
+if __name__ == '__main__':
+    asyncio.run(test())
