@@ -7,6 +7,7 @@ export default function RunHistory() {
   const runHistory = useWorkspaceStore(s => s.runHistory)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
   const loadRunData = useWorkspaceStore(s => s.loadRunData)
+  const safeRunHistory = Array.isArray(runHistory) ? runHistory : []
   
   const [loadingRunId, setLoadingRunId] = useState<string | null>(null)
 
@@ -29,14 +30,14 @@ export default function RunHistory() {
       </div>
 
       <div className="p-6">
-        {runHistory.length === 0 ? (
+        {safeRunHistory.length === 0 ? (
           <div className="text-sm text-gray-500 flex flex-col items-center justify-center py-20">
             <Hash className="w-12 h-12 text-[#333] mb-4" />
             <p>No runs recorded in this workspace.</p>
           </div>
         ) : (
           <div className="space-y-4 max-w-5xl">
-            {runHistory.map((run) => {
+            {safeRunHistory.map((run) => {
               const isActive = run.run_id === activeRunId
               const isLoading = run.run_id === loadingRunId
               

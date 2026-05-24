@@ -4,6 +4,7 @@ import { useAgentStore } from '../stores/agent.store'
 import type { AgentState } from '../stores/agent.store'
 import { useSkillsStore } from '../stores/skills.store'
 import { useTerminalStore } from "../stores/terminal.store"
+import { usePreviewStore } from "../stores/preview.store"
 import { api } from "../services/api"
 import { ProgressView } from "./ProgressView"
 
@@ -15,6 +16,7 @@ export default function PromptWorkspace() {
   const [prompt, setPrompt] = useState('')
   const [autoRepair, setAutoRepair] = useState(true)
   const { state, setState: setAgentState, setStartTime, socketConnected } = useAgentStore()
+  const previewUrl = usePreviewStore((s) => s.url)
   const { enabled, skills } = useSkillsStore()
   const failTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -74,6 +76,32 @@ export default function PromptWorkspace() {
   return (
     <div className="flex-1 flex flex-col min-h-0 p-4 md:p-8 overflow-y-auto">
       <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-end pb-4">
+        <div className="mb-4 border border-border bg-panel rounded-lg p-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Current App</div>
+            <div className="text-sm text-gray-200 truncate">
+              {previewUrl ? 'Generated app is ready to preview.' : state === 'IDLE' ? 'Describe an app to generate.' : 'Generation in progress.'}
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              disabled={!previewUrl}
+              onClick={() => previewUrl && window.open(previewUrl, '_blank', 'noopener,noreferrer')}
+              className="text-[12px] px-3 py-1.5 rounded border border-border text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent"
+            >
+              Open Preview
+            </button>
+            <button
+              type="button"
+              disabled={!canGenerate(state)}
+              onClick={handleGenerate}
+              className="text-[12px] px-3 py-1.5 rounded border border-border text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent"
+            >
+              Retry / Fix
+            </button>
+          </div>
+        </div>
         
         {state === 'IDLE' ? (
           <div className="flex-1 flex flex-col justify-center items-center text-center opacity-50 mb-12 min-h-[120px]">

@@ -20,6 +20,17 @@
     "DISCONNECTED",
     "RECONNECTING"
   ],
+  "runtimeStates": [
+    "IDLE",
+    "PREPARING",
+    "CHECKING_PORTS",
+    "INSTALLING",
+    "BUILDING",
+    "STARTING",
+    "HEALTHCHECK",
+    "READY",
+    "FAILED"
+  ],
   "legacyStateAliases": {
     "idle": "IDLE",
     "planning": "PLANNING",
@@ -97,6 +108,48 @@
     "E_CONTRACT_INVALID": {
       "category": "environment_contract",
       "repair": "restore_canonical_contract"
+    },
+    "RUNTIME_PORT_CONFLICT": {
+      "category": "runtime_preflight",
+      "repair": "use_fallback_port_or_free_port",
+      "severity": "warning",
+      "recoverable": true,
+      "suggestedAction": "Use the selected fallback port or free the configured port."
+    },
+    "RUNTIME_HEALTH_TIMEOUT": {
+      "category": "runtime_readiness",
+      "repair": "inspect_runtime_logs_or_retry",
+      "severity": "error",
+      "recoverable": true,
+      "suggestedAction": "Inspect runtime logs, then retry the dev server launch."
+    },
+    "RUNTIME_PROCESS_CRASH": {
+      "category": "runtime_process",
+      "repair": "inspect_runtime_logs",
+      "severity": "fatal",
+      "recoverable": true,
+      "suggestedAction": "Inspect stderr for the process crash reason before retrying."
+    },
+    "RUNTIME_BUILD_FAILURE": {
+      "category": "build",
+      "repair": "classify_then_target",
+      "severity": "error",
+      "recoverable": true,
+      "suggestedAction": "Classify the build output and repair the targeted failure."
+    },
+    "RUNTIME_DEPENDENCY_MISSING": {
+      "category": "dependency_policy",
+      "repair": "blocked_without_policy",
+      "severity": "error",
+      "recoverable": false,
+      "suggestedAction": "Declare the dependency explicitly or remove the undeclared import."
+    },
+    "RUNTIME_DEVSERVER_UNREACHABLE": {
+      "category": "preview",
+      "repair": "runtime_retry_or_fail",
+      "severity": "error",
+      "recoverable": true,
+      "suggestedAction": "Verify the dev server port and retry runtime launch."
     }
   },
   "dependencyPolicy": {

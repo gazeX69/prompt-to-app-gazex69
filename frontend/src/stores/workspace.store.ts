@@ -64,6 +64,10 @@ export interface RunMetadata {
   costSummary?: any
 }
 
+function asArray<T>(value: T[] | unknown): T[] {
+  return Array.isArray(value) ? value : []
+}
+
 interface WorkspaceStore {
   // Identity
   activeWorkspaceId: string | null
@@ -106,7 +110,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
       bindWorkspace: (ws) => set((state) => {
         const updatedWorkspaces = { ...state.workspaces, [ws.id]: ws }
-        const recent = [ws.id, ...state.recentWorkspaces.filter(id => id !== ws.id)]
+        const recentWorkspaces = asArray<string>(state.recentWorkspaces)
+        const recent = [ws.id, ...recentWorkspaces.filter(id => id !== ws.id)]
         return {
           activeWorkspaceId: ws.id,
           workspaces: updatedWorkspaces,
@@ -127,7 +132,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       }),
       
       addRunToHistory: (run) => set((state) => ({
-        runHistory: [run, ...state.runHistory]
+        runHistory: [run, ...asArray<RunMetadata>(state.runHistory)]
       })),
 
       setActiveRun: (runId) => set({ activeRunId: runId }),
@@ -135,7 +140,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       hydrateWorkspace: (repo, runtime, artifacts) => set({
         repositorySnapshot: repo,
         runtimeSnapshot: runtime,
-        artifactSnapshots: artifacts
+        artifactSnapshots: asArray<ArtifactSnapshot>(artifacts)
       }),
 
       loadWorkspaceData: async (workspaceId: string) => {
@@ -149,9 +154,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
           set(() => ({
             repositorySnapshot: tree,
-            artifactSnapshots: artifacts || [],
-            runHistory: runs || [],
-            activeRunId: runs?.[0]?.run_id || null,
+            artifactSnapshots: asArray<ArtifactSnapshot>(artifacts),
+            runHistory: asArray<RunMetadata>(runs),
+            activeRunId: asArray<RunMetadata>(runs)[0]?.run_id || null,
             runtimeSnapshot: {
               orchestrationHealth: 'healthy',
               sequencingStabilityScore: 9.8,
@@ -174,7 +179,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
 
           set(() => ({
             repositorySnapshot: tree,
-            artifactSnapshots: artifacts || [],
+            artifactSnapshots: asArray<ArtifactSnapshot>(artifacts),
             activeRunId: runId
           }))
         } catch (e) {

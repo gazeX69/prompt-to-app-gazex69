@@ -11,10 +11,11 @@ export default function WorkspaceLoader() {
   
   const bindWorkspace = useWorkspaceStore((s) => s.bindWorkspace)
   const loadWorkspaceData = useWorkspaceStore((s) => s.loadWorkspaceData)
+  const safeWorkspaces = Array.isArray(availableWorkspaces) ? availableWorkspaces : []
 
   useEffect(() => {
     fetchWorkspaces()
-      .then((data) => setAvailableWorkspaces(data))
+      .then((data) => setAvailableWorkspaces(Array.isArray(data) ? data : []))
       .catch(() => setErrorMsg("Backend offline or unreachable."))
   }, [])
 
@@ -63,8 +64,8 @@ export default function WorkspaceLoader() {
         )}
 
         <div className="w-full space-y-3 mb-6 max-h-48 overflow-y-auto">
-          {availableWorkspaces.length > 0 ? (
-            availableWorkspaces.map(ws => (
+          {safeWorkspaces.length > 0 ? (
+            safeWorkspaces.map(ws => (
               <div 
                 key={ws.id} 
                 onClick={() => handleSelectWorkspace(ws)}

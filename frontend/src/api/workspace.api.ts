@@ -22,14 +22,21 @@ export async function fetchWorkspaceTree(workspaceId: string, runId?: string) {
   const url = runId ? `${API_BASE}/workspaces/${workspaceId}/repository-tree?run_id=${runId}` : `${API_BASE}/workspaces/${workspaceId}/repository-tree`
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch repository tree")
-  return res.json()
+  const data = await res.json()
+  return {
+    ...data,
+    tree: Array.isArray(data?.tree) ? data.tree : [],
+    ecosystem: typeof data?.ecosystem === "string" ? data.ecosystem : "unknown",
+    totalFiles: Number.isFinite(Number(data?.totalFiles)) ? Number(data.totalFiles) : 0,
+  }
 }
 
 export async function fetchArtifacts(workspaceId: string, runId?: string): Promise<ArtifactSnapshot[]> {
   const url = runId ? `${API_BASE}/workspaces/${workspaceId}/artifacts?run_id=${runId}` : `${API_BASE}/workspaces/${workspaceId}/artifacts`
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch artifacts")
-  return res.json()
+  const data = await res.json()
+  return Array.isArray(data) ? data : []
 }
 
 export async function fetchArtifactContent(workspaceId: string, artifactId: string, runId?: string): Promise<{content: string, truncated: boolean, error: string | null}> {
@@ -63,7 +70,8 @@ export async function fetchSymbols(workspaceId: string, runId?: string, pathId?:
   
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch symbols")
-  return res.json()
+  const data = await res.json()
+  return Array.isArray(data) ? data : []
 }
 
 export interface ReferenceMetadata {
@@ -84,7 +92,17 @@ export async function fetchReferences(workspaceId: string, pathId: string, runId
   
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch references")
-  return res.json()
+  const data = await res.json()
+  return {
+    imports: Array.isArray(data?.imports) ? data.imports : [],
+    imported_by: Array.isArray(data?.imported_by) ? data.imported_by : [],
+    dependency_depth: Number.isFinite(Number(data?.dependency_depth)) ? Number(data.dependency_depth) : 0,
+    ownership_chain: Array.isArray(data?.ownership_chain) ? data.ownership_chain : [],
+    mutation_heat: typeof data?.mutation_heat === "string" ? data.mutation_heat : "unknown",
+    blast_radius_score: ["isolated", "local", "shared", "critical"].includes(data?.blast_radius_score)
+      ? data.blast_radius_score
+      : "isolated",
+  }
 }
 
 export interface RegionMetadata {
@@ -103,7 +121,8 @@ export async function fetchRegions(workspaceId: string, pathId: string, runId?: 
   
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch regions")
-  return res.json()
+  const data = await res.json()
+  return Array.isArray(data) ? data : []
 }
 
 export interface PatchMetadata {
@@ -132,7 +151,13 @@ export async function fetchPatches(workspaceId: string, runId?: string): Promise
   
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch patches")
-  return res.json()
+  const data = await res.json()
+  return {
+    grounded_patches: Array.isArray(data?.grounded_patches) ? data.grounded_patches : [],
+    collision_reports: Array.isArray(data?.collision_reports) ? data.collision_reports : [],
+    confidence_scores: Array.isArray(data?.confidence_scores) ? data.confidence_scores : [],
+    region_maps_generated: Boolean(data?.region_maps_generated),
+  }
 }
 
 export interface ReplayReport {
@@ -161,7 +186,12 @@ export async function fetchReplays(workspaceId: string, runId?: string): Promise
   
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch replays")
-  return res.json()
+  const data = await res.json()
+  return {
+    replay_reports: Array.isArray(data?.replay_reports) ? data.replay_reports : [],
+    stale_patch_warnings: Array.isArray(data?.stale_patch_warnings) ? data.stale_patch_warnings : [],
+    system_stability: Number.isFinite(Number(data?.system_stability)) ? Number(data.system_stability) : 0,
+  }
 }
 
 export interface SimulationReport {
@@ -191,7 +221,11 @@ export async function fetchSimulations(workspaceId: string, runId?: string): Pro
   
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch simulations")
-  return res.json()
+  const data = await res.json()
+  return {
+    simulation_reports: Array.isArray(data?.simulation_reports) ? data.simulation_reports : [],
+    system_simulation_confidence: Number.isFinite(Number(data?.system_simulation_confidence)) ? Number(data.system_simulation_confidence) : 0,
+  }
 }
 
 export interface ExecutionReadiness {

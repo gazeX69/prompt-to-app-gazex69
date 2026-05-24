@@ -2,6 +2,7 @@ import json
 from enum import Enum
 from pathlib import Path
 from typing import Any
+import time
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -45,6 +46,12 @@ class RuntimeErrorCode(str, Enum):
     E_BUILD_FAILURE = "E_BUILD_FAILURE"
     E_PREVIEW_UNREACHABLE = "E_PREVIEW_UNREACHABLE"
     E_CONTRACT_INVALID = "E_CONTRACT_INVALID"
+    RUNTIME_PORT_CONFLICT = "RUNTIME_PORT_CONFLICT"
+    RUNTIME_HEALTH_TIMEOUT = "RUNTIME_HEALTH_TIMEOUT"
+    RUNTIME_PROCESS_CRASH = "RUNTIME_PROCESS_CRASH"
+    RUNTIME_BUILD_FAILURE = "RUNTIME_BUILD_FAILURE"
+    RUNTIME_DEPENDENCY_MISSING = "RUNTIME_DEPENDENCY_MISSING"
+    RUNTIME_DEVSERVER_UNREACHABLE = "RUNTIME_DEVSERVER_UNREACHABLE"
 
 
 LEGACY_STATE_ALIASES: dict[str, str] = EXECUTION_CONTRACT["legacyStateAliases"]
@@ -78,16 +85,26 @@ def error_payload(
     code: str | RuntimeErrorCode,
     message: str,
     *,
+    detail: dict[str, Any] | None = None,
+    severity: str | None = None,
+    recoverable: bool | None = None,
+    timestamp: int | float | None = None,
+    suggested_action: str | None = None,
     project_id: str | None = None,
     run_id: str | None = None,
     source: str = "runtime",
-) -> dict[str, str | None]:
+) -> dict[str, Any]:
     normalized = normalize_error_code(code)
     meta = ERROR_CODES[normalized.value]
     return {
         "code": normalized.value,
         "category": meta["category"],
         "message": message,
+        "detail": detail or {},
+        "severity": severity or meta.get("severity", "error"),
+        "recoverable": True if recoverable is None else bool(recoverable),
+        "timestamp": timestamp or int(time.time() * 1000),
+        "suggestedAction": suggested_action or meta.get("suggestedAction", "Inspect runtime diagnostics."),
         "project_id": project_id,
         "run_id": run_id,
         "source": source,

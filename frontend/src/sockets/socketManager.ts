@@ -2,14 +2,17 @@ import { socketService } from '../services/socket'
 import { useAgentStore } from '../stores/agent.store'
 import { useTerminalStore } from '../stores/terminal.store'
 import { usePreviewStore } from '../stores/preview.store'
-import { normalizeExecutionState } from '../runtime/executionContract'
+import { mapExecutionToRuntimeState, normalizeExecutionState, type RuntimeLifecycleEvent, type StructuredRuntimeError } from '../runtime/executionContract'
 
 function onTerminalLine(data: { id: string; text: string; type: 'stdout' | 'stderr' | 'info' }) {
   if (data.text) useTerminalStore.getState().addLine({ text: data.text, type: data.type })
 }
 
 function onAgentState(state: string) {
-  useAgentStore.getState().setState(normalizeExecutionState(state))
+  const normalizedState = normalizeExecutionState(state)
+  useAgentStore.getState().setState(normalizedState)
+  const runtimeState = mapExecutionToRuntimeState(normalizedState)
+  if (runtimeState) useAgentStore.getState().setRuntimeState(runtimeState)
 }
 
 function onAgentActivity(data: { message: string; project_id: string }) {
@@ -22,17 +25,25 @@ function onPreviewReady(data: { project_id: string; url: string; run_id?: string
   useAgentStore.getState().addActivity(`Preview mounted at ${data.url} (run: ${data.run_id || 'unknown'})`)
 }
 
-function onRuntimeError(data: { code: string; category: string; message: string; source?: string }) {
+function onRuntimeError(data: StructuredRuntimeError) {
+  useAgentStore.getState().setRuntimeError(data)
   useTerminalStore.getState().addLine({
-    text: `[${data.code}] ${data.message}`,
+    text: `[${data.severity || 'error'}] ${data.code}: ${data.message}${data.suggestedAction ? ` | ${data.suggestedAction}` : ''}`,
     type: 'stderr',
   })
-  useAgentStore.getState().addActivity(`${data.code}: ${data.category}`)
+  useAgentStore.getState().addActivity(`${data.code}: ${data.category || 'runtime'}`)
+}
+
+function onRuntimeLifecycleEvent(data: RuntimeLifecycleEvent) {
+  useAgentStore.getState().setRuntimeLifecycleEvent(data)
 }
 
 function onExecutionEvent(data: { type: string; state?: string; code?: string; message?: string }) {
   if (data.type === 'state_transition' && data.state) {
-    useAgentStore.getState().setState(normalizeExecutionState(data.state))
+    const normalizedState = normalizeExecutionState(data.state)
+    useAgentStore.getState().setState(normalizedState)
+    const runtimeState = mapExecutionToRuntimeState(normalizedState)
+    if (runtimeState) useAgentStore.getState().setRuntimeState(runtimeState)
   }
 }
 
@@ -42,6 +53,7 @@ const APP_EVENTS = [
   ['agent_activity', onAgentActivity],
   ['preview_ready', onPreviewReady],
   ['runtime_error', onRuntimeError],
+  ['runtime_lifecycle_event', onRuntimeLifecycleEvent],
   ['execution_event', onExecutionEvent],
 ] as const
 

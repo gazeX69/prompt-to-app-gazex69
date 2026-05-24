@@ -1,51 +1,77 @@
-import { Panel, Group as PanelGroup, Separator as PanelResizeHandle } from "react-resizable-panels"
+import { useState } from "react"
 import PromptWorkspace from "./PromptWorkspace"
-import TerminalPanel from "./TerminalPanel"
 import StatusBar from "../components/StatusBar"
-import WorkspaceOverview from "./WorkspaceOverview"
 import RunHistory from "./RunHistory"
 import RuntimeInspector from "./RuntimeInspector"
 import ArtifactExplorer from "./ArtifactExplorer"
 import RepositoryExplorer from "./RepositoryExplorer"
+import PreviewPanel from "./PreviewPanel"
+import { ErrorBoundary } from "../components/ErrorBoundary"
 
 interface MainWorkspaceProps {
   activeView: string
 }
 
 export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
+  const [showInternalFiles, setShowInternalFiles] = useState(false)
+
   // Determine which main view to show based on activeView
   const renderView = () => {
     switch(activeView) {
-      case 'overview':
-        return <WorkspaceOverview />
-      case 'repository':
-        return <RepositoryExplorer />
+      case 'preview':
+        return (
+          <ErrorBoundary fallbackName="Preview Panel">
+            <PreviewPanel />
+          </ErrorBoundary>
+        )
+      case 'source':
+        return (
+          <ErrorBoundary fallbackName="Repository Explorer">
+            <div className="flex flex-col h-full min-h-0">
+              <div className="h-12 border-b border-[#333] bg-[#1e1e1e] px-6 flex items-center justify-between shrink-0">
+                <div>
+                  <div className="text-sm text-gray-100 font-medium">Source</div>
+                  <div className="text-[11px] text-gray-500">Generated app files first. Internal AI files are hidden by default.</div>
+                </div>
+                <label className="flex items-center gap-2 text-[12px] text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={showInternalFiles}
+                    onChange={(event) => setShowInternalFiles(event.target.checked)}
+                  />
+                  Show Internal AI Files
+                </label>
+              </div>
+              <RepositoryExplorer showInternalFiles={showInternalFiles} />
+            </div>
+          </ErrorBoundary>
+        )
       case 'generate':
         return <PromptWorkspace />
       case 'history':
         return <RunHistory />
-      case 'artifacts':
-        return <ArtifactExplorer />
-      case 'inspector':
-        return <RuntimeInspector />
+      case 'internal-artifacts':
+        return (
+          <ErrorBoundary fallbackName="Artifact Explorer">
+            <ArtifactExplorer />
+          </ErrorBoundary>
+        )
+      case 'runtime':
+        return (
+          <ErrorBoundary fallbackName="Runtime Inspector">
+            <RuntimeInspector />
+          </ErrorBoundary>
+        )
       default:
-        return <WorkspaceOverview />
+        return <PromptWorkspace />
     }
   }
 
   return (
     <div className="flex flex-col h-full bg-[#1e1e1e] min-w-0">
-      <PanelGroup orientation="vertical" className="flex-1 min-h-0">
-        <Panel defaultSize={75} minSize={30} className="flex flex-col min-h-0 bg-[#1e1e1e]">
-          {renderView()}
-        </Panel>
-        
-        <PanelResizeHandle className="h-[1px] bg-[#333] hover:bg-blue-500 transition-colors cursor-row-resize z-10" />
-        
-        <Panel defaultSize={25} minSize={15} className="flex flex-col min-h-0 bg-panel">
-          <TerminalPanel />
-        </Panel>
-      </PanelGroup>
+      <div className="flex-1 min-h-0 bg-[#1e1e1e]">
+        {renderView()}
+      </div>
       <StatusBar />
     </div>
   )

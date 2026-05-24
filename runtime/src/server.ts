@@ -6,6 +6,7 @@ import { processManager } from './processes/RuntimeProcessManager.js';
 import { previewDetector } from './preview/PreviewDetector.js';
 import { eventBus } from './events/RuntimeEventBus.js';
 import { RuntimeEventType, RuntimeEvent } from './types/events.js';
+import { createRuntimeError } from './errors/RuntimeErrors.js';
 
 const app = express();
 app.use(cors());
@@ -52,13 +53,28 @@ app.post('/runtime/command/run', async (req, res) => {
 });
 
 app.post('/runtime/dev/start', async (req, res) => {
-  const { id, cwd } = req.body;
+  const { id, cwd, port, autoIncrementPorts, maxPortAttempts, healthTimeoutMs } = req.body;
   if (!id || !cwd) {
     return res.status(400).json({ error: 'Missing id or cwd' });
   }
 
-  processManager.spawnCommand(id, { command: 'npm', args: ['run', 'dev'], cwd }).catch(console.error);
-  res.json({ status: 'dev_server_starting', id });
+  try {
+    const session = await processManager.startDevServer(id, {
+      cwd,
+      requestedPort: Number.isFinite(Number(port)) ? Number(port) : undefined,
+      autoIncrementPorts: autoIncrementPorts !== false,
+      maxPortAttempts: Number.isFinite(Number(maxPortAttempts)) ? Number(maxPortAttempts) : undefined,
+      healthTimeoutMs: Number.isFinite(Number(healthTimeoutMs)) ? Number(healthTimeoutMs) : undefined,
+    });
+    res.json({ status: 'dev_server_starting', id, session });
+  } catch (err: any) {
+    const code = err.code === 'RUNTIME_PORT_CONFLICT' ? 'RUNTIME_PORT_CONFLICT' : 'RUNTIME_PROCESS_CRASH';
+    res.status(409).json({
+      error: createRuntimeError(code, err.message || 'Runtime launch failed', {
+        attempts: err.attempts || [],
+      }),
+    });
+  }
 });
 
 app.post('/runtime/dev/stop', async (req, res) => {
@@ -69,7 +85,7 @@ app.post('/runtime/dev/stop', async (req, res) => {
 
 app.get('/runtime/processes', (req, res) => {
   const activeIds = processManager.getActiveProcessIds();
-  res.json({ activeIds });
+  res.json({ activeIds, sessions: processManager.getRuntimeSessions() });
 });
 
 app.get('/runtime/preview/:sessionId', (req, res) => {

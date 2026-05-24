@@ -4,7 +4,11 @@ import { useWorkspaceStore } from "../stores/workspace.store"
 import { Folder, ChevronRight, ChevronDown, FileCode } from "lucide-react"
 import FileInspector from "./FileInspector"
 
-export default function RepositoryExplorer() {
+interface RepositoryExplorerProps {
+  showInternalFiles?: boolean
+}
+
+export default function RepositoryExplorer({ showInternalFiles = true }: RepositoryExplorerProps) {
   const repositorySnapshot = useWorkspaceStore(s => s.repositorySnapshot)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
   const [selectedFile, setSelectedFile] = useState<RepositoryFileNode | null>(null)
@@ -12,6 +16,8 @@ export default function RepositoryExplorer() {
   if (!repositorySnapshot) {
     return <div className="p-8 text-gray-500">Awaiting repository hydration...</div>
   }
+
+  const repositoryTree = prioritizeAppFiles(filterInternalFiles(Array.isArray(repositorySnapshot.tree) ? repositorySnapshot.tree : [], showInternalFiles))
 
   // Helper to find a file node by path
   const findNodeByPath = (nodes: RepositoryFileNode[], path: string): RepositoryFileNode | null => {
@@ -26,7 +32,7 @@ export default function RepositoryExplorer() {
   }
 
   const handleSymbolClick = (filePath: string) => {
-    const node = findNodeByPath(repositorySnapshot.tree, filePath)
+    const node = findNodeByPath(repositoryTree, filePath)
     if (node) setSelectedFile(node)
   }
 
@@ -45,7 +51,7 @@ export default function RepositoryExplorer() {
             </div>
           )}
           <div className="text-xs text-gray-500 border-l border-[#333] pl-4">
-            {repositorySnapshot.totalFiles} files • {repositorySnapshot.ecosystem}
+            {repositorySnapshot.totalFiles ?? repositoryTree.length} files • {repositorySnapshot.ecosystem || 'unknown'}
           </div>
         </div>
       </div>
@@ -53,9 +59,11 @@ export default function RepositoryExplorer() {
       <div className="flex flex-1 min-h-0">
         {/* Left: File Tree */}
         <div className="w-1/2 border-r border-[#333] p-4 overflow-y-auto bg-[#252526]">
-          <div className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-4">Workspace Files</div>
+          <div className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-4">
+            {showInternalFiles ? 'Workspace Files' : 'App Source'}
+          </div>
           <div className="space-y-1">
-            {repositorySnapshot.tree.map((node, i) => (
+            {repositoryTree.map((node, i) => (
               <FileTreeNode key={i} node={node} onSelect={setSelectedFile} selectedPath={selectedFile?.path} />
             ))}
           </div>
@@ -81,6 +89,39 @@ export default function RepositoryExplorer() {
       </div>
     </div>
   )
+}
+
+function filterInternalFiles(nodes: RepositoryFileNode[], showInternalFiles: boolean): RepositoryFileNode[] {
+  if (showInternalFiles) return nodes
+
+  return nodes
+    .filter((node) => {
+      const path = node.path || node.name || ''
+      return !path.includes('.orchestration') && !path.startsWith('workspaces/') && !path.includes('/.orchestration/')
+    })
+    .map((node) => ({
+      ...node,
+      children: Array.isArray(node.children) ? filterInternalFiles(node.children, showInternalFiles) : undefined,
+    }))
+}
+
+function prioritizeAppFiles(nodes: RepositoryFileNode[]): RepositoryFileNode[] {
+  const priority = (node: RepositoryFileNode) => {
+    const path = node.path || node.name || ''
+    if (path === 'src' || path.startsWith('src/')) return 0
+    if (path === 'public' || path.startsWith('public/')) return 1
+    if (path === 'package.json') return 2
+    if (path.includes('vite.config')) return 3
+    if (path.includes('tsconfig')) return 4
+    return 10
+  }
+
+  return [...nodes]
+    .sort((a, b) => priority(a) - priority(b) || (a.name || '').localeCompare(b.name || ''))
+    .map((node) => ({
+      ...node,
+      children: Array.isArray(node.children) ? prioritizeAppFiles(node.children) : undefined,
+    }))
 }
 
 function FileTreeNode({ node, onSelect, selectedPath }: { node: RepositoryFileNode, onSelect: (node: RepositoryFileNode) => void, selectedPath?: string }) {
@@ -137,7 +178,7 @@ function FileTreeNode({ node, onSelect, selectedPath }: { node: RepositoryFileNo
         </div>
       </div>
       
-      {node.type === 'directory' && expanded && node.children && (
+      {node.type === 'directory' && expanded && Array.isArray(node.children) && (
         <div className="pl-4 mt-1 border-l border-[#333] ml-2 space-y-1">
           {node.children.map((child, i) => (
             <FileTreeNode key={i} node={child} onSelect={onSelect} selectedPath={selectedPath} />
@@ -147,4 +188,3 @@ function FileTreeNode({ node, onSelect, selectedPath }: { node: RepositoryFileNo
     </div>
   )
 }
-

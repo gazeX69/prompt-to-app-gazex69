@@ -20,7 +20,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.routes.generate import router as generate_router
 from backend.routes.execute import router as execute_router
 from backend.routes.workspaces import router as workspaces_router
-from backend.sockets.manager import sio, emit_terminal_line, emit_agent_state, emit_agent_activity, emit_preview_ready
+from backend.sockets.manager import sio, emit_terminal_line, emit_agent_state, emit_agent_activity, emit_preview_ready, emit_runtime_error, emit_runtime_lifecycle_event
 from backend.core.config import settings
 from backend.runtime_client.client import runtime_client
 from backend.core.skills.registry import register_skill
@@ -31,6 +31,19 @@ from backend.core.skills.builtin.php_basic import PhpBasicSkill
 
 logger = logging.getLogger(__name__)
 load_dotenv()
+
+
+def _runtime_error_from_payload(payload: dict, fallback_code: str, fallback_message: str) -> dict:
+    error = payload.get("error") if isinstance(payload.get("error"), dict) else {}
+    return {
+        "code": error.get("code") or payload.get("code") or fallback_code,
+        "message": error.get("message") or payload.get("message") or fallback_message,
+        "detail": error.get("detail") or {},
+        "severity": error.get("severity"),
+        "recoverable": error.get("recoverable"),
+        "timestamp": error.get("timestamp"),
+        "suggested_action": error.get("suggestedAction"),
+    }
 
 
 async def _bridge_runtime_event(event_type: str, payload: dict):
@@ -51,6 +64,90 @@ async def _bridge_runtime_event(event_type: str, payload: dict):
         )
     elif event_type == "PREVIEW_READY":
         await emit_preview_ready(payload.get("id", ""), payload.get("url", ""))
+    elif event_type == "RUNTIME_LIFECYCLE":
+        await emit_runtime_lifecycle_event(payload)
+    elif event_type == "RUNTIME_PORT_CONFLICT":
+        conflict = payload.get("conflict") or {}
+        process = conflict.get("processName") or "unknown process"
+        pid = conflict.get("pid") or "unknown pid"
+        runtime_error = _runtime_error_from_payload(
+            payload,
+            "RUNTIME_PORT_CONFLICT",
+            "Runtime port conflict detected",
+        )
+        await emit_terminal_line(
+            f"[{runtime_error['code']}] {runtime_error['message']} (process={process}, pid={pid})",
+            "stderr",
+            payload.get("id"),
+        )
+        await emit_runtime_error(
+            runtime_error["code"],
+            runtime_error["message"],
+            detail=runtime_error["detail"],
+            severity=runtime_error["severity"],
+            recoverable=runtime_error["recoverable"],
+            timestamp=runtime_error["timestamp"],
+            suggested_action=runtime_error["suggested_action"],
+            project_id=payload.get("id"),
+            source="runtime",
+        )
+    elif event_type == "RUNTIME_HEALTHCHECK_STARTED":
+        await emit_agent_activity(
+            f"Runtime health check started on port {payload.get('port', '?')}",
+            payload.get("id"),
+        )
+    elif event_type == "RUNTIME_HEALTHCHECK_FAILED":
+        runtime_error = _runtime_error_from_payload(
+            payload,
+            "RUNTIME_HEALTH_TIMEOUT",
+            "Runtime health check timed out",
+        )
+        await emit_terminal_line(
+            f"[{runtime_error['code']}] {runtime_error['message']}",
+            "stderr",
+            payload.get("id"),
+        )
+        await emit_runtime_error(
+            runtime_error["code"],
+            runtime_error["message"],
+            detail=runtime_error["detail"],
+            severity=runtime_error["severity"],
+            recoverable=runtime_error["recoverable"],
+            timestamp=runtime_error["timestamp"],
+            suggested_action=runtime_error["suggested_action"],
+            project_id=payload.get("id"),
+            source="runtime",
+        )
+        await emit_agent_state("FAILED", payload.get("id"))
+    elif event_type == "RUNTIME_READY":
+        await emit_agent_activity(
+            f"Runtime ready on port {payload.get('port', '?')}",
+            payload.get("id"),
+        )
+        await emit_agent_state("PREVIEW_READY", payload.get("id"))
+    elif event_type == "RUNTIME_SPAWN_FAILED":
+        runtime_error = _runtime_error_from_payload(
+            payload,
+            "RUNTIME_PROCESS_CRASH",
+            "Runtime spawn failed",
+        )
+        await emit_terminal_line(
+            f"[{runtime_error['code']}] {runtime_error['message']}",
+            "stderr",
+            payload.get("id"),
+        )
+        await emit_runtime_error(
+            runtime_error["code"],
+            runtime_error["message"],
+            detail=runtime_error["detail"],
+            severity=runtime_error["severity"],
+            recoverable=runtime_error["recoverable"],
+            timestamp=runtime_error["timestamp"],
+            suggested_action=runtime_error["suggested_action"],
+            project_id=payload.get("id"),
+            source="runtime",
+        )
+        await emit_agent_state("FAILED", payload.get("id"))
     elif event_type == "SESSION_FAILED":
         await emit_agent_state("failed", payload.get("id"))
         await emit_agent_activity(f"Session Error: {payload.get('error', 'unknown')}", payload.get("id"))

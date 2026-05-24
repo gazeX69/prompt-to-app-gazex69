@@ -13,6 +13,8 @@ interface FileInspectorProps {
 export default function FileInspector({ file, onSymbolClick }: FileInspectorProps) {
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
+  const filePath = typeof file?.path === "string" ? file.path : ""
+  const fileName = typeof file?.name === "string" ? file.name : "Unknown file"
   
   const [content, setContent] = useState("")
   const [sizeBytes, setSizeBytes] = useState(0)
@@ -26,7 +28,10 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
   const [patches, setPatches] = useState<(PatchMetadata & { replay?: ReplayReport, simulation?: SimulationReport })[]>([])
   
   useEffect(() => {
-    if (!activeWorkspaceId || !file) return
+    if (!activeWorkspaceId || !filePath) {
+      if (file && !filePath) setError("File metadata is missing a path.")
+      return
+    }
     
     // Reset state
     setContent("")
@@ -40,21 +45,21 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
     setPatches([])
     
     // Encode path for API
-    const encodedPath = btoa(file.path).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+    const encodedPath = btoa(filePath).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
     
     fetchFileContent(activeWorkspaceId, encodedPath, activeRunId || undefined)
       .then(res => {
-        setContent(res.content)
-        setSizeBytes(res.sizeBytes)
-        setLanguage(res.language)
-        setTruncated(res.truncated)
+        setContent(typeof res?.content === "string" ? res.content : "")
+        setSizeBytes(Number.isFinite(Number(res?.sizeBytes)) ? Number(res.sizeBytes) : 0)
+        setLanguage(typeof res?.language === "string" ? res.language : "")
+        setTruncated(Boolean(res?.truncated))
         if (res.error) setError(res.error)
       })
       .catch(e => setError(e.message))
       
     fetchSymbols(activeWorkspaceId, activeRunId || undefined, encodedPath)
       .then(res => {
-        setSymbols(res)
+        setSymbols(Array.isArray(res) ? res : [])
       })
       .catch(console.error)
 
@@ -66,7 +71,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
       
     fetchRegions(activeWorkspaceId, encodedPath, activeRunId || undefined)
       .then(res => {
-        setRegions(res)
+        setRegions(Array.isArray(res) ? res : [])
       })
       .catch(console.error)
 
@@ -75,24 +80,32 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
       fetchReplays(activeWorkspaceId, activeRunId || undefined),
       fetchSimulations(activeWorkspaceId, activeRunId || undefined)
     ]).then(([patchRes, replayRes, simRes]) => {
-      const filePatches = patchRes.grounded_patches.filter(p => file.path.endsWith(p.target_file || '') || p.target_file === file.path)
+      const groundedPatches = Array.isArray(patchRes?.grounded_patches) ? patchRes.grounded_patches : []
+      const replayReports = Array.isArray(replayRes?.replay_reports) ? replayRes.replay_reports : []
+      const simulationReports = Array.isArray(simRes?.simulation_reports) ? simRes.simulation_reports : []
+      const filePatches = groundedPatches.filter(p => filePath.endsWith(p.target_file || '') || p.target_file === filePath)
       
       const enrichedPatches = filePatches.map((p, i) => {
         const patchId = p.patch_type + `_${i}`
-        const replay = replayRes.replay_reports.find(r => r.patch_id === patchId)
-        const simulation = simRes.simulation_reports.find(r => r.patch_id === patchId)
+        const replay = replayReports.find(r => r.patch_id === patchId)
+        const simulation = simulationReports.find(r => r.patch_id === patchId)
         return { ...p, replay, simulation }
       })
       
       setPatches(enrichedPatches)
     }).catch(console.error)
       
-  }, [activeWorkspaceId, activeRunId, file])
+  }, [activeWorkspaceId, activeRunId, file, filePath])
 
-  const imports = symbols.filter((s: SymbolMetadata) => s.type === 'import')
-  const exports = symbols.filter((s: SymbolMetadata) => s.exported && s.type !== 'import')
-  const components = symbols.filter((s: SymbolMetadata) => s.type === 'component')
-  const functions = symbols.filter((s: SymbolMetadata) => s.type === 'function')
+  const safeSymbols = Array.isArray(symbols) ? symbols : []
+  const safeRegions = Array.isArray(regions) ? regions : []
+  const safePatches = Array.isArray(patches) ? patches : []
+  const importedBy = Array.isArray(references?.imported_by) ? references.imported_by : []
+  const ownershipChain = Array.isArray(references?.ownership_chain) ? references.ownership_chain : []
+  const imports = safeSymbols.filter((s: SymbolMetadata) => s.type === 'import')
+  const exports = safeSymbols.filter((s: SymbolMetadata) => s.exported && s.type !== 'import')
+  const components = safeSymbols.filter((s: SymbolMetadata) => s.type === 'component')
+  const functions = safeSymbols.filter((s: SymbolMetadata) => s.type === 'function')
   
   return (
     <div className="flex h-full bg-[#1e1e1e] text-gray-300 font-mono">
@@ -102,8 +115,8 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
           <div className="flex items-center space-x-3 truncate">
             <FileCode className="w-5 h-5 text-blue-400 shrink-0" />
             <div className="truncate">
-              <h2 className="text-lg text-gray-100 font-medium truncate">{file.name}</h2>
-              <p className="text-xs text-gray-500 truncate">{file.path}</p>
+              <h2 className="text-lg text-gray-100 font-medium truncate">{fileName}</h2>
+              <p className="text-xs text-gray-500 truncate">{filePath || 'Missing file path'}</p>
             </div>
           </div>
           <div className="flex items-center space-x-4 shrink-0 pl-4">
@@ -140,7 +153,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
           <div className="space-y-3">
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-400">Ownership</span>
-              <span className="text-purple-400">{references ? references.ownership_chain.join(" ") : (file.ownershipLabel || 'None')}</span>
+              <span className="text-purple-400">{references ? (ownershipChain.length > 0 ? ownershipChain.join(" ") : 'None') : (file.ownershipLabel || 'None')}</span>
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-400">Blast Radius</span>
@@ -159,17 +172,17 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
             </div>
             <div className="flex justify-between items-center text-sm">
               <span className="text-gray-400">Imported By</span>
-              <span className="text-blue-400">{references?.imported_by?.length ?? 0} files</span>
+              <span className="text-blue-400">{importedBy.length} files</span>
             </div>
           </div>
         </div>
         
-        {references && references.imported_by.length > 0 && (
+        {references && importedBy.length > 0 && (
           <div className="p-4 border-b border-[#333]">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Cross-References</h3>
             <div className="text-[10px] uppercase text-gray-500 mb-2 flex items-center"><GitMerge className="w-3 h-3 mr-1" /> Imported By</div>
             <div className="space-y-1">
-              {references.imported_by.map((path: string, i: number) => (
+              {importedBy.map((path: string, i: number) => (
                 <div key={i} className="text-xs text-blue-300 truncate cursor-pointer hover:text-blue-100 hover:underline flex items-center" onClick={() => onSymbolClick(path)} title={path}>
                   <ArrowRight className="w-3 h-3 mr-1 opacity-50 shrink-0" /> <span className="truncate">{path}</span>
                 </div>
@@ -178,15 +191,15 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
           </div>
         )}
         
-        {regions.length > 0 && (
+        {safeRegions.length > 0 && (
           <div className="p-4 border-b border-[#333]">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Detected Regions</h3>
             <div className="space-y-2">
-              {regions.map((r, i) => (
+              {safeRegions.map((r, i) => (
                 <div key={i} className="flex items-center justify-between text-xs">
                   <div className="flex items-center text-gray-300">
                     <Layout className="w-3 h-3 mr-1.5 text-gray-500" />
-                    <span className="capitalize">{r.type.replace('_', ' ')}</span>
+                    <span className="capitalize">{String(r.type || 'unknown').replace('_', ' ')}</span>
                     {r.name && <span className="ml-1 text-gray-500">({r.name})</span>}
                   </div>
                   <span className="text-gray-500 font-mono">L{r.start_line}-L{r.end_line}</span>
@@ -196,11 +209,11 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
           </div>
         )}
         
-        {patches.length > 0 && (
+        {safePatches.length > 0 && (
           <div className="p-4 border-b border-[#333]">
             <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Pending Patches (Dry Run)</h3>
             <div className="space-y-3">
-              {patches.map((p, i) => (
+              {safePatches.map((p, i) => (
                 <div key={i} className="border border-green-500/20 bg-green-500/5 rounded p-2 text-xs">
                   <div className="flex justify-between mb-1">
                     <span className="text-green-400 font-bold">{p.patch_type}</span>
@@ -208,7 +221,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
                       {(p.confidence_score * 100).toFixed(0)}% Conf
                     </span>
                   </div>
-                  <div className="text-gray-400">Target: L{p.target_region.start_line}-L{p.target_region.end_line}</div>
+                    <div className="text-gray-400">Target: L{p.target_region?.start_line ?? '-'}-L{p.target_region?.end_line ?? '-'}</div>
                   {p.target_symbol && <div className="text-gray-500 mt-1">Symbol: {p.target_symbol}</div>}
                   
                   {p.replay && (
@@ -230,7 +243,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
                       </div>
                       {p.replay.drift_state === 'shifted' && (
                         <div className="text-blue-400">
-                          Relocated: L{p.replay.relocated_region.start_line}-L{p.replay.relocated_region.end_line} ({(p.replay.relocation_confidence * 100).toFixed(0)}% Conf)
+                          Relocated: L{p.replay.relocated_region?.start_line ?? '-'}-L{p.replay.relocated_region?.end_line ?? '-'} ({(p.replay.relocation_confidence * 100).toFixed(0)}% Conf)
                         </div>
                       )}
                       {p.replay.duplicate_injection_detected && (
@@ -250,15 +263,15 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
                           Sim Status: {p.simulation.status.toUpperCase()}
                         </span>
                         {p.simulation.status === 'applied' && (
-                          <span className={p.simulation.syntax_sanity.passed ? 'text-green-400' : 'text-red-400'}>
-                            {p.simulation.syntax_sanity.passed ? 'Syntax: PASS' : 'Syntax: FAIL'}
+                          <span className={p.simulation.syntax_sanity?.passed ? 'text-green-400' : 'text-red-400'}>
+                            {p.simulation.syntax_sanity?.passed ? 'Syntax: PASS' : 'Syntax: FAIL'}
                           </span>
                         )}
                       </div>
                       
                       {p.simulation.status === 'skipped' ? (
                         <div className="text-gray-400">
-                          Reasons: {p.simulation.skipped_reasons.join(', ')}
+                          Reasons: {Array.isArray(p.simulation.skipped_reasons) ? p.simulation.skipped_reasons.join(', ') : 'No skip reason provided'}
                         </div>
                       ) : (
                         <>
@@ -266,9 +279,9 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
                             <span>Lines: {p.simulation.before_line_count} → {p.simulation.after_line_count}</span>
                             <span>Conf: {(p.simulation.simulation_confidence_score * 100).toFixed(0)}%</span>
                           </div>
-                          {!p.simulation.syntax_sanity.passed && (
+                          {!p.simulation.syntax_sanity?.passed && (
                             <div className="text-red-400">
-                              Imbalance: {JSON.stringify(p.simulation.syntax_sanity.balance)}
+                              Imbalance: {JSON.stringify(p.simulation.syntax_sanity?.balance || {})}
                             </div>
                           )}
                         </>
@@ -337,7 +350,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
               </div>
             )}
             
-            {symbols.length === 0 && (
+            {safeSymbols.length === 0 && (
               <div className="text-xs text-gray-600 italic">No meaningful symbols detected.</div>
             )}
           </div>

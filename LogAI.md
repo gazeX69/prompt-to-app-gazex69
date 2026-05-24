@@ -263,3 +263,138 @@ The backend server running via uvicorn uses SelectorEventLoop on Windows. synci
 - ackend/core/skills/builtin/react_vite.py
 - Frontend components (UI/styling)
 - Laravel or other framework integrations
+
+# SYSTEM AUDIT
+
+## Area
+Artifact Explorer & Workspace Synchronization
+
+## Symptoms
+* Artifact caching might become stale if `activeRunId` changes but file paths in `artifactSnapshots` remain the same base64 encoded paths.
+* `get_run_dir` resolves the `latest` run by falling back to sorting `run_*` directories by `st_mtime`. If a past run is modified, it unexpectedly becomes the "latest", causing a race condition or stale workspace reference.
+* `get_workspace_artifact_content` reads up to 5MB and sets `truncated = True`, but there's no continuous sync or partial read for growing files.
+* Base64 encoding paths for `artifact_id` means files moved/renamed lose their identity.
+
+## Root Cause Hypothesis
+* Workspace metadata and "latest" resolution lack a definitive `state.json` or atomic symlink update, relying on filesystem timestamps (`st_mtime`) which are easily polluted.
+* Frontend relies on a static fetch of `artifactSnapshots` that doesn't subscribe to file tree changes, leading to hydration mismatch if the backend mutates the orchestration files.
+
+## Evidence
+* `backend/core/scanner/workspace_scanner.py`: `run_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)` is the fallback for `latest`.
+* `frontend/src/stores/workspace.store.ts`: `artifactSnapshots` is loaded once during `loadWorkspaceData` and `loadRunData`.
+
+## Risk Level
+MEDIUM
+
+## Recommended Stabilization
+* Use a definitive `run_metadata.json` or an explicit database record to track the `latest` run, avoiding `st_mtime` sorting.
+* Implement a WebSocket event for file tree changes so `ArtifactExplorer` can re-hydrate dynamically instead of on initial load only.
+
+## Constraints
+* preserve current architecture
+* no major refactor
+* no subsystem rewrite
+
+## Codex Repair Task
+Create a `run_index.json` or update SQLite DB to store the absolute latest run instead of relying on `st_mtime` fallback in `workspace_scanner.py`.
+
+---
+
+# SYSTEM AUDIT
+
+## Area
+Runtime Preview Stability
+
+## Symptoms
+* Single concurrency limit per project. Previewing an old run forcibly kills any currently running dev server for that project, even if they belong to different runs.
+* Port allocation loops over 3000-3100 iteratively. It detects process collision, but a crash during startup might leave orphan processes.
+* The frontend forces iframe reload by appending `&t=Date.now()`, which drops the entire DOM state even if the dev server was just HMR reloading.
+
+## Root Cause Hypothesis
+* `_runtime_registry` in `executor.py` uses `server_key = project_id` rather than `f"{project_id}_{run_id}"`. This forcibly evicts any prior run's runtime for the same project.
+* The iframe URL in `PreviewPanel.tsx` forcefully invalidates cache using `Date.now()` on every render when `url` or `runId` changes, which breaks HMR.
+
+## Evidence
+* `backend/sandbox/executor.py`: `server_key = project_id` and `if server_key in _runtime_registry:` it kills the process tree.
+* `frontend/src/panels/PreviewPanel.tsx`: `setIframeUrl(url + "?run_id=" + runId + "&t=" + Date.now())`.
+
+## Risk Level
+HIGH
+
+## Recommended Stabilization
+* Change `server_key` to `project_id_run_id` to allow multiple concurrent runs per project.
+* Remove `Date.now()` from iframe url and rely on standard Vite/React HMR for updates.
+
+## Constraints
+* preserve current architecture
+* no major refactor
+* no subsystem rewrite
+
+## Codex Repair Task
+Change `server_key` in `executor.py` from `project_id` to `f"{project_id}_{run_id}"` and map port allocation per run.
+
+---
+
+# SYSTEM AUDIT
+
+## Area
+Orchestration Drift Risk
+
+## Symptoms
+* Mixed execution models: The planner generates a strictly sequenced `TaskGraph` (in shadow mode), but the actual file writing is driven by a single-shot `complete` call that generates raw files. 
+* High risk of monolithic collapse. The scanner then attempts to validate the raw files against the `TaskGraph`, emitting warnings if the generator failed to separate concerns.
+* Unstable execution chains: Shadow planning and patch simulation happen alongside monolithic full generation.
+
+## Root Cause Hypothesis
+* The system is migrating from a single-shot LLM generator to an agentic planner (`ProjectMapper` -> `TaskGraph` -> `PatchEngine`), but currently executes BOTH, discarding the structural safety of the patch engine for the actual file writes.
+* The LLM prompt explicitly contains rules against monoliths but relies entirely on LLM compliance rather than forcing component-level generation via the task graph.
+
+## Evidence
+* `backend/orchestrator/project_orchestrator.py`: `TaskExecutor` executes `shadow_execution_callback` to build `PatchOperation`s and simulate them. But later, `raw = complete(system_prompt, user_prompt)` generates the entire project in one go using `===FILE===` delimiters, completely bypassing the patch simulator's safety boundaries.
+
+## Risk Level
+CRITICAL
+
+## Recommended Stabilization
+* Transition file generation exclusively to the `PatchEngine` using the generated `TaskGraph`. Stop executing the single-shot `complete()` fallback if the TaskGraph successfully generates patches.
+* If shadow mode is kept, remove the duplication of LLM calls to reduce cost and drift.
+
+## Constraints
+* preserve current architecture
+* no major refactor
+* no subsystem rewrite
+
+## Codex Repair Task
+Disable the monolithic `complete` call in `project_orchestrator.py` and promote the `shadow_execution_callback`'s simulated patches to actual disk writes.
+
+---
+
+# SYSTEM AUDIT
+
+## Area
+Dependency Handling
+
+## Symptoms
+* Installation runs async via `run_in_executor` in `executor.py`, but execution readiness in `project_orchestrator.py` doesn't strictly block runtime launch until dependency installation is complete. 
+* `_validate_react_vite_environment` happens before install/build, but there is no explicit barrier ensuring `npm install` finishes before `npm run dev` in the orchestrator pipeline.
+
+## Root Cause Hypothesis
+* The orchestrator assumes dependency installation is either instantaneous or handled externally. The `run_dev_server_array_async` monitors ports but will crash if `node_modules` is not fully hydrated.
+
+## Evidence
+* `backend/orchestrator/project_orchestrator.py`: Emits `environment_contract` but doesn't track install lockfiles explicitly in the orchestration flow.
+* `backend/sandbox/executor.py`: `run_dev_server_async` starts subprocess directly.
+
+## Risk Level
+MEDIUM
+
+## Recommended Stabilization
+* Add explicit readiness barrier checking `node_modules` existence and `package.json` hash matching lockfile before starting dev server.
+
+## Constraints
+* preserve current architecture
+* no major refactor
+* no subsystem rewrite
+
+## Codex Repair Task
+Implement a dependency readiness barrier in `project_orchestrator.py` before invoking `run_dev_server_array_async`.

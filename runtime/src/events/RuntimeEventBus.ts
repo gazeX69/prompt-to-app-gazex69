@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { RuntimeEventType, RuntimeEvent } from '../types/events.js';
+import { RuntimeEventType, RuntimeEvent, RuntimeLifecycleEvent, RuntimeLifecycleEventType } from '../types/events.js';
 
 class RuntimeEventBus extends EventEmitter {
   constructor() {
@@ -20,6 +20,17 @@ class RuntimeEventBus extends EventEmitter {
     
     // Emit a catch-all event for telemetry/websocket
     this.emit('*', event);
+  }
+
+  public emitLifecycleEvent(
+    type: RuntimeLifecycleEventType,
+    payload: Omit<RuntimeLifecycleEvent, 'type' | 'timestamp'>,
+  ): void {
+    this.emitEvent(RuntimeEventType.RUNTIME_LIFECYCLE, {
+      ...payload,
+      type,
+      timestamp: Date.now(),
+    });
   }
 
   public onEvent(type: RuntimeEventType | '*', listener: (event: RuntimeEvent) => void): void {

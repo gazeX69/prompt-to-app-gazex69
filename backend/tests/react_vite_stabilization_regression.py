@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from backend.models.schemas import GeneratedFile, GenerateRequest
-from backend.runtime_contract import RuntimeErrorCode, can_transition, classify_dependency_import, DEPENDENCY_POLICY
+from backend.runtime_contract import RuntimeErrorCode, can_transition, classify_dependency_import, DEPENDENCY_POLICY, error_payload
 from backend.orchestrator.project_orchestrator import (
     _filter_react_vite_generated_files,
     generate_project_async,
@@ -192,6 +192,27 @@ def test_dependency_policy_classifies_undeclared_imports_without_installing():
     assert classify_dependency_import("react", declared) is None
     assert classify_dependency_import("lodash", declared) == RuntimeErrorCode.E_DEPENDENCY_MISSING
     assert DEPENDENCY_POLICY["mode"] == "declared_only"
+
+
+def test_runtime_error_payload_is_structured_and_serializable():
+    payload = error_payload(
+        "RUNTIME_PORT_CONFLICT",
+        "Port 5173 is occupied; using fallback port 5174",
+        detail={"requestedPort": 5173, "selectedPort": 5174},
+        severity="warning",
+        recoverable=True,
+        suggested_action="Use the selected fallback port or free the configured port.",
+        project_id="phase2-taxonomy",
+        source="runtime",
+    )
+
+    assert payload["code"] == "RUNTIME_PORT_CONFLICT"
+    assert payload["message"]
+    assert payload["detail"]["selectedPort"] == 5174
+    assert payload["severity"] == "warning"
+    assert payload["recoverable"] is True
+    assert isinstance(payload["timestamp"], int)
+    assert payload["suggestedAction"]
 
 
 def test_no_legacy_react_vite_template_configs_remain():

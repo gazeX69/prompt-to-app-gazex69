@@ -27,9 +27,9 @@ export default function ArtifactExplorer() {
     
     fetchArtifactContent(activeWorkspaceId, selectedFile.id, activeRunId || undefined)
       .then((res) => {
-        setContent(res.content)
-        if (res.error) setContentWarning(`Error loading artifact: ${res.error}`)
-        else if (res.truncated) setContentWarning("File too large. Content has been truncated.")
+        setContent(typeof res?.content === "string" ? res.content : "")
+        if (res?.error) setContentWarning(`Error loading artifact: ${res.error}`)
+        else if (res?.truncated) setContentWarning("File too large. Content has been truncated.")
       })
       .catch(() => {
         setContentWarning("Failed to fetch artifact content.")
@@ -38,7 +38,7 @@ export default function ArtifactExplorer() {
         setLoadingContent(false)
       })
       
-  }, [selectedFile, activeWorkspaceId])
+  }, [selectedFile, activeWorkspaceId, activeRunId])
 
   const toggleNode = (id: string) => {
     setExpandedNodes(prev => ({ ...prev, [id]: !prev[id] }))
@@ -48,7 +48,9 @@ export default function ArtifactExplorer() {
     return <div className="p-8 text-gray-500">No active workspace</div>
   }
 
-  if (!artifactSnapshots || artifactSnapshots.length === 0) {
+  const safeArtifacts = Array.isArray(artifactSnapshots) ? artifactSnapshots : []
+
+  if (safeArtifacts.length === 0) {
     return (
       <div className="flex flex-col h-full bg-[#1e1e1e] text-gray-300 font-mono items-center justify-center p-8">
         <Activity className="w-12 h-12 text-gray-600 mb-4 animate-pulse" />
@@ -90,7 +92,7 @@ export default function ArtifactExplorer() {
             {/* Children */}
             {expandedNodes['.orchestration'] && (
               <div className="pl-6 space-y-1 mt-1">
-                {artifactSnapshots.map((file) => (
+                {safeArtifacts.map((file) => (
                   <div 
                     key={file.id} 
                     className={`flex items-center justify-between cursor-pointer p-1 rounded ${selectedFile?.id === file.id ? 'bg-[#37373d] text-white' : 'text-gray-400 hover:text-gray-200 hover:bg-[#333]'}`}
@@ -100,7 +102,7 @@ export default function ArtifactExplorer() {
                       <FileJson className="w-4 h-4 text-yellow-500 shrink-0" />
                       <span className="truncate text-sm">{file.fileName}</span>
                     </div>
-                    <span className="text-[10px] text-gray-500 shrink-0 ml-2">{(file.sizeBytes / 1024).toFixed(1)}kb</span>
+                    <span className="text-[10px] text-gray-500 shrink-0 ml-2">{(Number(file.sizeBytes || 0) / 1024).toFixed(1)}kb</span>
                   </div>
                 ))}
               </div>
@@ -122,7 +124,7 @@ export default function ArtifactExplorer() {
                   <FileJson className="w-4 h-4 text-yellow-500" />
                   <span className="text-sm font-medium text-gray-200">{selectedFile.relativePath}</span>
                 </div>
-                <span className="text-xs text-gray-500">{new Date(selectedFile.updatedAt).toLocaleString()}</span>
+                <span className="text-xs text-gray-500">{Number.isFinite(Number(selectedFile.updatedAt)) ? new Date(selectedFile.updatedAt).toLocaleString() : 'unknown time'}</span>
               </div>
               
               {contentWarning && (
@@ -150,4 +152,3 @@ export default function ArtifactExplorer() {
     </div>
   )
 }
-

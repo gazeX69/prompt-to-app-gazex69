@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { type ExecutionState, isTerminalExecutionState, normalizeExecutionState } from '../runtime/executionContract'
+import { type ExecutionState, type RuntimeExecutionState, type RuntimeLifecycleEvent, type StructuredRuntimeError, isTerminalExecutionState, mapRuntimeLifecycleToState, normalizeExecutionState } from '../runtime/executionContract'
 
 export type AgentState = ExecutionState
 
@@ -24,6 +24,12 @@ interface AgentStore {
   addLog: (log: string) => void
   activities: AgentActivity[]
   addActivity: (message: string) => void
+  lastRuntimeError: StructuredRuntimeError | null
+  setRuntimeError: (error: StructuredRuntimeError) => void
+  latestRuntimeLifecycleEvent: RuntimeLifecycleEvent | null
+  setRuntimeLifecycleEvent: (event: RuntimeLifecycleEvent) => void
+  runtimeState: RuntimeExecutionState
+  setRuntimeState: (state: RuntimeExecutionState) => void
   startTime: number | null
   setStartTime: (time: number | null) => void
   socketConnected: boolean
@@ -39,6 +45,15 @@ export const useAgentStore = create<AgentStore>((set) => ({
   addActivity: (message) => set((state) => ({
     activities: [...state.activities, { id: Math.random().toString(36).substr(2, 9), message, timestamp: Date.now() }]
   })),
+  lastRuntimeError: null,
+  setRuntimeError: (error) => set({ lastRuntimeError: error }),
+  latestRuntimeLifecycleEvent: null,
+  setRuntimeLifecycleEvent: (event) => set({
+    latestRuntimeLifecycleEvent: event,
+    runtimeState: mapRuntimeLifecycleToState(event),
+  }),
+  runtimeState: 'IDLE',
+  setRuntimeState: (state) => set({ runtimeState: state }),
   startTime: null,
   setStartTime: (time) => set({ startTime: time }),
   socketConnected: false,

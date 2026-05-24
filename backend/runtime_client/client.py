@@ -31,12 +31,26 @@ class RuntimeClient:
             resp.raise_for_status()
             return resp.json()
 
-    async def start_dev(self, cmd_id: str, cwd: str) -> dict:
+    async def start_dev(
+        self,
+        cmd_id: str,
+        cwd: str,
+        port: int | None = None,
+        auto_increment_ports: bool = True,
+        max_port_attempts: int = 10,
+        health_timeout_ms: int = 30000,
+    ) -> dict:
+        payload = {
+            "id": cmd_id,
+            "cwd": cwd,
+            "autoIncrementPorts": auto_increment_ports,
+            "maxPortAttempts": max_port_attempts,
+            "healthTimeoutMs": health_timeout_ms,
+        }
+        if port is not None:
+            payload["port"] = port
         async with httpx.AsyncClient() as client:
-            resp = await client.post(f"{self.base_url}/runtime/dev/start", json={
-                "id": cmd_id,
-                "cwd": cwd
-            })
+            resp = await client.post(f"{self.base_url}/runtime/dev/start", json=payload)
             resp.raise_for_status()
             return resp.json()
 

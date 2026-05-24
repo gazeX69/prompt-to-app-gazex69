@@ -1,5 +1,6 @@
-import { Folder, Clock, Activity, Box, Search, Layers, XCircle } from 'lucide-react'
+import { Clock, Activity, Layers, XCircle, Play, Code2 } from 'lucide-react'
 import { useWorkspaceStore } from '../stores/workspace.store'
+import { useAgentStore } from '../stores/agent.store'
 
 interface SidebarPanelProps {
   activeView: string
@@ -10,6 +11,7 @@ export default function SidebarPanel({ activeView, onViewChange }: SidebarPanelP
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const workspaces = useWorkspaceStore(s => s.workspaces)
   const closeWorkspace = useWorkspaceStore(s => s.closeWorkspace)
+  const runtimeState = useAgentStore(s => s.runtimeState)
   
   const ws = activeWorkspaceId ? workspaces[activeWorkspaceId] : null
 
@@ -28,13 +30,12 @@ export default function SidebarPanel({ activeView, onViewChange }: SidebarPanelP
       {/* Navigation Sections */}
       <div className="flex-1 overflow-y-auto py-2">
         
-        <SidebarSection title="Observability">
-          <SidebarItem icon={<Activity className="w-4 h-4" />} label="Overview" active={activeView === 'overview'} onClick={() => onViewChange('overview')} />
-          <SidebarItem icon={<Folder className="w-4 h-4" />} label="Repository" active={activeView === 'repository'} onClick={() => onViewChange('repository')} />
+        <SidebarSection title="Workspace">
           <SidebarItem icon={<Layers className="w-4 h-4" />} label="Generate" active={activeView === 'generate'} onClick={() => onViewChange('generate')} />
-          <SidebarItem icon={<Clock className="w-4 h-4" />} label="Run History" active={activeView === 'history'} onClick={() => onViewChange('history')} />
-          <SidebarItem icon={<Box className="w-4 h-4" />} label="Artifact Explorer" active={activeView === 'artifacts'} onClick={() => onViewChange('artifacts')} />
-          <SidebarItem icon={<Search className="w-4 h-4" />} label="Runtime Inspector" active={activeView === 'inspector'} onClick={() => onViewChange('inspector')} />
+          <SidebarItem icon={<Play className="w-4 h-4" />} label="Preview" active={activeView === 'preview'} onClick={() => onViewChange('preview')} />
+          <SidebarItem icon={<Code2 className="w-4 h-4" />} label="Source" active={activeView === 'source'} onClick={() => onViewChange('source')} />
+          <SidebarItem icon={<Activity className="w-4 h-4" />} label="Runtime" active={activeView === 'runtime'} onClick={() => onViewChange('runtime')} />
+          <SidebarItem icon={<Clock className="w-4 h-4" />} label="History" active={activeView === 'history'} onClick={() => onViewChange('history')} />
         </SidebarSection>
 
         {ws && (
@@ -45,9 +46,9 @@ export default function SidebarPanel({ activeView, onViewChange }: SidebarPanelP
                 <span className="text-blue-400">{ws.ecosystem}</span>
               </div>
               <div className="flex justify-between">
-                <span>Health:</span>
-                <span className={ws.runtimeHealth === 'healthy' ? 'text-green-400' : 'text-yellow-400'}>
-                  {ws.runtimeHealth}
+                <span>Runtime:</span>
+                <span className={runtimeState === 'READY' ? 'text-green-400' : runtimeState === 'FAILED' ? 'text-red-400' : 'text-yellow-400'}>
+                  {runtimeState}
                 </span>
               </div>
               <div className="flex justify-between">

@@ -88,6 +88,11 @@ async def emit_preview_ready(project_id: str, url: str, run_id: Optional[str] = 
 async def emit_runtime_error(
     code: str | RuntimeErrorCode,
     message: str,
+    detail: Optional[dict] = None,
+    severity: Optional[str] = None,
+    recoverable: Optional[bool] = None,
+    timestamp: Optional[int | float] = None,
+    suggested_action: Optional[str] = None,
     project_id: Optional[str] = None,
     run_id: Optional[str] = None,
     source: str = "runtime",
@@ -95,9 +100,31 @@ async def emit_runtime_error(
     """
     Emit a structured runtime failure that frontend telemetry and future planners can consume.
     """
-    payload = error_payload(normalize_error_code(code), message, project_id=project_id, run_id=run_id, source=source)
+    payload = error_payload(
+        normalize_error_code(code),
+        message,
+        detail=detail,
+        severity=severity,
+        recoverable=recoverable,
+        timestamp=timestamp,
+        suggested_action=suggested_action,
+        project_id=project_id,
+        run_id=run_id,
+        source=source,
+    )
     await sio.emit('runtime_error', payload)
     await sio.emit('execution_event', {
         'type': 'runtime_error',
+        **payload,
+    })
+
+
+async def emit_runtime_lifecycle_event(payload: dict):
+    """
+    Forward normalized runtime lifecycle events without degrading structured fields.
+    """
+    await sio.emit('runtime_lifecycle_event', payload)
+    await sio.emit('execution_event', {
+        'type': 'runtime_lifecycle_event',
         **payload,
     })
