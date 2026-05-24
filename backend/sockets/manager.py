@@ -156,3 +156,14 @@ async def emit_generation_failure(
         'state': ExecutionState.FAILED.value,
         **payload,
     })
+
+
+async def emit_generation_status(payload: dict):
+    """
+    Broadcast the latest background generation status snapshot.
+    """
+    await sio.emit('generation_status', payload)
+    await sio.emit('execution_event', {
+        'type': 'generation_status',
+        **payload,
+    })

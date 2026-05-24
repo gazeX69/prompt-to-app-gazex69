@@ -6,15 +6,19 @@ Routes handle HTTP concerns only: request validation, response shaping, HTTP err
 """
 
 import asyncio
+import datetime
 import logging
+import time
+import uuid
 from fastapi import APIRouter, HTTPException
 from backend.models.schemas import GenerateRequest, GenerateResponse
 from backend.orchestrator.project_orchestrator import generate_project_async
-from backend.sandbox.executor import record_pre_runtime_failure
-from backend.sockets.manager import emit_agent_state, emit_generation_failure, emit_terminal_line
+from backend.sandbox.executor import get_runtime_status, record_pre_runtime_failure
+from backend.sockets.manager import emit_agent_state, emit_generation_failure, emit_generation_status, emit_terminal_line
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+_generation_status_by_project: dict[str, dict] = {}
 
 
 def _classify_generation_failure_stage(error: str | None) -> str:
@@ -32,27 +36,176 @@ def _classify_generation_failure_stage(error: str | None) -> str:
     return "pre_runtime"
 
 
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+
+def _new_generation_id() -> str:
+    stamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    return f"gen_{stamp}_{uuid.uuid4().hex[:6]}"
+
+
+def _record_generation_status(
+    project_id: str,
+    generation_id: str | None,
+    *,
+    status: str,
+    phase: str,
+    message: str,
+    detail: dict | None = None,
+    runtime_status: dict | None = None,
+) -> dict:
+    previous = _generation_status_by_project.get(project_id) or {}
+    now = _now_ms()
+    snapshot = {
+        "project_id": project_id,
+        "generation_id": generation_id or previous.get("generation_id"),
+        "status": status,
+        "phase": phase,
+        "message": message,
+        "detail": detail or {},
+        "created_at": previous.get("created_at") or now,
+        "updated_at": now,
+        "runtime_run_id": None,
+        "runtime_url": None,
+        "runtime_port": None,
+    }
+    if runtime_status:
+        snapshot["runtime_run_id"] = runtime_status.get("run_id")
+        snapshot["runtime_url"] = runtime_status.get("url")
+        snapshot["runtime_port"] = runtime_status.get("port")
+    _generation_status_by_project[project_id] = snapshot
+    return snapshot
+
+
+async def _record_and_emit_generation_status(
+    project_id: str,
+    generation_id: str | None,
+    *,
+    status: str,
+    phase: str,
+    message: str,
+    detail: dict | None = None,
+    runtime_status: dict | None = None,
+) -> dict:
+    snapshot = _record_generation_status(
+        project_id,
+        generation_id,
+        status=status,
+        phase=phase,
+        message=message,
+        detail=detail,
+        runtime_status=runtime_status,
+    )
+    await emit_generation_status(snapshot)
+    return snapshot
+
+
+@router.get("/status/{project_id}")
+async def generation_status(project_id: str) -> dict:
+    status = _generation_status_by_project.get(project_id)
+    if status:
+        snapshot = dict(status)
+        runtime_status = get_runtime_status(project_id)
+        if snapshot.get("runtime_run_id") and runtime_status.get("run_id") == snapshot.get("runtime_run_id"):
+            runtime_state = runtime_status.get("status")
+            snapshot["runtime_port"] = runtime_status.get("port") if runtime_state == "running" else None
+            snapshot["runtime_url"] = runtime_status.get("url") if runtime_state == "running" else None
+            if runtime_state == "running":
+                snapshot["phase"] = "runtime_ready"
+                snapshot["message"] = "Generation completed and runtime is ready."
+            elif runtime_state == "failed":
+                snapshot["status"] = "failed"
+                snapshot["phase"] = "runtime_failed"
+                snapshot["message"] = runtime_status.get("error") or "Runtime failed after generation completed."
+            elif runtime_state == "stopped":
+                snapshot["phase"] = "completed"
+                snapshot["message"] = "Generation completed; runtime is stopped."
+        return snapshot
+    return {
+        "project_id": project_id,
+        "generation_id": None,
+        "status": "unknown",
+        "phase": "none",
+        "message": "No generation known for this project.",
+        "detail": {},
+        "created_at": None,
+        "updated_at": None,
+        "runtime_run_id": None,
+        "runtime_url": None,
+        "runtime_port": None,
+    }
+
+
 @router.post("", response_model=GenerateResponse)
 async def generate(req: GenerateRequest) -> GenerateResponse:
     """
     Dispatch generation job to the background and immediately return.
     Progress is streamed via WebSockets.
     """
-    asyncio.create_task(run_orchestrator_bg(req))
+    generation_id = _new_generation_id()
+    status_endpoint = f"/generate/status/{req.project_id}"
+    _record_generation_status(
+        req.project_id,
+        generation_id,
+        status="accepted",
+        phase="accepted",
+        message="Generation request accepted and running in the background.",
+    )
+    asyncio.create_task(run_orchestrator_bg(req, generation_id))
     return GenerateResponse(
         success=True,
         project_id=req.project_id,
-        files_written=[]
+        files_written=[],
+        accepted=True,
+        status="accepted",
+        generation_id=generation_id,
+        status_endpoint=status_endpoint,
+        message="Generation request accepted and running in the background.",
     )
 
-async def run_orchestrator_bg(req: GenerateRequest):
+async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = None):
     try:
+        await _record_and_emit_generation_status(
+            req.project_id,
+            generation_id,
+            status="generating",
+            phase="generating",
+            message="Generation is running.",
+        )
         result = await generate_project_async(req)
         if not result.success:
             message = result.error or "Generation failed before runtime launch"
             stage = _classify_generation_failure_stage(message)
-            if stage != "runtime":
+            if stage == "runtime":
+                runtime_status = get_runtime_status(req.project_id)
+                await _record_and_emit_generation_status(
+                    req.project_id,
+                    generation_id,
+                    status="failed",
+                    phase="runtime_failed",
+                    message=message,
+                    detail={
+                        "files_written": result.files_written,
+                        "repair_attempts": result.repair_attempts,
+                    },
+                    runtime_status=runtime_status,
+                )
+            else:
                 await record_pre_runtime_failure(req.project_id, message, stage=stage)
+                runtime_status = get_runtime_status(req.project_id)
+                await _record_and_emit_generation_status(
+                    req.project_id,
+                    generation_id,
+                    status="failed",
+                    phase=stage,
+                    message=message,
+                    detail={
+                        "files_written": result.files_written,
+                        "repair_attempts": result.repair_attempts,
+                    },
+                    runtime_status=runtime_status,
+                )
                 await emit_generation_failure(
                     req.project_id,
                     message,
@@ -63,11 +216,36 @@ async def run_orchestrator_bg(req: GenerateRequest):
                     },
                 )
                 await emit_terminal_line(f"[GenerationFailed] stage={stage}: {message}", "stderr", req.project_id)
+            return
+
+        runtime_status = get_runtime_status(req.project_id)
+        runtime_running = runtime_status.get("status") == "running"
+        await _record_and_emit_generation_status(
+            req.project_id,
+            generation_id,
+            status="succeeded",
+            phase="runtime_ready" if runtime_running else "completed",
+            message="Generation completed and runtime is ready." if runtime_running else "Generation completed.",
+            detail={
+                "files_written": result.files_written,
+                "repair_attempts": result.repair_attempts,
+            },
+            runtime_status=runtime_status,
+        )
     except Exception as e:
         logger.exception(f"Background orchestrator failed: {e}")
         try:
             stage = "generation"
             await record_pre_runtime_failure(req.project_id, str(e), stage=stage)
+            runtime_status = get_runtime_status(req.project_id)
+            await _record_and_emit_generation_status(
+                req.project_id,
+                generation_id,
+                status="failed",
+                phase=stage,
+                message=str(e),
+                runtime_status=runtime_status,
+            )
             await emit_generation_failure(req.project_id, str(e), stage=stage)
             await emit_agent_state("failed", req.project_id)
             await emit_terminal_line(f"Orchestrator crashed: {e}", "stderr", req.project_id)

@@ -110,6 +110,34 @@ function onGenerationFailed(data: {
   useAgentStore.getState().addActivity(`Generation failed before runtime (${stage})`)
 }
 
+function onGenerationStatus(data: {
+  project_id?: string | null
+  generation_id?: string | null
+  status?: string
+  phase?: string
+  message?: string
+  detail?: Record<string, unknown>
+  created_at?: number | null
+  updated_at?: number | null
+  runtime_run_id?: string | null
+  runtime_url?: string | null
+  runtime_port?: number | null
+}) {
+  usePreviewStore.getState().setGenerationStatus({
+    project_id: data.project_id || null,
+    generation_id: data.generation_id || null,
+    status: data.status || 'unknown',
+    phase: data.phase || 'none',
+    message: data.message || '',
+    detail: data.detail || {},
+    created_at: data.created_at ?? null,
+    updated_at: data.updated_at ?? null,
+    runtime_run_id: data.runtime_run_id || null,
+    runtime_url: data.runtime_url || null,
+    runtime_port: data.runtime_port ?? null,
+  })
+}
+
 function lifecycleStatus(type: RuntimeLifecycleEvent['type']): string {
   if (type === 'runtime.ready') return 'running'
   if (type === 'runtime.stopped') return 'stopped'
@@ -127,6 +155,10 @@ function parsePreviewPort(url: string): number | null {
 }
 
 function onExecutionEvent(data: { type: string; state?: string; code?: string; message?: string; project_id?: string | null; run_id?: string | null; stage?: string; timestamp?: number }) {
+  if (data.type === 'generation_status') {
+    onGenerationStatus(data)
+    return
+  }
   if (data.type === 'generation_failed') {
     onGenerationFailed(data)
     return

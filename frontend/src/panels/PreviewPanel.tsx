@@ -7,7 +7,7 @@ import { useWorkspaceStore } from '../stores/workspace.store'
 import { api } from '../services/api'
 
 export default function PreviewPanel() {
-  const { url, isReloading, refreshToken, hardRefresh, runtimeStatus, generationFailure, setRuntimeStatus, clear } = usePreviewStore()
+  const { url, isReloading, refreshToken, hardRefresh, runtimeStatus, generationFailure, generationStatus, setRuntimeStatus, clear } = usePreviewStore()
   const { state, activities, runtimeState, latestRuntimeLifecycleEvent } = useAgentStore()
   const { lines } = useTerminalStore()
   const activeWorkspaceId = useWorkspaceStore((store) => store.activeWorkspaceId)
@@ -95,6 +95,9 @@ export default function PreviewPanel() {
   const ownerRun = runtimeStatus?.run_id || (runId !== 'legacy' ? runId : null)
   const ownerPort = runtimeStatus?.port ?? latestRuntimeLifecycleEvent?.selectedPort ?? latestRuntimeLifecycleEvent?.requestedPort
   const canStopRuntime = Boolean(runtimeProjectId && runtimeStatus?.status && runtimeStatus.status !== 'stopped' && runtimeStatus.status !== 'failed')
+  const generationLabel = generationStatus
+    ? `${generationStatus.status}${generationStatus.phase ? ` / ${generationStatus.phase}` : ''}`
+    : null
 
   return (
     <div className="flex flex-col h-full bg-background min-w-0">
@@ -109,7 +112,7 @@ export default function PreviewPanel() {
         <div className="flex-1 min-w-0">
           <div className="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Preview</div>
           <div className="h-7 bg-background border border-border rounded flex items-center px-3 text-[12px] text-gray-300 truncate max-w-xl">
-            {displayUrl}{ownerPort ? ` · :${ownerPort}` : ''}{ownerRun ? ` · ${ownerRun}` : ''}
+            {displayUrl}{ownerPort ? ` · :${ownerPort}` : ''}{ownerRun ? ` · ${ownerRun}` : ''}{generationLabel ? ` · ${generationLabel}` : ''}
           </div>
         </div>
         
@@ -198,7 +201,11 @@ export default function PreviewPanel() {
                   <Globe className="w-5 h-5 text-gray-400" />
                 </div>
                 <p className="text-[13px] font-medium text-gray-300">Preview Offline</p>
-                <p className="text-[12px] mt-1 text-gray-500">Generate an app or wait for the runtime to become ready.</p>
+                <p className="text-[12px] mt-1 text-gray-500">
+                  {generationStatus?.status === 'accepted' || generationStatus?.status === 'generating'
+                    ? generationStatus.message || 'Generation is running in the background.'
+                    : 'Generate an app or wait for the runtime to become ready.'}
+                </p>
               </>
             )}
           </div>

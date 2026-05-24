@@ -30,6 +30,11 @@ class GenerateResponse(BaseModel):
     files_written: list[str] = []
     repair_attempts: int = 0
     error: Optional[str] = None
+    accepted: bool = False
+    status: Optional[str] = None
+    generation_id: Optional[str] = None
+    status_endpoint: Optional[str] = None
+    message: Optional[str] = None
 
 
 class ExecuteRequest(BaseModel):
