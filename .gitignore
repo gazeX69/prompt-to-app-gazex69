@@ -96,7 +96,12 @@ captures/
 workspaces/
 workshop/
 generated/
+
 sandbox/
+sandbox/
+!backend/sandbox/
+!backend/sandbox/**
+
 runtime-output/
 
 # =========================================================

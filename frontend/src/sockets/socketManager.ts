@@ -13,6 +13,9 @@ function onAgentState(state: string) {
   useAgentStore.getState().setState(normalizedState)
   const runtimeState = mapExecutionToRuntimeState(normalizedState)
   if (runtimeState) useAgentStore.getState().setRuntimeState(runtimeState)
+  if (normalizedState === 'STARTING_PREVIEW' || normalizedState === 'FAILED') {
+    usePreviewStore.getState().clear()
+  }
 }
 
 function onAgentActivity(data: { message: string; project_id: string }) {
@@ -36,6 +39,17 @@ function onRuntimeError(data: StructuredRuntimeError) {
 
 function onRuntimeLifecycleEvent(data: RuntimeLifecycleEvent) {
   useAgentStore.getState().setRuntimeLifecycleEvent(data)
+  if (
+    data.type === 'runtime.spawn.started' ||
+    data.type === 'runtime.stopping' ||
+    data.type === 'runtime.stopped' ||
+    data.type === 'runtime.spawn.failed' ||
+    data.type === 'runtime.stop.failed' ||
+    data.type === 'runtime.healthcheck.failed' ||
+    data.type === 'runtime.crashed'
+  ) {
+    usePreviewStore.getState().clear()
+  }
 }
 
 function onExecutionEvent(data: { type: string; state?: string; code?: string; message?: string }) {

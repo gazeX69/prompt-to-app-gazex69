@@ -29,7 +29,9 @@
     "STARTING",
     "HEALTHCHECK",
     "READY",
-    "FAILED"
+    "RUNNING",
+    "FAILED",
+    "STOPPED"
   ],
   "legacyStateAliases": {
     "idle": "IDLE",

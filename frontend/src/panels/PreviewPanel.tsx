@@ -5,7 +5,7 @@ import { useAgentStore } from '../stores/agent.store'
 import { useTerminalStore } from '../stores/terminal.store'
 
 export default function PreviewPanel() {
-  const { url, isReloading } = usePreviewStore()
+  const { url, isReloading, refreshToken, hardRefresh } = usePreviewStore()
   const { state, activities, runtimeState, latestRuntimeLifecycleEvent } = useAgentStore()
   const { lines } = useTerminalStore()
   
@@ -14,11 +14,11 @@ export default function PreviewPanel() {
 
   useEffect(() => {
     if (url) {
-      setIframeUrl(`${url}?run_id=${runId}&t=${Date.now()}`)
+      setIframeUrl(`${url}?run_id=${runId}&refresh=${refreshToken}&t=${Date.now()}`)
     } else {
       setIframeUrl('')
     }
-  }, [url, runId])
+  }, [url, runId, refreshToken])
   
   useEffect(() => {
     if (iframeUrl) {
@@ -41,7 +41,7 @@ export default function PreviewPanel() {
   })()
 
   const reloadPreview = () => {
-    if (url) setIframeUrl(`${url}?run_id=${runId}&t=${Date.now()}`)
+    if (url) hardRefresh()
   }
 
   const openPreview = () => {
@@ -68,6 +68,7 @@ export default function PreviewPanel() {
         <div className="flex items-center space-x-1 ml-4 shrink-0">
           <div className={`px-2 py-1 rounded border text-[10px] font-mono ${
             runtimeState === 'READY'
+              || runtimeState === 'RUNNING'
               ? 'border-green-500/30 text-green-400 bg-green-500/10'
               : runtimeState === 'FAILED'
                 ? 'border-red-500/30 text-red-400 bg-red-500/10'
@@ -75,7 +76,7 @@ export default function PreviewPanel() {
                   ? 'border-border text-gray-500 bg-background'
                   : 'border-blue-500/30 text-blue-400 bg-blue-500/10'
           }`}>
-            {runtimeState}
+            {runtimeState === 'READY' ? 'RUNNING' : runtimeState}
           </div>
           <button onClick={reloadPreview} disabled={!url} className="p-1.5 text-gray-500 hover:text-gray-200 hover:bg-accent disabled:opacity-40 disabled:cursor-not-allowed rounded transition-colors" title="Refresh preview">
             <RotateCw className={`w-3.5 h-3.5 ${isReloading ? 'animate-spin' : ''}`} />
@@ -90,7 +91,7 @@ export default function PreviewPanel() {
       <div className="flex-1 bg-white relative min-h-0">
         {url && iframeUrl ? (
             <iframe 
-              key={runId}
+              key={`${runId}:${refreshToken}`}
               src={iframeUrl} 
               className="w-full h-full border-none bg-white"
               title="Preview"
@@ -126,7 +127,7 @@ export default function PreviewPanel() {
                     : 'Backend connection unavailable.'}
                 </p>
               </>
-            ) : runtimeState !== 'IDLE' && runtimeState !== 'READY' && runtimeState !== 'FAILED' ? (
+            ) : runtimeState !== 'IDLE' && runtimeState !== 'READY' && runtimeState !== 'RUNNING' && runtimeState !== 'FAILED' && runtimeState !== 'STOPPED' ? (
               <>
                 <div className="w-12 h-12 rounded-xl bg-accent border border-border flex items-center justify-center mb-4">
                   <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />

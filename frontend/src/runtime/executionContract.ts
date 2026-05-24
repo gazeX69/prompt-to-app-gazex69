@@ -23,6 +23,9 @@ export interface StructuredRuntimeError {
 export type RuntimeLifecycleEventType =
   | 'runtime.spawn.started'
   | 'runtime.spawn.failed'
+  | 'runtime.stopping'
+  | 'runtime.stopped'
+  | 'runtime.stop.failed'
   | 'runtime.port.conflict'
   | 'runtime.healthcheck.started'
   | 'runtime.healthcheck.failed'
@@ -46,16 +49,21 @@ export function mapRuntimeLifecycleToState(event: RuntimeLifecycleEvent): Runtim
   switch (event.type) {
     case 'runtime.spawn.started':
       return 'STARTING'
+    case 'runtime.stopping':
+      return 'STARTING'
+    case 'runtime.stopped':
+      return 'STOPPED'
     case 'runtime.port.conflict':
       return event.fallbackUsed ? 'CHECKING_PORTS' : 'FAILED'
     case 'runtime.spawn.failed':
+    case 'runtime.stop.failed':
     case 'runtime.healthcheck.failed':
     case 'runtime.crashed':
       return 'FAILED'
     case 'runtime.healthcheck.started':
       return 'HEALTHCHECK'
     case 'runtime.ready':
-      return 'READY'
+      return 'RUNNING'
     default:
       return 'FAILED'
   }

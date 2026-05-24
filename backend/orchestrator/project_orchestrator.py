@@ -734,7 +734,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
         valid, err = await _validate_react_vite_environment(req.project_id, run_id, "before truth markers")
         if not valid:
             await emit_agent_state("failed", req.project_id)
-            await emit_runtime_error(_first_error_code(err), err or "React/Vite contract failed before install", req.project_id, run_id, "environment_contract")
+            await emit_runtime_error(
+                _first_error_code(err),
+                err or "React/Vite contract failed before install",
+                project_id=req.project_id,
+                run_id=run_id,
+                source="environment_contract",
+            )
             await _log_error_async(req.project_id, run_id, f"React/Vite contract failed before install:\n{err}")
             return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
 
@@ -745,7 +751,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
         valid, err = await _validate_react_vite_environment(req.project_id, run_id, "before install/build")
         if not valid:
             await emit_agent_state("failed", req.project_id)
-            await emit_runtime_error(_first_error_code(err), err or "React/Vite contract failed before install", req.project_id, run_id, "environment_contract")
+            await emit_runtime_error(
+                _first_error_code(err),
+                err or "React/Vite contract failed before install",
+                project_id=req.project_id,
+                run_id=run_id,
+                source="environment_contract",
+            )
             await _log_error_async(req.project_id, run_id, f"React/Vite contract failed before install:\n{err}")
             return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
 
@@ -893,7 +905,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
             failure_type = classify_react_vite_failure(build_res.stdout or "", build_res.stderr or "") if skill_name == "react-vite" else RuntimeErrorCode.E_BUILD_FAILURE.value
             if skill_name == "react-vite":
                 await emit_terminal_line(f"[RepairClassifier] Classified build failure as: {failure_type}", "info", req.project_id)
-                await emit_runtime_error(failure_type, "Build failed and was classified before repair", req.project_id, run_id, "build")
+                await emit_runtime_error(
+                    failure_type,
+                    "Build failed and was classified before repair",
+                    project_id=req.project_id,
+                    run_id=run_id,
+                    source="build",
+                )
 
             if failure_type in {
                 RuntimeErrorCode.E_TS_REFERENCE_INVALID.value,
@@ -1014,7 +1032,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
         if not dev_res.success:
             await emit_agent_state("failed", req.project_id)
             err = dev_res.error or "Dev server failed"
-            await emit_runtime_error(RuntimeErrorCode.E_PREVIEW_UNREACHABLE, err, req.project_id, run_id, "preview")
+            await emit_runtime_error(
+                RuntimeErrorCode.E_PREVIEW_UNREACHABLE,
+                err,
+                project_id=req.project_id,
+                run_id=run_id,
+                source="preview",
+            )
             await _log_error_async(req.project_id, run_id, f"Dev server failed:\n{err}")
             return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
             
@@ -1047,7 +1071,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
                 print(err)
                 await emit_agent_state("failed", req.project_id)
                 await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
-                await emit_runtime_error(RuntimeErrorCode.E_PREVIEW_UNREACHABLE, err, req.project_id, run_id, "preview")
+                await emit_runtime_error(
+                    RuntimeErrorCode.E_PREVIEW_UNREACHABLE,
+                    err,
+                    project_id=req.project_id,
+                    run_id=run_id,
+                    source="preview",
+                )
                 return GenerateResponse(success=False, project_id=req.project_id, error=err)
                 
             from backend.sandbox.executor import _safe_project_path
@@ -1064,7 +1094,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
                 print("---------------------")
                 await emit_agent_state("failed", req.project_id)
                 await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
-                await emit_runtime_error(RuntimeErrorCode.E_REACT_ROOT_MISSING, err, req.project_id, run_id, "runtime_verification")
+                await emit_runtime_error(
+                    RuntimeErrorCode.E_REACT_ROOT_MISSING,
+                    err,
+                    project_id=req.project_id,
+                    run_id=run_id,
+                    source="runtime_verification",
+                )
                 return GenerateResponse(success=False, project_id=req.project_id, error=err)
                 
             if skill_name == "php-basic":
@@ -1119,7 +1155,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
                 await emit_agent_state("failed", req.project_id)
                 await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
                 code = RuntimeErrorCode.E_RUNTIME_BLANK if "blank" in err.lower() or "mounted" in err.lower() else RuntimeErrorCode.E_REACT_ROOT_MISSING
-                await emit_runtime_error(code, err, req.project_id, run_id, "runtime_verification")
+                await emit_runtime_error(
+                    code,
+                    err,
+                    project_id=req.project_id,
+                    run_id=run_id,
+                    source="runtime_verification",
+                )
                 return GenerateResponse(success=False, project_id=req.project_id, error=err)
             else:
                 p76_msg = "[P7.6] playwright validation success"
@@ -1135,7 +1177,13 @@ async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
             print(err)
             await emit_agent_state("failed", req.project_id)
             await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
-            await emit_runtime_error(RuntimeErrorCode.E_PREVIEW_UNREACHABLE, err, req.project_id, run_id, "preview")
+            await emit_runtime_error(
+                RuntimeErrorCode.E_PREVIEW_UNREACHABLE,
+                err,
+                project_id=req.project_id,
+                run_id=run_id,
+                source="preview",
+            )
             return GenerateResponse(success=False, project_id=req.project_id, error=err)
 
     else:
