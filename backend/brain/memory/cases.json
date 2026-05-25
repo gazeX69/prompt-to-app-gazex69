@@ -1,0 +1,30 @@
+[
+  {
+    "id": "case_marketplace_mvp",
+    "title": "Marketplace MVP",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "feature_keywords": ["products", "cart", "checkout", "admin"],
+    "required_capabilities": ["crud", "state_management", "product_catalog", "cart", "checkout_simulation"],
+    "summary": "Small marketplace with product browsing, cart, simulated checkout, and admin product CRUD."
+  },
+  {
+    "id": "case_inventory_mvp",
+    "title": "Inventory MVP",
+    "domain": "inventory",
+    "app_type": "inventory",
+    "feature_keywords": ["items", "stock", "crud", "reporting"],
+    "required_capabilities": ["crud", "state_management", "data_persistence", "reporting"],
+    "summary": "Inventory tracker focused on item CRUD, stock quantity, low stock signals, and simple persistence."
+  },
+  {
+    "id": "case_counter_app",
+    "title": "Counter App",
+    "domain": "utility",
+    "app_type": "counter",
+    "feature_keywords": ["counter"],
+    "required_capabilities": ["state_management"],
+    "summary": "Minimal counter with increment, decrement, and reset controls."
+  }
+]
+

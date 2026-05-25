@@ -21,6 +21,7 @@ from backend.routes.generate import router as generate_router
 from backend.routes.execute import router as execute_router
 from backend.routes.workspaces import router as workspaces_router
 from backend.routes.runtime import router as runtime_router
+from backend.routes.brain import router as brain_router
 from backend.sockets.manager import sio, emit_terminal_line, emit_agent_state, emit_agent_activity, emit_preview_ready, emit_runtime_error, emit_runtime_lifecycle_event
 from backend.core.config import settings
 from backend.runtime_client.client import runtime_client
@@ -206,6 +207,7 @@ fastapi_app.include_router(generate_router, prefix="/generate", tags=["Generatio
 fastapi_app.include_router(execute_router, prefix="/execute", tags=["Execution"])
 fastapi_app.include_router(workspaces_router, prefix="/workspaces", tags=["Workspaces"])
 fastapi_app.include_router(runtime_router, prefix="/runtime", tags=["Runtime"])
+fastapi_app.include_router(brain_router, prefix="/brain", tags=["Brain"])
 
 
 # ── Skill & Scan Routes ───────────────────────────────────────────
