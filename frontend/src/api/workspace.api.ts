@@ -7,10 +7,57 @@ import { ENV } from "../config/env"
 
 const API_BASE = ENV.API_URL
 
-export async function fetchWorkspaces(): Promise<WorkspaceMetadata[]> {
-  const res = await fetch(`${API_BASE}/workspaces`)
-  if (!res.ok) throw new Error("Failed to fetch workspaces")
+async function requestWorkspace<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options.headers,
+    },
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    let detail = body
+    try {
+      const parsed = JSON.parse(body)
+      detail = parsed.detail || parsed.error || body
+    } catch {
+      // Keep raw response body.
+    }
+    throw new Error(detail || `Request failed with ${res.status}`)
+  }
   return res.json()
+}
+
+export async function fetchWorkspaces(): Promise<WorkspaceMetadata[]> {
+  return requestWorkspace<WorkspaceMetadata[]>("/workspaces")
+}
+
+export async function createWorkspace(name: string): Promise<WorkspaceMetadata> {
+  return requestWorkspace<WorkspaceMetadata>("/workspaces", {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function updateWorkspace(workspaceId: string, name: string): Promise<WorkspaceMetadata> {
+  return requestWorkspace<WorkspaceMetadata>(`/workspaces/${workspaceId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function duplicateWorkspace(workspaceId: string, name?: string): Promise<WorkspaceMetadata> {
+  return requestWorkspace<WorkspaceMetadata>(`/workspaces/${workspaceId}/duplicate`, {
+    method: "POST",
+    body: JSON.stringify({ name }),
+  })
+}
+
+export async function archiveWorkspace(workspaceId: string): Promise<WorkspaceMetadata> {
+  return requestWorkspace<WorkspaceMetadata>(`/workspaces/${workspaceId}`, {
+    method: "DELETE",
+  })
 }
 
 export async function fetchWorkspaceRuns(workspaceId: string): Promise<RunMetadata[]> {
@@ -48,9 +95,11 @@ export async function fetchArtifactContent(workspaceId: string, artifactId: stri
 }
 
 export async function fetchFileContent(workspaceId: string, pathId: string, runId?: string): Promise<{content: string, sizeBytes: number, language: string, truncated: boolean, error: string | null}> {
-  const url = runId ? `${API_BASE}/workspaces/${workspaceId}/file?path_id=${pathId}&run_id=${runId}` : `${API_BASE}/workspaces/${workspaceId}/file?path_id=${pathId}`
+  const params = new URLSearchParams({ path_id: pathId })
+  if (runId) params.append("run_id", runId)
+  const url = `${API_BASE}/workspaces/${workspaceId}/file?${params.toString()}`
   const res = await fetch(url)
-  if (!res.ok) throw new Error("Failed to fetch file content")
+  if (!res.ok) throw new Error(await readErrorDetail(res, "Failed to fetch file content"))
   return res.json()
 }
 
@@ -85,8 +134,7 @@ export interface ReferenceMetadata {
 }
 
 export async function fetchReferences(workspaceId: string, pathId: string, runId?: string): Promise<ReferenceMetadata> {
-  const params = new URLSearchParams()
-  params.append("path_id", pathId)
+  const params = new URLSearchParams({ path_id: pathId })
   if (runId) params.append("run_id", runId)
   const query = params.toString()
   const url = `${API_BASE}/workspaces/${workspaceId}/references?${query}`
@@ -114,8 +162,7 @@ export interface RegionMetadata {
 }
 
 export async function fetchRegions(workspaceId: string, pathId: string, runId?: string): Promise<RegionMetadata[]> {
-  const params = new URLSearchParams()
-  params.append("path_id", pathId)
+  const params = new URLSearchParams({ path_id: pathId })
   if (runId) params.append("run_id", runId)
   const query = params.toString()
   const url = `${API_BASE}/workspaces/${workspaceId}/regions?${query}`
@@ -126,12 +173,23 @@ export async function fetchRegions(workspaceId: string, pathId: string, runId?: 
   return Array.isArray(data) ? data : []
 }
 
+async function readErrorDetail(res: Response, fallback: string): Promise<string> {
+  const body = await res.text()
+  if (!body) return fallback
+  try {
+    const parsed = JSON.parse(body)
+    return parsed.detail || parsed.error || fallback
+  } catch {
+    return body || fallback
+  }
+}
+
 export interface PatchMetadata {
   patch_type: string
   target_file?: string
   target_symbol?: string
   target_region: { start_line: number; end_line: number }
-  grounding_context: any
+  grounding_context: unknown
   confidence_score: number
   locality: string
   blast_radius: string
@@ -139,7 +197,7 @@ export interface PatchMetadata {
 
 export interface PatchesResponse {
   grounded_patches: PatchMetadata[]
-  collision_reports: any[]
+  collision_reports: unknown[]
   confidence_scores: number[]
   region_maps_generated: boolean
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { RotateCw, ExternalLink, Globe, AlertTriangle, WifiOff, Loader2, Square } from 'lucide-react'
 import { usePreviewStore } from '../stores/preview.store'
+import type { RuntimeStatusSnapshot } from '../stores/preview.store'
 import { useAgentStore } from '../stores/agent.store'
 import { useTerminalStore } from '../stores/terminal.store'
 import { useWorkspaceStore } from '../stores/workspace.store'
@@ -13,7 +14,6 @@ export default function PreviewPanel() {
   const activeWorkspaceId = useWorkspaceStore((store) => store.activeWorkspaceId)
   
   const runId = usePreviewStore(state => state.runId) || 'legacy'
-  const [iframeUrl, setIframeUrl] = useState('')
   const [isStopping, setIsStopping] = useState(false)
 
   const runtimeProjectId = useMemo(() => (
@@ -29,7 +29,7 @@ export default function PreviewPanel() {
     let cancelled = false
     const loadRuntimeStatus = async () => {
       try {
-        const status = await api.get<any>(`/runtime/${runtimeProjectId}`, { timeout: 5000 })
+        const status = await api.get<RuntimeStatusSnapshot>(`/runtime/${runtimeProjectId}`, { timeout: 5000 })
         if (!cancelled) setRuntimeStatus(status)
       } catch {
         // Runtime ownership status is best-effort in the preview chrome.
@@ -44,13 +44,9 @@ export default function PreviewPanel() {
     }
   }, [runtimeProjectId, setRuntimeStatus])
 
-  useEffect(() => {
-    if (url) {
-      setIframeUrl(`${url}?run_id=${runId}&refresh=${refreshToken}&t=${Date.now()}`)
-    } else {
-      setIframeUrl('')
-    }
-  }, [url, runId, refreshToken])
+  const iframeUrl = useMemo(() => (
+    url ? `${url}?run_id=${runId}&refresh=${refreshToken}` : ''
+  ), [url, runId, refreshToken])
   
   useEffect(() => {
     if (iframeUrl) {
@@ -84,7 +80,7 @@ export default function PreviewPanel() {
     if (!runtimeProjectId || isStopping) return
     setIsStopping(true)
     try {
-      const status = await api.post<any>(`/runtime/${runtimeProjectId}/stop`, {}, { timeout: 15000 })
+      const status = await api.post<RuntimeStatusSnapshot>(`/runtime/${runtimeProjectId}/stop`, {}, { timeout: 15000 })
       setRuntimeStatus(status)
       clear()
     } finally {

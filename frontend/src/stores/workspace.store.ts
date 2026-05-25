@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 
 export interface RepositoryFileNode {
   path: string
+  pathId?: string
   name: string
   type: 'file' | 'directory'
   children?: RepositoryFileNode[]
@@ -37,13 +38,25 @@ export interface ArtifactSnapshot {
 export interface WorkspaceMetadata {
   id: string
   name: string
+  path?: string
   pathLabel: string
   ecosystem: string
   createdAt: number
   updatedAt: number
+  created_at?: number
+  updated_at?: number
   runCount: number
   latestRunId?: string
+  status?: 'ready' | 'running' | 'failed' | 'stopped' | 'unknown' | 'archived' | string
+  runtime_status?: {
+    status?: string
+    run_id?: string | null
+    port?: number | null
+    url?: string | null
+    error?: string | null
+  }
   runtimeHealth: 'healthy' | 'degraded' | 'offline'
+  is_archived?: boolean
 }
 
 export interface RunMetadata {
@@ -61,7 +74,7 @@ export interface RunMetadata {
   artifactCount: number
   topologyScore?: number
   sequencingScore?: number
-  costSummary?: any
+  costSummary?: unknown
 }
 
 function asArray<T>(value: T[] | unknown): T[] {

@@ -704,7 +704,8 @@ async def run_dev_server_array_async(
             print(msg)
             await emit_terminal_line(msg, "info", project_id)
             
-        del _runtime_registry[server_key]
+        if _runtime_registry.get(server_key) is old_entry:
+            del _runtime_registry[server_key]
 
     if not args:
         return ExecuteResponse(success=False, command="dev", error="Empty command array", exit_code=-1)
@@ -749,10 +750,19 @@ async def run_dev_server_array_async(
             return ExecuteResponse(success=False, command="dev", error=f"Executable not found: {args_with_port[0]!r}", exit_code=-1)
         resolved_args = [exe] + args_with_port[1:]
 
-        resolved_cwd = str(project_path.resolve())
-        expected_cwd = str(_safe_project_path(project_id, run_id).resolve())
-        if resolved_cwd != expected_cwd:
-            return ExecuteResponse(success=False, command="dev", error=f"Runtime isolation error: expected cwd {expected_cwd}, got {resolved_cwd}", exit_code=-1)
+        resolved_project_path = project_path.resolve()
+        resolved_cwd = str(resolved_project_path)
+
+        project_root = _safe_project_path(project_id, None).resolve()
+        try:
+            resolved_project_path.relative_to(project_root)
+        except ValueError:
+            return ExecuteResponse(
+                success=False,
+                command="dev",
+                error=f"Runtime isolation error: cwd {resolved_cwd} is outside project root {project_root}",
+                exit_code=-1,
+            )
 
         display = " ".join(args_with_port)
         merged_env = {**os.environ, **(_MINIMAL_ENV if env_overrides is None else env_overrides)}
