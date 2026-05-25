@@ -13,24 +13,24 @@ function canGenerate(state: AgentState): boolean {
   return state === 'IDLE' || state === 'FAILED' || state === 'COMPLETED'
 }
 
-const TERMINAL_GENERATION_STATUSES = new Set([
-  'succeeded',
-  'success',
-  'completed',
-  'failed',
-  'failure',
-  'runtime_failed',
-  'cancelled',
-  'canceled',
-])
+// const TERMINAL_GENERATION_STATUSES = new Set([
+//   'succeeded',
+//   'success',
+//   'completed',
+//   'failed',
+//   'failure',
+//   'runtime_failed',
+//   'cancelled',
+//   'canceled',
+// ])
 
 function normalizeStatus(value?: string | null) {
   return String(value || '').toLowerCase()
 }
 
-function isTerminalGenerationStatus(value?: string | null) {
-  return TERMINAL_GENERATION_STATUSES.has(normalizeStatus(value))
-}
+// function isTerminalGenerationStatus(value?: string | null) {
+//   return TERMINAL_GENERATION_STATUSES.has(normalizeStatus(value))
+// }
 
 function agentStateFromGenerationStatus(value?: string | null): AgentState | null {
   const status = normalizeStatus(value)
@@ -55,12 +55,12 @@ export default function PromptWorkspace() {
   const generationStatus = usePreviewStore((s) => s.generationStatus)
   const generationTerminalState = agentStateFromGenerationStatus(generationStatus?.status)
   const effectiveState = generationTerminalState || state
-  const showProgress =
-    effectiveState !== 'IDLE' &&
-    effectiveState !== 'FAILED' &&
-    effectiveState !== 'COMPLETED' &&
-    effectiveState !== 'DISCONNECTED' &&
-    effectiveState !== 'RECONNECTING'
+  // const showProgress =
+  //   effectiveState !== 'IDLE' &&
+  //   effectiveState !== 'FAILED' &&
+  //   effectiveState !== 'COMPLETED' &&
+  //   effectiveState !== 'DISCONNECTED' &&
+  //   effectiveState !== 'RECONNECTING'
 
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspaceId ? s.workspaces[s.activeWorkspaceId] : null)
