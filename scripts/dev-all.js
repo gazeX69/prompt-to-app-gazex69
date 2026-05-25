@@ -35,9 +35,25 @@ function isPortAvailable(port, host = "127.0.0.1") {
   });
 }
 
+async function isPortAvailableOnAllHosts(port, preferredHost = "127.0.0.1") {
+  const hosts = Array.from(new Set([
+    preferredHost,
+    "127.0.0.1",
+    "localhost",
+    "0.0.0.0",
+  ]));
+
+  for (const host of hosts) {
+    const available = await isPortAvailable(port, host);
+    if (!available) return false;
+  }
+
+  return true;
+}
+
 async function findAvailablePort(preferred, host = "127.0.0.1") {
   for (let port = preferred; port < preferred + 100; port += 1) {
-    if (await isPortAvailable(port, host)) return port;
+    if (await isPortAvailableOnAllHosts(port, host)) return port;
   }
   throw new Error(`No available port found from ${preferred} to ${preferred + 99}`);
 }
@@ -98,7 +114,9 @@ async function main() {
   const runtimePort = await findAvailablePort(Number(process.env.RUNTIME_PORT || 3001), apiHost);
 
   const apiUrl = `http://${apiHost}:${backendPort}`;
-  const frontendUrl = `http://localhost:${frontendPort}`;
+  const wsUrl = apiUrl.replace(/^http/, "ws");
+  const frontendUrl = `http://${apiHost}:${frontendPort}`;
+  const frontendLocalhostUrl = `http://localhost:${frontendPort}`;
   const runtimeUrl = `http://${apiHost}:${runtimePort}`;
 
   console.log("Starting AI Agent dev stack");
@@ -128,7 +146,7 @@ async function main() {
     env: {
       API_HOST: apiHost,
       API_PORT: String(backendPort),
-      CORS_ORIGINS: `${frontendUrl},http://127.0.0.1:${frontendPort}`,
+      CORS_ORIGINS: `${frontendUrl},${frontendLocalhostUrl}`,
       RUNTIME_BASE_URL: runtimeUrl,
     },
   });
@@ -139,7 +157,8 @@ async function main() {
     env: {
       VITE_DEV_PORT: String(frontendPort),
       VITE_API_URL: apiUrl,
-      VITE_WS_URL: apiUrl,
+      VITE_API_BASE_URL: apiUrl,
+      VITE_WS_URL: wsUrl,
     },
   });
 }
