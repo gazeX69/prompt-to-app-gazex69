@@ -77,6 +77,13 @@ export interface RunMetadata {
   costSummary?: unknown
 }
 
+export interface EditorFileMetadata {
+  name: string
+  path: string
+  pathId: string
+  language?: string
+}
+
 function asArray<T>(value: T[] | unknown): T[] {
   return Array.isArray(value) ? value : []
 }
@@ -97,6 +104,14 @@ interface WorkspaceStore {
   repositorySnapshot: RepositorySnapshot | null
   runtimeSnapshot: WorkspaceRuntimeSnapshot | null
   artifactSnapshots: ArtifactSnapshot[]
+
+  // Embedded Editor
+  selectedEditorFile: EditorFileMetadata | null
+  editorContent: string
+  editorOriginalContent: string
+  editorDirty: boolean
+  editorSaving: boolean
+  editorError: string | null
   
   // Actions
   bindWorkspace: (workspace: WorkspaceMetadata) => void
@@ -106,6 +121,21 @@ interface WorkspaceStore {
   hydrateWorkspace: (repo: RepositorySnapshot, runtime: WorkspaceRuntimeSnapshot, artifacts: ArtifactSnapshot[]) => void
   loadWorkspaceData: (workspaceId: string) => Promise<void>
   loadRunData: (workspaceId: string, runId: string) => Promise<void>
+  openFileInEditor: (file: EditorFileMetadata, content: string) => void
+  setEditorContent: (content: string) => void
+  setEditorSaving: (saving: boolean) => void
+  setEditorError: (error: string | null) => void
+  markEditorSaved: (content: string) => void
+  clearEditorState: () => void
+}
+
+const emptyEditorState = {
+  selectedEditorFile: null,
+  editorContent: "",
+  editorOriginalContent: "",
+  editorDirty: false,
+  editorSaving: false,
+  editorError: null,
 }
 
 export const useWorkspaceStore = create<WorkspaceStore>()(
@@ -120,6 +150,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       repositorySnapshot: null,
       runtimeSnapshot: null,
       artifactSnapshots: [],
+      ...emptyEditorState,
 
       bindWorkspace: (ws) => set((state) => {
         const updatedWorkspaces = { ...state.workspaces, [ws.id]: ws }
@@ -131,7 +162,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           recentWorkspaces: recent.slice(0, 5),
           repositorySnapshot: null, // clear hydration on new bind
           runtimeSnapshot: null,
-          artifactSnapshots: []
+          artifactSnapshots: [],
+          ...emptyEditorState
         }
       }),
       
@@ -141,7 +173,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         runHistory: [],
         repositorySnapshot: null,
         runtimeSnapshot: null,
-        artifactSnapshots: []
+        artifactSnapshots: [],
+        ...emptyEditorState
       }),
       
       addRunToHistory: (run) => set((state) => ({
@@ -198,7 +231,40 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         } catch (e) {
           console.error("Failed to load run data:", e)
         }
-      }
+      },
+
+      openFileInEditor: (file, content) => set({
+        selectedEditorFile: {
+          name: file.name,
+          path: file.path,
+          pathId: file.pathId,
+          language: file.language,
+        },
+        editorContent: content,
+        editorOriginalContent: content,
+        editorDirty: false,
+        editorSaving: false,
+        editorError: null,
+      }),
+
+      setEditorContent: (content) => set((state) => ({
+        editorContent: content,
+        editorDirty: content !== state.editorOriginalContent,
+        editorError: null,
+      })),
+
+      setEditorSaving: (saving) => set({ editorSaving: saving }),
+      setEditorError: (error) => set({ editorError: error }),
+
+      markEditorSaved: (content) => set({
+        editorContent: content,
+        editorOriginalContent: content,
+        editorDirty: false,
+        editorSaving: false,
+        editorError: null,
+      }),
+
+      clearEditorState: () => set(emptyEditorState)
     }),
     {
       name: 'workspace-storage',

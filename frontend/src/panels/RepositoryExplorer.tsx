@@ -3,12 +3,14 @@ import type { RepositoryFileNode } from "../stores/workspace.store"
 import { useWorkspaceStore } from "../stores/workspace.store"
 import { Folder, ChevronRight, ChevronDown, FileCode } from "lucide-react"
 import FileInspector from "./FileInspector"
+import type { WorkspaceMode } from "../layouts/WorkspaceLayout"
 
 interface RepositoryExplorerProps {
   showInternalFiles?: boolean
+  onViewChange: (view: WorkspaceMode) => void
 }
 
-export default function RepositoryExplorer({ showInternalFiles = true }: RepositoryExplorerProps) {
+export default function RepositoryExplorer({ showInternalFiles = true, onViewChange }: RepositoryExplorerProps) {
   const repositorySnapshot = useWorkspaceStore(s => s.repositorySnapshot)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
   const [selectedFile, setSelectedFile] = useState<RepositoryFileNode | null>(null)
@@ -90,7 +92,7 @@ export default function RepositoryExplorer({ showInternalFiles = true }: Reposit
               <p>Directory selected: {selectedFile.name}</p>
             </div>
           ) : (
-            <FileInspector file={selectedFile} onSymbolClick={handleSymbolClick} />
+            <FileInspector file={selectedFile} onSymbolClick={handleSymbolClick} onViewChange={onViewChange} />
           )}
         </div>
       </div>

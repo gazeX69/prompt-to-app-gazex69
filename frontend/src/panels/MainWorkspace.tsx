@@ -1,17 +1,21 @@
-import { useState } from "react"
-import { Code2 } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { AlertCircle, Check, Code2, Loader2, Save } from "lucide-react"
 import PromptWorkspace from "./PromptWorkspace"
 import StatusBar from "../components/StatusBar"
 import RepositoryExplorer from "./RepositoryExplorer"
 import PreviewPanel from "./PreviewPanel"
 import { ErrorBoundary } from "../components/ErrorBoundary"
 import type { WorkspaceMode } from "../layouts/WorkspaceLayout"
+import { useWorkspaceStore } from "../stores/workspace.store"
+import { usePreviewStore } from "../stores/preview.store"
+import { saveFileContent } from "../api/workspace.api"
 
 interface MainWorkspaceProps {
   activeView: WorkspaceMode
+  onViewChange: (view: WorkspaceMode) => void
 }
 
-export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
+export default function MainWorkspace({ activeView, onViewChange }: MainWorkspaceProps) {
   const [showInternalFiles, setShowInternalFiles] = useState(false)
 
   // Determine which main view to show based on activeView
@@ -41,14 +45,14 @@ export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
                   Show support files
                 </label>
               </div>
-              <RepositoryExplorer showInternalFiles={showInternalFiles} />
+              <RepositoryExplorer showInternalFiles={showInternalFiles} onViewChange={onViewChange} />
             </div>
           </ErrorBoundary>
         )
       case 'generate':
         return <PromptWorkspace />
       case 'edit':
-        return <EditCodePlaceholder />
+        return <EditCodePanel />
       default:
         return <PromptWorkspace />
     }
@@ -64,18 +68,143 @@ export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
   )
 }
 
-function EditCodePlaceholder() {
-  return (
-    <div className="flex h-full items-center justify-center bg-[#1e1e1e] p-8 text-center">
-      <div className="max-w-md">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-panel">
-          <Code2 className="h-5 w-5 text-blue-300" />
+function EditCodePanel() {
+  const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
+  const activeRunId = useWorkspaceStore(s => s.activeRunId)
+  const selectedEditorFile = useWorkspaceStore(s => s.selectedEditorFile)
+  const editorContent = useWorkspaceStore(s => s.editorContent)
+  const editorDirty = useWorkspaceStore(s => s.editorDirty)
+  const editorSaving = useWorkspaceStore(s => s.editorSaving)
+  const editorError = useWorkspaceStore(s => s.editorError)
+  const setEditorContent = useWorkspaceStore(s => s.setEditorContent)
+  const setEditorSaving = useWorkspaceStore(s => s.setEditorSaving)
+  const setEditorError = useWorkspaceStore(s => s.setEditorError)
+  const markEditorSaved = useWorkspaceStore(s => s.markEditorSaved)
+  const hardRefresh = usePreviewStore(s => s.hardRefresh)
+
+  const saveCurrentFile = useCallback(async () => {
+    if (editorSaving) return
+    if (!activeWorkspaceId) {
+      setEditorError("No active workspace is available.")
+      return
+    }
+    if (!selectedEditorFile) {
+      setEditorError("Select a file from Explore before saving.")
+      return
+    }
+    if (!editorDirty) return
+
+    setEditorSaving(true)
+    setEditorError(null)
+    try {
+      const response = await saveFileContent(
+        activeWorkspaceId,
+        selectedEditorFile.pathId,
+        editorContent,
+        activeRunId || undefined,
+      )
+      if (response.error || response.ok === false) {
+        throw new Error(response.error || "Backend rejected the file save.")
+      }
+      markEditorSaved(editorContent)
+      hardRefresh()
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "Failed to save file.")
+      setEditorSaving(false)
+    }
+  }, [
+    activeRunId,
+    activeWorkspaceId,
+    editorContent,
+    editorDirty,
+    editorSaving,
+    hardRefresh,
+    markEditorSaved,
+    selectedEditorFile,
+    setEditorError,
+    setEditorSaving,
+  ])
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        void saveCurrentFile()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [saveCurrentFile])
+
+  if (!selectedEditorFile) {
+    return (
+      <div className="flex h-full items-center justify-center bg-[#1e1e1e] p-8 text-center">
+        <div className="max-w-md">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-panel">
+            <Code2 className="h-5 w-5 text-blue-300" />
+          </div>
+          <h2 className="mt-4 text-lg font-semibold text-gray-100">Edit Code</h2>
+          <p className="mt-2 text-sm text-gray-400">Select a file from Explore to edit.</p>
         </div>
-        <h2 className="mt-4 text-lg font-semibold text-gray-100">Edit Code</h2>
-        <p className="mt-2 text-sm text-gray-400">
-          Embedded code editing will be added in a later phase.
-        </p>
       </div>
+    )
+  }
+
+  const statusLabel = editorSaving ? "Saving..." : editorDirty ? "Unsaved" : "Saved"
+
+  return (
+    <div className="flex h-full flex-col bg-[#1e1e1e] text-gray-200">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-[#333] bg-[#1e1e1e] px-6">
+        <div className="min-w-0">
+          <div className="flex items-center gap-3">
+            <Code2 className="h-5 w-5 shrink-0 text-blue-300" />
+            <h2 className="truncate text-base font-semibold text-gray-100">{selectedEditorFile.name}</h2>
+            {selectedEditorFile.language && (
+              <span className="rounded border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-blue-300">
+                {selectedEditorFile.language}
+              </span>
+            )}
+          </div>
+          <p className="mt-1 truncate text-xs text-gray-500">{selectedEditorFile.path}</p>
+        </div>
+
+        <div className="flex shrink-0 items-center gap-3 pl-4">
+          <span className={`inline-flex h-7 items-center gap-1.5 rounded border px-2.5 text-xs ${
+            editorDirty
+              ? "border-yellow-400/30 bg-yellow-500/10 text-yellow-300"
+              : "border-green-400/30 bg-green-500/10 text-green-300"
+          }`}>
+            {!editorDirty && !editorSaving && <Check className="h-3.5 w-3.5" />}
+            {editorSaving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {statusLabel}
+          </span>
+          <button
+            type="button"
+            onClick={() => void saveCurrentFile()}
+            disabled={!editorDirty || editorSaving}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-blue-400/30 bg-blue-500/10 px-3 text-sm font-medium text-blue-100 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {editorSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            {editorSaving ? "Saving..." : editorDirty ? "Save" : "Saved"}
+          </button>
+        </div>
+      </div>
+
+      {editorError && (
+        <div className="flex shrink-0 items-start gap-2 border-b border-red-500/20 bg-red-500/10 px-6 py-3 text-sm text-red-200">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{editorError}</span>
+        </div>
+      )}
+
+      <textarea
+        value={editorContent}
+        onChange={(event) => setEditorContent(event.target.value)}
+        spellCheck={false}
+        className="min-h-0 flex-1 resize-none border-0 bg-[#1e1e1e] p-5 font-mono text-sm leading-6 text-gray-200 outline-none placeholder:text-gray-600 focus:ring-0"
+        aria-label={`Editing ${selectedEditorFile.path}`}
+      />
     </div>
   )
 }

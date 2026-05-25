@@ -214,7 +214,7 @@ export default function WorkspaceLayout() {
 
         <div className="flex-1 h-full min-w-0">
           <ErrorBoundary fallbackName="Project Workspace">
-            <MainWorkspace activeView={activeView} />
+            <MainWorkspace activeView={activeView} onViewChange={setActiveView} />
           </ErrorBoundary>
         </div>
       </div>

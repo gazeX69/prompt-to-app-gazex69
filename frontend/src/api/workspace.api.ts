@@ -103,6 +103,26 @@ export async function fetchFileContent(workspaceId: string, pathId: string, runI
   return res.json()
 }
 
+export interface SaveFileContentResponse {
+  ok: boolean
+  path: string
+  pathId: string
+  sizeBytes: number
+  language: string
+  updatedAt: number
+  error: string | null
+}
+
+export async function saveFileContent(workspaceId: string, pathId: string, content: string, runId?: string): Promise<SaveFileContentResponse> {
+  const params = new URLSearchParams({ path_id: pathId })
+  if (runId) params.append("run_id", runId)
+  const url = `/workspaces/${workspaceId}/file?${params.toString()}`
+  return requestWorkspace<SaveFileContentResponse>(url, {
+    method: "PUT",
+    body: JSON.stringify({ content }),
+  })
+}
+
 export interface SymbolMetadata {
   name: string
   type: 'import' | 'export' | 'component' | 'function' | 'class'

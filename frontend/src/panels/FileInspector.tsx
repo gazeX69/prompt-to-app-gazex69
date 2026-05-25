@@ -1,18 +1,22 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useWorkspaceStore } from "../stores/workspace.store"
 import type { RepositoryFileNode } from "../stores/workspace.store"
 import { fetchFileContent, fetchSymbols, fetchReferences, fetchRegions, fetchPatches, fetchReplays, fetchSimulations } from "../api/workspace.api"
 import type { SymbolMetadata, ReferenceMetadata, RegionMetadata, PatchMetadata, ReplayReport, SimulationReport } from "../api/workspace.api"
-import { FileCode, Code, Tag, Hash, Box, ArrowRight, ShieldAlert, GitMerge, Layout, AlertTriangle, FileDiff } from "lucide-react"
+import { FileCode, Code, Tag, Hash, Box, ArrowRight, ShieldAlert, GitMerge, Layout, AlertTriangle, FileDiff, Pencil } from "lucide-react"
+import type { WorkspaceMode } from "../layouts/WorkspaceLayout"
 
 interface FileInspectorProps {
   file: RepositoryFileNode
   onSymbolClick: (filePath: string) => void
+  onViewChange: (view: WorkspaceMode) => void
 }
 
-export default function FileInspector({ file, onSymbolClick }: FileInspectorProps) {
+export default function FileInspector({ file, onSymbolClick, onViewChange }: FileInspectorProps) {
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
+  const openFileInEditor = useWorkspaceStore(s => s.openFileInEditor)
+  const openEditorButtonRef = useRef<HTMLButtonElement | null>(null)
   const filePath = typeof file?.path === "string" ? file.path : ""
   const pathId = typeof file?.pathId === "string" ? file.pathId : encodePathId(filePath)
   const fileName = typeof file?.name === "string" ? file.name : "Unknown file"
@@ -21,6 +25,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
   const [sizeBytes, setSizeBytes] = useState(0)
   const [language, setLanguage] = useState("")
   const [truncated, setTruncated] = useState(false)
+  const [fileLoaded, setFileLoaded] = useState(false)
   const [error, setError] = useState<string | null>(null)
   
   const [symbols, setSymbols] = useState<SymbolMetadata[]>([])
@@ -38,6 +43,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
       setSizeBytes(0)
       setLanguage("")
       setTruncated(false)
+      setFileLoaded(false)
       setError(null)
       setSymbols([])
       setReferences(null)
@@ -51,9 +57,13 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
         setSizeBytes(Number.isFinite(Number(res?.sizeBytes)) ? Number(res.sizeBytes) : 0)
         setLanguage(typeof res?.language === "string" ? res.language : "")
         setTruncated(Boolean(res?.truncated))
+        setFileLoaded(true)
         if (res.error) setError(res.error)
       })
-      .catch(e => setError(e.message))
+      .catch(e => {
+        setFileLoaded(false)
+        setError(e.message)
+      })
       
     fetchSymbols(activeWorkspaceId, activeRunId || undefined, pathId)
       .then(res => {
@@ -105,6 +115,28 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
   const components = safeSymbols.filter((s: SymbolMetadata) => s.type === 'component')
   const functions = safeSymbols.filter((s: SymbolMetadata) => s.type === 'function')
   const displayError = error || (!filePath ? "File metadata is missing a path." : null)
+  const canOpenInEditor = Boolean(fileLoaded && !displayError && !truncated && filePath && pathId)
+  const handleOpenInEditor = () => {
+    if (!canOpenInEditor) return
+    openFileInEditor({
+      name: fileName,
+      path: filePath,
+      pathId,
+      language: language || undefined,
+    }, content)
+    onViewChange("edit")
+  }
+
+  useEffect(() => {
+    const button = openEditorButtonRef.current
+    if (!button) return
+    const handleNativeOpen = (event: MouseEvent) => {
+      event.preventDefault()
+      handleOpenInEditor()
+    }
+    button.addEventListener("click", handleNativeOpen)
+    return () => button.removeEventListener("click", handleNativeOpen)
+  }, [handleOpenInEditor])
   
   return (
     <div className="flex h-full bg-[#1e1e1e] text-gray-300 font-mono">
@@ -122,6 +154,16 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
             {language && <span className="px-2 py-1 rounded text-[10px] bg-blue-500/20 text-blue-400 uppercase tracking-widest border border-blue-500/30">{language}</span>}
             {file.isEntrypoint && <span className="px-2 py-1 rounded text-[10px] bg-green-500/20 text-green-400 uppercase tracking-widest border border-green-500/30">Entry</span>}
             <span className="text-xs text-gray-500">{(sizeBytes / 1024).toFixed(1)} KB</span>
+            <button
+              ref={openEditorButtonRef}
+              type="button"
+              onClick={handleOpenInEditor}
+              disabled={!canOpenInEditor}
+              className="inline-flex h-8 items-center gap-2 rounded border border-blue-400/30 bg-blue-500/10 px-3 text-xs font-medium text-blue-200 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+              Open in Editor
+            </button>
           </div>
         </div>
         
