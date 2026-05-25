@@ -84,11 +84,14 @@ export interface EditorFileMetadata {
   language?: string
 }
 
+export type WorkspaceHydrationStatus = 'idle' | 'loading' | 'ready' | 'error'
+
 function asArray<T>(value: T[] | unknown): T[] {
   return Array.isArray(value) ? value : []
 }
 
 interface WorkspaceStore {
+  
   // Identity
   activeWorkspaceId: string | null
   
@@ -104,6 +107,10 @@ interface WorkspaceStore {
   repositorySnapshot: RepositorySnapshot | null
   runtimeSnapshot: WorkspaceRuntimeSnapshot | null
   artifactSnapshots: ArtifactSnapshot[]
+
+  workspaceHydrationStatus: WorkspaceHydrationStatus
+  workspaceHydrationError: string | null
+  hydratingWorkspaceId: string | null
 
   // Embedded Editor
   selectedEditorFile: EditorFileMetadata | null
@@ -122,6 +129,7 @@ interface WorkspaceStore {
   setActiveRun: (runId: string | null) => void
   hydrateWorkspace: (repo: RepositorySnapshot, runtime: WorkspaceRuntimeSnapshot, artifacts: ArtifactSnapshot[]) => void
   loadWorkspaceData: (workspaceId: string) => Promise<void>
+  ensureWorkspaceHydrated: (workspaceId?: string | null) => Promise<void>
   loadRunData: (workspaceId: string, runId: string) => Promise<void>
   openFileInEditor: (file: EditorFileMetadata, content: string, workspaceId: string, runId?: string | null) => void
   setEditorContent: (content: string) => void
@@ -154,6 +162,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       repositorySnapshot: null,
       runtimeSnapshot: null,
       artifactSnapshots: [],
+      workspaceHydrationStatus: 'idle',
+      workspaceHydrationError: null,
+      hydratingWorkspaceId: null,
       ...emptyEditorState,
 
       bindWorkspace: (ws) => set((state) => {
@@ -164,9 +175,12 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           activeWorkspaceId: ws.id,
           workspaces: updatedWorkspaces,
           recentWorkspaces: recent.slice(0, 5),
-          repositorySnapshot: null, // clear hydration on new bind
+          repositorySnapshot: null,
           runtimeSnapshot: null,
           artifactSnapshots: [],
+          workspaceHydrationStatus: 'idle',
+          workspaceHydrationError: null,
+          hydratingWorkspaceId: null,
           ...emptyEditorState
         }
       }),
@@ -178,6 +192,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         repositorySnapshot: null,
         runtimeSnapshot: null,
         artifactSnapshots: [],
+        workspaceHydrationStatus: 'idle',
+        workspaceHydrationError: null,
+        hydratingWorkspaceId: null,
         ...emptyEditorState
       }),
       
@@ -190,19 +207,30 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       hydrateWorkspace: (repo, runtime, artifacts) => set({
         repositorySnapshot: repo,
         runtimeSnapshot: runtime,
-        artifactSnapshots: asArray<ArtifactSnapshot>(artifacts)
+        artifactSnapshots: asArray<ArtifactSnapshot>(artifacts),
+        workspaceHydrationStatus: 'ready',
+        workspaceHydrationError: null,
+        hydratingWorkspaceId: null,
       }),
 
       loadWorkspaceData: async (workspaceId: string) => {
+        set({
+          workspaceHydrationStatus: 'loading',
+          workspaceHydrationError: null,
+          hydratingWorkspaceId: workspaceId,
+        })
+
         try {
           const { fetchWorkspaceTree, fetchArtifacts, fetchWorkspaceRuns } = await import('../api/workspace.api')
+
           const [tree, artifacts, runs] = await Promise.all([
-            fetchWorkspaceTree(workspaceId).catch(() => null),
+            fetchWorkspaceTree(workspaceId),
             fetchArtifacts(workspaceId).catch(() => []),
             fetchWorkspaceRuns(workspaceId).catch(() => [])
           ])
 
           set(() => ({
+            activeWorkspaceId: workspaceId,
             repositorySnapshot: tree,
             artifactSnapshots: asArray<ArtifactSnapshot>(artifacts),
             runHistory: asArray<RunMetadata>(runs),
@@ -212,11 +240,53 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
               sequencingStabilityScore: 9.8,
               topologyAlignmentScore: 10.0,
               mutationLocalityScore: 8.5
-            }
+            },
+            workspaceHydrationStatus: 'ready',
+            workspaceHydrationError: null,
+            hydratingWorkspaceId: null,
           }))
         } catch (e) {
+          const message = e instanceof Error ? e.message : 'Failed to load workspace data'
+
           console.error("Failed to load workspace data:", e)
+
+          set({
+            workspaceHydrationStatus: 'error',
+            workspaceHydrationError: message,
+            hydratingWorkspaceId: null,
+            repositorySnapshot: null,
+            runtimeSnapshot: null,
+            artifactSnapshots: [],
+          })
         }
+      },
+
+      ensureWorkspaceHydrated: async (workspaceId?: string | null) => {
+        const state = useWorkspaceStore.getState()
+        const targetWorkspaceId = workspaceId ?? state.activeWorkspaceId
+
+        if (!targetWorkspaceId) return
+
+        const isAlreadyHydratingSameWorkspace =
+          state.workspaceHydrationStatus === 'loading' &&
+          state.hydratingWorkspaceId === targetWorkspaceId
+
+        if (isAlreadyHydratingSameWorkspace) return
+
+        const alreadyHasRepository =
+          state.activeWorkspaceId === targetWorkspaceId &&
+          state.repositorySnapshot !== null
+
+        if (alreadyHasRepository) {
+          set({
+            workspaceHydrationStatus: 'ready',
+            workspaceHydrationError: null,
+            hydratingWorkspaceId: null,
+          })
+          return
+        }
+
+        await useWorkspaceStore.getState().loadWorkspaceData(targetWorkspaceId)
       },
 
       loadRunData: async (workspaceId: string, runId: string) => {
@@ -278,8 +348,9 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         activeWorkspaceId: state.activeWorkspaceId,
         workspaces: state.workspaces,
         recentWorkspaces: state.recentWorkspaces,
-        runHistory: state.runHistory
+        
       })
+
     }
   )
 )

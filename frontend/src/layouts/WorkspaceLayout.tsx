@@ -18,11 +18,16 @@ export default function WorkspaceLayout() {
   const [runtimeAction, setRuntimeAction] = useState<"run" | "stop" | "restart" | null>(null)
   const [runtimeActionError, setRuntimeActionError] = useState<string | null>(null)
   const setSkills = useSkillsStore((s) => s.setSkills)
+  
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
   const workspaces = useWorkspaceStore((s) => s.workspaces)
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace)
   const editorDirty = useWorkspaceStore((s) => s.editorDirty)
+  const repositorySnapshot = useWorkspaceStore((s) => s.repositorySnapshot)
+  const workspaceHydrationStatus = useWorkspaceStore((s) => s.workspaceHydrationStatus)
+  const ensureWorkspaceHydrated = useWorkspaceStore((s) => s.ensureWorkspaceHydrated)
   const loadWorkspaceData = useWorkspaceStore((s) => s.loadWorkspaceData)
+  
   const runtimeState = useAgentStore((s) => s.runtimeState)
   const setAgentState = useAgentStore((s) => s.setState)
   const setRuntimeState = useAgentStore((s) => s.setRuntimeState)
@@ -54,6 +59,20 @@ export default function WorkspaceLayout() {
       // Skills endpoint not available yet; use defaults
     })
   }, [setSkills])
+
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return
+    if (repositorySnapshot) return
+    if (workspaceHydrationStatus === "loading") return
+
+    void ensureWorkspaceHydrated(activeWorkspaceId)
+  }, [
+    activeWorkspaceId,
+    repositorySnapshot,
+    workspaceHydrationStatus,
+    ensureWorkspaceHydrated,
+  ])
 
   useEffect(() => {
     if (!activeWorkspaceId) return
