@@ -13,11 +13,55 @@ function canGenerate(state: AgentState): boolean {
   return state === 'IDLE' || state === 'FAILED' || state === 'COMPLETED'
 }
 
+const TERMINAL_GENERATION_STATUSES = new Set([
+  'succeeded',
+  'success',
+  'completed',
+  'failed',
+  'failure',
+  'runtime_failed',
+  'cancelled',
+  'canceled',
+])
+
+function normalizeStatus(value?: string | null) {
+  return String(value || '').toLowerCase()
+}
+
+function isTerminalGenerationStatus(value?: string | null) {
+  return TERMINAL_GENERATION_STATUSES.has(normalizeStatus(value))
+}
+
+function agentStateFromGenerationStatus(value?: string | null): AgentState | null {
+  const status = normalizeStatus(value)
+
+  if (status === 'succeeded' || status === 'success' || status === 'completed') {
+    return 'COMPLETED'
+  }
+
+  if (status === 'failed' || status === 'failure' || status === 'runtime_failed') {
+    return 'FAILED'
+  }
+
+  return null
+}
+
 export default function PromptWorkspace() {
   const [prompt, setPrompt] = useState('')
   const [autoRepair, setAutoRepair] = useState(true)
   const { state, setState: setAgentState, setStartTime, socketConnected } = useAgentStore()
   const previewUrl = usePreviewStore((s) => s.url)
+
+  const generationStatus = usePreviewStore((s) => s.generationStatus)
+  const generationTerminalState = agentStateFromGenerationStatus(generationStatus?.status)
+  const effectiveState = generationTerminalState || state
+  const showProgress =
+    effectiveState !== 'IDLE' &&
+    effectiveState !== 'FAILED' &&
+    effectiveState !== 'COMPLETED' &&
+    effectiveState !== 'DISCONNECTED' &&
+    effectiveState !== 'RECONNECTING'
+
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspaceId ? s.workspaces[s.activeWorkspaceId] : null)
   const { enabled, skills } = useSkillsStore()
@@ -49,9 +93,17 @@ export default function PromptWorkspace() {
     }
   }, [state, safeSetAgentState])
 
+  useEffect(() => {
+    if (!generationTerminalState) return
+
+    if (state !== generationTerminalState) {
+      setAgentState(generationTerminalState)
+    }
+  }, [generationTerminalState, state, setAgentState])
+
   const handleGenerate = async () => {
     if (!prompt.trim()) return
-    if (!canGenerate(state)) return
+    if (!canGenerate(effectiveState)) return
     
     useTerminalStore.getState().clear()
     useTerminalStore.getState().addLine({ text: `[Client] Sending generation request...`, type: 'info' })
@@ -76,6 +128,12 @@ export default function PromptWorkspace() {
     }
   }
 
+  useEffect(() => {
+    if (state !== 'IDLE' && !generationTerminalState) {
+      setAgentState('IDLE')
+    }
+  }, [activeWorkspaceId])
+
   return (
     <div className="flex-1 flex flex-col min-h-0 p-4 md:p-8 overflow-y-auto">
       <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-end pb-4">
@@ -83,7 +141,13 @@ export default function PromptWorkspace() {
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Generate</div>
             <div className="text-sm text-gray-200 truncate">
-              {previewUrl ? 'Generated app is ready to preview.' : state === 'IDLE' ? `Describe what to build in ${activeWorkspace?.name || 'this project'}.` : 'Generation in progress.'}
+            {previewUrl || generationTerminalState === 'COMPLETED'
+              ? 'Generated app is ready to preview.'
+              : effectiveState === 'IDLE'
+                ? `Describe what to build in ${activeWorkspace?.name || 'this project'}.`
+                : generationTerminalState === 'FAILED'
+                  ? 'Generation failed. Review the activity stream or retry.'
+                  : 'Generation in progress.'}
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -97,7 +161,7 @@ export default function PromptWorkspace() {
             </button>
             <button
               type="button"
-              disabled={!canGenerate(state)}
+              disabled={!canGenerate(effectiveState)}
               onClick={handleGenerate}
               className="text-[12px] px-3 py-1.5 rounded border border-border text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent"
             >
@@ -106,7 +170,7 @@ export default function PromptWorkspace() {
           </div>
         </div>
         
-        {state === 'IDLE' ? (
+        {effectiveState === 'IDLE' || effectiveState === 'COMPLETED' || effectiveState === 'FAILED' ? (
           <div className="flex-1 flex flex-col justify-center items-center text-center opacity-50 mb-12 min-h-[120px]">
              <AlignLeft className="w-8 h-8 mb-4 text-gray-500" />
              <h2 className="text-lg font-medium text-gray-200">What should AI Agent build?</h2>
@@ -114,12 +178,12 @@ export default function PromptWorkspace() {
                Describe the app, page, or change you want for this project.
              </p>
           </div>
-        ) : state === 'DISCONNECTED' || state === 'RECONNECTING' ? (
+        ) : effectiveState === 'DISCONNECTED' || effectiveState === 'RECONNECTING' ? (
           <div className="flex-1 flex flex-col justify-center items-center text-center mb-12 min-h-[120px]">
              <WifiOff className="w-8 h-8 mb-4 text-yellow-500" />
              <h2 className="text-lg font-medium text-yellow-400">Connection Lost</h2>
              <p className="text-[13px] text-gray-400 mt-2 max-w-sm">
-               {state === 'RECONNECTING' 
+               {effectiveState === 'RECONNECTING' 
                  ? 'Reconnecting to backend... Your session will resume.'
                  : 'Backend is offline. Waiting for connection...'}
              </p>
@@ -166,7 +230,7 @@ export default function PromptWorkspace() {
             
             <button 
               onClick={handleGenerate}
-              disabled={!prompt.trim() || !canGenerate(state)}
+              disabled={!prompt.trim() || !canGenerate(effectiveState)}
               className="bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white text-black font-medium text-[12px] px-4 py-1.5 rounded-md flex items-center transition-colors"
             >
               <Send className="w-3.5 h-3.5 mr-2" />
