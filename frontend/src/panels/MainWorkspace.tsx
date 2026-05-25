@@ -1,15 +1,14 @@
 import { useState } from "react"
+import { Code2 } from "lucide-react"
 import PromptWorkspace from "./PromptWorkspace"
 import StatusBar from "../components/StatusBar"
-import RunHistory from "./RunHistory"
-import RuntimeInspector from "./RuntimeInspector"
-import ArtifactExplorer from "./ArtifactExplorer"
 import RepositoryExplorer from "./RepositoryExplorer"
 import PreviewPanel from "./PreviewPanel"
 import { ErrorBoundary } from "../components/ErrorBoundary"
+import type { WorkspaceMode } from "../layouts/WorkspaceLayout"
 
 interface MainWorkspaceProps {
-  activeView: string
+  activeView: WorkspaceMode
 }
 
 export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
@@ -24,14 +23,14 @@ export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
             <PreviewPanel />
           </ErrorBoundary>
         )
-      case 'source':
+      case 'explore':
         return (
-          <ErrorBoundary fallbackName="Repository Explorer">
+          <ErrorBoundary fallbackName="Files">
             <div className="flex flex-col h-full min-h-0">
-              <div className="h-12 border-b border-[#333] bg-[#1e1e1e] px-6 flex items-center justify-between shrink-0">
+              <div className="h-12 border-b border-border bg-[#1e1e1e] px-6 flex items-center justify-between shrink-0">
                 <div>
-                  <div className="text-sm text-gray-100 font-medium">Source</div>
-                  <div className="text-[11px] text-gray-500">Generated app files first. Internal AI files are hidden by default.</div>
+                  <div className="text-sm text-gray-100 font-medium">Files</div>
+                  <div className="text-[11px] text-gray-500">Browse generated app files for the active project.</div>
                 </div>
                 <label className="flex items-center gap-2 text-[12px] text-gray-400">
                   <input
@@ -39,7 +38,7 @@ export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
                     checked={showInternalFiles}
                     onChange={(event) => setShowInternalFiles(event.target.checked)}
                   />
-                  Show Internal AI Files
+                  Show support files
                 </label>
               </div>
               <RepositoryExplorer showInternalFiles={showInternalFiles} />
@@ -48,20 +47,8 @@ export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
         )
       case 'generate':
         return <PromptWorkspace />
-      case 'history':
-        return <RunHistory />
-      case 'internal-artifacts':
-        return (
-          <ErrorBoundary fallbackName="Artifact Explorer">
-            <ArtifactExplorer />
-          </ErrorBoundary>
-        )
-      case 'runtime':
-        return (
-          <ErrorBoundary fallbackName="Runtime Inspector">
-            <RuntimeInspector />
-          </ErrorBoundary>
-        )
+      case 'edit':
+        return <EditCodePlaceholder />
       default:
         return <PromptWorkspace />
     }
@@ -73,6 +60,22 @@ export default function MainWorkspace({ activeView }: MainWorkspaceProps) {
         {renderView()}
       </div>
       <StatusBar />
+    </div>
+  )
+}
+
+function EditCodePlaceholder() {
+  return (
+    <div className="flex h-full items-center justify-center bg-[#1e1e1e] p-8 text-center">
+      <div className="max-w-md">
+        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-panel">
+          <Code2 className="h-5 w-5 text-blue-300" />
+        </div>
+        <h2 className="mt-4 text-lg font-semibold text-gray-100">Edit Code</h2>
+        <p className="mt-2 text-sm text-gray-400">
+          Embedded code editing will be added in a later phase.
+        </p>
+      </div>
     </div>
   )
 }

@@ -14,7 +14,14 @@ export default function RepositoryExplorer({ showInternalFiles = true }: Reposit
   const [selectedFile, setSelectedFile] = useState<RepositoryFileNode | null>(null)
 
   if (!repositorySnapshot) {
-    return <div className="p-8 text-gray-500">Awaiting repository hydration...</div>
+    return (
+      <div className="flex h-full items-center justify-center p-8 text-center text-gray-500">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-200">Files</h2>
+          <p className="mt-2 text-sm">File explorer stabilization will be handled in the next phase.</p>
+        </div>
+      </div>
+    )
   }
 
   const repositoryTree = prioritizeAppFiles(filterInternalFiles(Array.isArray(repositorySnapshot.tree) ? repositorySnapshot.tree : [], showInternalFiles))
@@ -41,12 +48,12 @@ export default function RepositoryExplorer({ showInternalFiles = true }: Reposit
       <div className="border-b border-[#333] px-6 py-4 flex items-center justify-between shrink-0 bg-[#1e1e1e]">
         <div className="flex items-center space-x-3">
           <Folder className="w-5 h-5 text-blue-400" />
-          <h2 className="text-lg text-gray-100 font-medium">Repository Explorer</h2>
+          <h2 className="text-lg text-gray-100 font-medium">Files</h2>
         </div>
         <div className="flex items-center space-x-4">
           {activeRunId && (
             <div className="flex items-center space-x-2 text-xs">
-              <span className="text-gray-500">Run ID:</span>
+              <span className="text-gray-500">Run:</span>
               <span className="text-blue-400 font-bold">{activeRunId}</span>
             </div>
           )}
@@ -60,7 +67,7 @@ export default function RepositoryExplorer({ showInternalFiles = true }: Reposit
         {/* Left: File Tree */}
         <div className="w-1/2 border-r border-[#333] p-4 overflow-y-auto bg-[#252526]">
           <div className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-4">
-            {showInternalFiles ? 'Workspace Files' : 'App Source'}
+            {showInternalFiles ? 'Project Files' : 'App Files'}
           </div>
           <div className="space-y-1">
             {repositoryTree.map((node, i) => (

@@ -5,6 +5,7 @@ import type { AgentState } from '../stores/agent.store'
 import { useSkillsStore } from '../stores/skills.store'
 import { useTerminalStore } from "../stores/terminal.store"
 import { usePreviewStore } from "../stores/preview.store"
+import { useWorkspaceStore } from "../stores/workspace.store"
 import { api } from "../services/api"
 import { ProgressView } from "./ProgressView"
 
@@ -17,6 +18,8 @@ export default function PromptWorkspace() {
   const [autoRepair, setAutoRepair] = useState(true)
   const { state, setState: setAgentState, setStartTime, socketConnected } = useAgentStore()
   const previewUrl = usePreviewStore((s) => s.url)
+  const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
+  const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspaceId ? s.workspaces[s.activeWorkspaceId] : null)
   const { enabled, skills } = useSkillsStore()
   const failTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -61,7 +64,7 @@ export default function PromptWorkspace() {
     try {
       await api.post("/generate", {
         prompt: prompt,
-        project_id: `proj-${Date.now()}`,
+        project_id: activeWorkspaceId || `proj-${Date.now()}`,
         auto_repair: autoRepair,
         max_repair_attempts: 3,
         enabled_skills: enabledNames.length > 0 ? enabledNames : undefined
@@ -78,9 +81,9 @@ export default function PromptWorkspace() {
       <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-end pb-4">
         <div className="mb-4 border border-border bg-panel rounded-lg p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Current App</div>
+            <div className="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Generate</div>
             <div className="text-sm text-gray-200 truncate">
-              {previewUrl ? 'Generated app is ready to preview.' : state === 'IDLE' ? 'Describe an app to generate.' : 'Generation in progress.'}
+              {previewUrl ? 'Generated app is ready to preview.' : state === 'IDLE' ? `Describe what to build in ${activeWorkspace?.name || 'this project'}.` : 'Generation in progress.'}
             </div>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -106,9 +109,9 @@ export default function PromptWorkspace() {
         {state === 'IDLE' ? (
           <div className="flex-1 flex flex-col justify-center items-center text-center opacity-50 mb-12 min-h-[120px]">
              <AlignLeft className="w-8 h-8 mb-4 text-gray-500" />
-             <h2 className="text-lg font-medium text-gray-200">What are we building?</h2>
+             <h2 className="text-lg font-medium text-gray-200">What should AI Agent build?</h2>
              <p className="text-[13px] text-gray-400 mt-2 max-w-sm">
-               Describe your project — React, PHP, Laravel, or anything else.
+               Describe the app, page, or change you want for this project.
              </p>
           </div>
         ) : state === 'DISCONNECTED' || state === 'RECONNECTING' ? (
