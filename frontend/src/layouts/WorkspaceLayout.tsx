@@ -21,6 +21,7 @@ export default function WorkspaceLayout() {
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
   const workspaces = useWorkspaceStore((s) => s.workspaces)
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace)
+  const editorDirty = useWorkspaceStore((s) => s.editorDirty)
   const loadWorkspaceData = useWorkspaceStore((s) => s.loadWorkspaceData)
   const runtimeState = useAgentStore((s) => s.runtimeState)
   const setAgentState = useAgentStore((s) => s.setState)
@@ -40,6 +41,13 @@ export default function WorkspaceLayout() {
   const runtimeIsRunning = normalizedRuntimeStatus === "running" || normalizedRuntimeStatus === "ready"
   const runtimeIsBusy = ["starting", "healthcheck", "installing", "building", "preparing", "checking_ports"].includes(normalizedRuntimeStatus)
   const actionPending = runtimeAction !== null
+
+  const handleCloseWorkspace = () => {
+    if (editorDirty && !window.confirm("Discard unsaved editor changes and return to Projects?")) {
+      return
+    }
+    closeWorkspace()
+  }
 
   useEffect(() => {
     api.fetch<SkillMeta[]>("/skills").then(setSkills).catch(() => {
@@ -162,7 +170,7 @@ export default function WorkspaceLayout() {
     <div className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden font-sans selection:bg-blue-500/30">
       <header className="h-16 shrink-0 border-b border-border bg-[#151518] px-4 flex items-center gap-4">
         <button
-          onClick={closeWorkspace}
+          onClick={handleCloseWorkspace}
           className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-gray-300 transition hover:bg-white/5"
         >
           <ArrowLeft className="h-4 w-4" />

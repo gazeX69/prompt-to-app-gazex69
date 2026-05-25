@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { useWorkspaceStore } from "../stores/workspace.store"
 import type { RepositoryFileNode } from "../stores/workspace.store"
 import { fetchFileContent, fetchSymbols, fetchReferences, fetchRegions, fetchPatches, fetchReplays, fetchSimulations } from "../api/workspace.api"
@@ -16,9 +16,9 @@ export default function FileInspector({ file, onSymbolClick, onViewChange }: Fil
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
   const openFileInEditor = useWorkspaceStore(s => s.openFileInEditor)
-  const openEditorButtonRef = useRef<HTMLButtonElement | null>(null)
+  const editorDirty = useWorkspaceStore(s => s.editorDirty)
   const filePath = typeof file?.path === "string" ? file.path : ""
-  const pathId = typeof file?.pathId === "string" ? file.pathId : encodePathId(filePath)
+  const pathId = typeof file?.pathId === "string" ? file.pathId : ""
   const fileName = typeof file?.name === "string" ? file.name : "Unknown file"
   
   const [content, setContent] = useState("")
@@ -38,18 +38,21 @@ export default function FileInspector({ file, onSymbolClick, onViewChange }: Fil
       return
     }
     
-    queueMicrotask(() => {
-      setContent("")
-      setSizeBytes(0)
-      setLanguage("")
-      setTruncated(false)
-      setFileLoaded(false)
-      setError(null)
-      setSymbols([])
-      setReferences(null)
-      setRegions([])
-      setPatches([])
-    })
+    setContent("")
+    setSizeBytes(0)
+    setLanguage("")
+    setTruncated(false)
+    setFileLoaded(false)
+    setError(null)
+    setSymbols([])
+    setReferences(null)
+    setRegions([])
+    setPatches([])
+
+    if (!pathId) {
+      setError("File metadata is missing a path identifier.")
+      return
+    }
     
     fetchFileContent(activeWorkspaceId, pathId, activeRunId || undefined)
       .then(res => {
@@ -115,28 +118,42 @@ export default function FileInspector({ file, onSymbolClick, onViewChange }: Fil
   const components = safeSymbols.filter((s: SymbolMetadata) => s.type === 'component')
   const functions = safeSymbols.filter((s: SymbolMetadata) => s.type === 'function')
   const displayError = error || (!filePath ? "File metadata is missing a path." : null)
+  const editorBlockReason = !pathId
+    ? "This file cannot be edited because its path identifier is missing."
+    : truncated
+      ? "This file cannot be edited because the loaded content is truncated."
+      : displayError
   const canOpenInEditor = Boolean(fileLoaded && !displayError && !truncated && filePath && pathId)
-  const handleOpenInEditor = () => {
-    if (!canOpenInEditor) return
+  const handleOpenInEditor = useCallback(() => {
+    if (!canOpenInEditor) {
+      if (editorBlockReason) setError(editorBlockReason)
+      return
+    }
+    if (editorDirty && !window.confirm("Discard unsaved editor changes and open this file?")) {
+      setError("Open in Editor canceled. Unsaved editor changes were kept.")
+      return
+    }
     openFileInEditor({
       name: fileName,
       path: filePath,
       pathId,
       language: language || undefined,
-    }, content)
+    }, content, activeWorkspaceId || "", activeRunId)
     onViewChange("edit")
-  }
-
-  useEffect(() => {
-    const button = openEditorButtonRef.current
-    if (!button) return
-    const handleNativeOpen = (event: MouseEvent) => {
-      event.preventDefault()
-      handleOpenInEditor()
-    }
-    button.addEventListener("click", handleNativeOpen)
-    return () => button.removeEventListener("click", handleNativeOpen)
-  }, [handleOpenInEditor])
+  }, [
+    activeRunId,
+    activeWorkspaceId,
+    canOpenInEditor,
+    content,
+    editorBlockReason,
+    editorDirty,
+    fileName,
+    filePath,
+    language,
+    onViewChange,
+    openFileInEditor,
+    pathId,
+  ])
   
   return (
     <div className="flex h-full bg-[#1e1e1e] text-gray-300 font-mono">
@@ -154,16 +171,6 @@ export default function FileInspector({ file, onSymbolClick, onViewChange }: Fil
             {language && <span className="px-2 py-1 rounded text-[10px] bg-blue-500/20 text-blue-400 uppercase tracking-widest border border-blue-500/30">{language}</span>}
             {file.isEntrypoint && <span className="px-2 py-1 rounded text-[10px] bg-green-500/20 text-green-400 uppercase tracking-widest border border-green-500/30">Entry</span>}
             <span className="text-xs text-gray-500">{(sizeBytes / 1024).toFixed(1)} KB</span>
-            <button
-              ref={openEditorButtonRef}
-              type="button"
-              onClick={handleOpenInEditor}
-              disabled={!canOpenInEditor}
-              className="inline-flex h-8 items-center gap-2 rounded border border-blue-400/30 bg-blue-500/10 px-3 text-xs font-medium text-blue-200 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-              Open in Editor
-            </button>
           </div>
         </div>
         
@@ -190,6 +197,17 @@ export default function FileInspector({ file, onSymbolClick, onViewChange }: Fil
       <div className="w-80 flex flex-col bg-[#252526] shrink-0 overflow-y-auto">
         <div className="p-4 border-b border-[#333]">
           <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Inspection</h3>
+
+          <button
+            type="button"
+            onClick={handleOpenInEditor}
+            disabled={!canOpenInEditor}
+            title={editorBlockReason || "Open in Editor"}
+            className="mb-4 inline-flex h-9 w-full items-center justify-center gap-2 rounded border border-blue-400/30 bg-blue-500/10 px-3 text-sm font-medium text-blue-200 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Pencil className="h-4 w-4" />
+            Open in Editor
+          </button>
           
           <div className="space-y-3">
             <div className="flex justify-between items-center text-sm">
@@ -399,8 +417,4 @@ export default function FileInspector({ file, onSymbolClick, onViewChange }: Fil
       </div>
     </div>
   )
-}
-
-function encodePathId(path: string): string {
-  return btoa(path.replace(/\\/g, "/")).replace(/\+/g, "-").replace(/\//g, "_")
 }

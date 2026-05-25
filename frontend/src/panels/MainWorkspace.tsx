@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
-import { AlertCircle, Check, Code2, Loader2, Save } from "lucide-react"
+import { AlertCircle, Check, Code2, Loader2, RotateCcw, Save } from "lucide-react"
 import PromptWorkspace from "./PromptWorkspace"
 import StatusBar from "../components/StatusBar"
 import RepositoryExplorer from "./RepositoryExplorer"
@@ -8,7 +8,7 @@ import { ErrorBoundary } from "../components/ErrorBoundary"
 import type { WorkspaceMode } from "../layouts/WorkspaceLayout"
 import { useWorkspaceStore } from "../stores/workspace.store"
 import { usePreviewStore } from "../stores/preview.store"
-import { saveFileContent } from "../api/workspace.api"
+import { fetchFileContent, saveFileContent } from "../api/workspace.api"
 
 interface MainWorkspaceProps {
   activeView: WorkspaceMode
@@ -17,6 +17,18 @@ interface MainWorkspaceProps {
 
 export default function MainWorkspace({ activeView, onViewChange }: MainWorkspaceProps) {
   const [showInternalFiles, setShowInternalFiles] = useState(false)
+  const editorDirty = useWorkspaceStore(s => s.editorDirty)
+
+  useEffect(() => {
+    if (!editorDirty) return
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault()
+      event.returnValue = ""
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [editorDirty])
 
   // Determine which main view to show based on activeView
   const renderView = () => {
@@ -72,6 +84,8 @@ function EditCodePanel() {
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
   const selectedEditorFile = useWorkspaceStore(s => s.selectedEditorFile)
+  const editorWorkspaceId = useWorkspaceStore(s => s.editorWorkspaceId)
+  const editorRunId = useWorkspaceStore(s => s.editorRunId)
   const editorContent = useWorkspaceStore(s => s.editorContent)
   const editorDirty = useWorkspaceStore(s => s.editorDirty)
   const editorSaving = useWorkspaceStore(s => s.editorSaving)
@@ -80,7 +94,29 @@ function EditCodePanel() {
   const setEditorSaving = useWorkspaceStore(s => s.setEditorSaving)
   const setEditorError = useWorkspaceStore(s => s.setEditorError)
   const markEditorSaved = useWorkspaceStore(s => s.markEditorSaved)
+  const clearEditorState = useWorkspaceStore(s => s.clearEditorState)
   const hardRefresh = usePreviewStore(s => s.hardRefresh)
+  const [editorReloading, setEditorReloading] = useState(false)
+
+  useEffect(() => {
+    if (!selectedEditorFile) return
+    const activeRunKey = activeRunId || null
+    const editorRunKey = editorRunId || null
+    const editorContextChanged = editorWorkspaceId !== activeWorkspaceId || editorRunKey !== activeRunKey
+    if (!editorContextChanged) return
+
+    if (!editorDirty || window.confirm("Discard unsaved editor changes for the previous project or run?")) {
+      clearEditorState()
+    }
+  }, [
+    activeRunId,
+    activeWorkspaceId,
+    clearEditorState,
+    editorDirty,
+    editorRunId,
+    editorWorkspaceId,
+    selectedEditorFile,
+  ])
 
   const saveCurrentFile = useCallback(async () => {
     if (editorSaving) return
@@ -90,6 +126,18 @@ function EditCodePanel() {
     }
     if (!selectedEditorFile) {
       setEditorError("Select a file from Explore before saving.")
+      return
+    }
+    if (!selectedEditorFile.pathId) {
+      setEditorError("Cannot save this file because its path identifier is missing.")
+      return
+    }
+    if (editorWorkspaceId !== activeWorkspaceId) {
+      setEditorError("This editor selection belongs to a different workspace. Reopen the file from Explore.")
+      return
+    }
+    if ((editorRunId || null) !== (activeRunId || null)) {
+      setEditorError("This editor selection belongs to a different run. Reopen the file from Explore.")
       return
     }
     if (!editorDirty) return
@@ -118,11 +166,68 @@ function EditCodePanel() {
     editorContent,
     editorDirty,
     editorSaving,
+    editorRunId,
+    editorWorkspaceId,
     hardRefresh,
     markEditorSaved,
     selectedEditorFile,
     setEditorError,
     setEditorSaving,
+  ])
+
+  const reloadCurrentFile = useCallback(async () => {
+    if (editorReloading || editorSaving) return
+    if (!activeWorkspaceId) {
+      setEditorError("No active workspace is available.")
+      return
+    }
+    if (!selectedEditorFile) {
+      setEditorError("Select a file from Explore before reloading.")
+      return
+    }
+    if (!selectedEditorFile.pathId) {
+      setEditorError("Cannot reload this file because its path identifier is missing.")
+      return
+    }
+    if (editorWorkspaceId !== activeWorkspaceId) {
+      setEditorError("This editor selection belongs to a different workspace. Reopen the file from Explore.")
+      return
+    }
+    if ((editorRunId || null) !== (activeRunId || null)) {
+      setEditorError("This editor selection belongs to a different run. Reopen the file from Explore.")
+      return
+    }
+    if (editorDirty && !window.confirm("Discard unsaved editor changes and reload from disk?")) {
+      return
+    }
+
+    setEditorReloading(true)
+    setEditorError(null)
+    try {
+      const response = await fetchFileContent(
+        activeWorkspaceId,
+        selectedEditorFile.pathId,
+        activeRunId || undefined,
+      )
+      if (response.error) throw new Error(response.error)
+      if (response.truncated) throw new Error("Cannot reload truncated file content into the editor.")
+      markEditorSaved(typeof response.content === "string" ? response.content : "")
+    } catch (error) {
+      setEditorError(error instanceof Error ? error.message : "Failed to reload file from disk.")
+    } finally {
+      setEditorReloading(false)
+    }
+  }, [
+    activeRunId,
+    activeWorkspaceId,
+    editorDirty,
+    editorReloading,
+    editorRunId,
+    editorSaving,
+    editorWorkspaceId,
+    markEditorSaved,
+    selectedEditorFile,
+    setEditorError,
   ])
 
   useEffect(() => {
@@ -152,6 +257,7 @@ function EditCodePanel() {
   }
 
   const statusLabel = editorSaving ? "Saving..." : editorDirty ? "Unsaved" : "Saved"
+  const hasEditorContextMismatch = editorWorkspaceId !== activeWorkspaceId || (editorRunId || null) !== (activeRunId || null)
 
   return (
     <div className="flex h-full flex-col bg-[#1e1e1e] text-gray-200">
@@ -181,8 +287,17 @@ function EditCodePanel() {
           </span>
           <button
             type="button"
+            onClick={() => void reloadCurrentFile()}
+            disabled={editorSaving || editorReloading || hasEditorContextMismatch}
+            className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm font-medium text-gray-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {editorReloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+            {editorReloading ? "Reloading..." : "Reload"}
+          </button>
+          <button
+            type="button"
             onClick={() => void saveCurrentFile()}
-            disabled={!editorDirty || editorSaving}
+            disabled={!editorDirty || editorSaving || editorReloading || hasEditorContextMismatch}
             className="inline-flex h-9 items-center gap-2 rounded-md border border-blue-400/30 bg-blue-500/10 px-3 text-sm font-medium text-blue-100 transition hover:bg-blue-500/15 disabled:cursor-not-allowed disabled:opacity-45"
           >
             {editorSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}

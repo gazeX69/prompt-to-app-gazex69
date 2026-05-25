@@ -107,6 +107,8 @@ interface WorkspaceStore {
 
   // Embedded Editor
   selectedEditorFile: EditorFileMetadata | null
+  editorWorkspaceId: string | null
+  editorRunId: string | null
   editorContent: string
   editorOriginalContent: string
   editorDirty: boolean
@@ -121,7 +123,7 @@ interface WorkspaceStore {
   hydrateWorkspace: (repo: RepositorySnapshot, runtime: WorkspaceRuntimeSnapshot, artifacts: ArtifactSnapshot[]) => void
   loadWorkspaceData: (workspaceId: string) => Promise<void>
   loadRunData: (workspaceId: string, runId: string) => Promise<void>
-  openFileInEditor: (file: EditorFileMetadata, content: string) => void
+  openFileInEditor: (file: EditorFileMetadata, content: string, workspaceId: string, runId?: string | null) => void
   setEditorContent: (content: string) => void
   setEditorSaving: (saving: boolean) => void
   setEditorError: (error: string | null) => void
@@ -131,6 +133,8 @@ interface WorkspaceStore {
 
 const emptyEditorState = {
   selectedEditorFile: null,
+  editorWorkspaceId: null,
+  editorRunId: null,
   editorContent: "",
   editorOriginalContent: "",
   editorDirty: false,
@@ -233,13 +237,15 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         }
       },
 
-      openFileInEditor: (file, content) => set({
+      openFileInEditor: (file, content, workspaceId, runId = null) => set({
         selectedEditorFile: {
           name: file.name,
           path: file.path,
           pathId: file.pathId,
           language: file.language,
         },
+        editorWorkspaceId: workspaceId,
+        editorRunId: runId,
         editorContent: content,
         editorOriginalContent: content,
         editorDirty: false,
