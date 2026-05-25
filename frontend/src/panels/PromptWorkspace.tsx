@@ -7,6 +7,7 @@ import { useTerminalStore } from "../stores/terminal.store"
 import { usePreviewStore } from "../stores/preview.store"
 import { useWorkspaceStore } from "../stores/workspace.store"
 import { api } from "../services/api"
+import { runBrainPreflight, type BrainDecisionResult } from "../api/workspace.api"
 import { ProgressView } from "./ProgressView"
 
 function canGenerate(state: AgentState): boolean {
@@ -46,9 +47,39 @@ function agentStateFromGenerationStatus(value?: string | null): AgentState | nul
   return null
 }
 
+type PreflightStatus = "idle" | "loading" | "needs_confirmation" | "error"
+
+function requiresPreflightConfirmation(result: BrainDecisionResult): boolean {
+  if (result.decision === "ask_user_before_generate") return true
+  if (result.decision === "provider_required") return true
+  if (result.decision === "provider_review_only") return true
+  return result.decision === "compose_cases" && result.scope_analysis.is_broad
+}
+
+function buildRecommendedMvpPrompt(originalPrompt: string, result: BrainDecisionResult): string {
+  const features = result.recommended_mvp.features.map(feature => `- ${feature}`).join("\n")
+  return `Original request:
+${originalPrompt}
+
+Use this confirmed MVP scope:
+Title: ${result.recommended_mvp.title}
+
+Features:
+${features}
+
+Constraints:
+- Build the smallest working MVP.
+- Use simple local/mock data unless backend/database/auth is explicitly required.
+- Avoid adding unrequested external services.`
+}
+
 export default function PromptWorkspace() {
   const [prompt, setPrompt] = useState('')
   const [autoRepair, setAutoRepair] = useState(true)
+  const [preflightStatus, setPreflightStatus] = useState<PreflightStatus>("idle")
+  const [preflightResult, setPreflightResult] = useState<BrainDecisionResult | null>(null)
+  const [preflightError, setPreflightError] = useState<string | null>(null)
+  const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
   const { state, setState: setAgentState, setStartTime, socketConnected } = useAgentStore()
   const previewUrl = usePreviewStore((s) => s.url)
 
@@ -101,8 +132,9 @@ export default function PromptWorkspace() {
     }
   }, [generationTerminalState, state, setAgentState])
 
-  const handleGenerate = async () => {
-    if (!prompt.trim()) return
+  const startGeneration = async (generationPrompt: string) => {
+    const finalPrompt = generationPrompt.trim()
+    if (!finalPrompt) return
     if (!canGenerate(effectiveState)) return
     
     useTerminalStore.getState().clear()
@@ -115,7 +147,7 @@ export default function PromptWorkspace() {
     
     try {
       await api.post("/generate", {
-        prompt: prompt,
+        prompt: finalPrompt,
         project_id: activeWorkspaceId || `proj-${Date.now()}`,
         auto_repair: autoRepair,
         max_repair_attempts: 3,
@@ -126,6 +158,60 @@ export default function PromptWorkspace() {
       useTerminalStore.getState().addLine({ text: `[Client] HTTP error: ${err}`, type: 'stderr' })
       setAgentState('FAILED')
     }
+  }
+
+  const resetPreflight = () => {
+    setPreflightStatus("idle")
+    setPreflightResult(null)
+    setPreflightError(null)
+    setPendingPrompt(null)
+  }
+
+  const handleGenerate = async () => {
+    const submittedPrompt = prompt.trim()
+    if (!submittedPrompt) return
+    if (!canGenerate(effectiveState)) return
+    if (preflightStatus === "loading") return
+
+    setPendingPrompt(submittedPrompt)
+    setPreflightResult(null)
+    setPreflightError(null)
+    setPreflightStatus("loading")
+
+    try {
+      const result = await runBrainPreflight(submittedPrompt)
+      if (requiresPreflightConfirmation(result)) {
+        setPreflightResult(result)
+        setPreflightStatus("needs_confirmation")
+        useTerminalStore.getState().addLine({ text: `[Preflight] Scope confirmation required: ${result.reason}`, type: 'info' })
+        return
+      }
+
+      resetPreflight()
+      await startGeneration(submittedPrompt)
+    } catch (err) {
+      console.error('Failed to analyze prompt scope:', err)
+      setPreflightError(err instanceof Error ? err.message : "Preflight failed.")
+      setPreflightStatus("error")
+    }
+  }
+
+  const handleUseRecommendedMvp = async () => {
+    if (!pendingPrompt || !preflightResult) return
+    const narrowedPrompt = buildRecommendedMvpPrompt(pendingPrompt, preflightResult)
+    resetPreflight()
+    await startGeneration(narrowedPrompt)
+  }
+
+  const handleGenerateAnyway = async () => {
+    if (!pendingPrompt) return
+    const originalPrompt = pendingPrompt
+    resetPreflight()
+    await startGeneration(originalPrompt)
+  }
+
+  const handleCancelPreflight = () => {
+    resetPreflight()
   }
 
   useEffect(() => {
@@ -161,7 +247,7 @@ export default function PromptWorkspace() {
             </button>
             <button
               type="button"
-              disabled={!canGenerate(effectiveState)}
+              disabled={!canGenerate(effectiveState) || preflightStatus === "loading"}
               onClick={handleGenerate}
               className="text-[12px] px-3 py-1.5 rounded border border-border text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent"
             >
@@ -194,13 +280,115 @@ export default function PromptWorkspace() {
           </div>
         )}
 
+        {preflightStatus === "loading" && (
+          <div className="mb-3 rounded-lg border border-blue-400/20 bg-blue-500/10 px-4 py-3 text-sm text-blue-100">
+            Analyzing prompt scope...
+          </div>
+        )}
+
+        {preflightStatus === "needs_confirmation" && preflightResult && (
+          <div className="mb-3 rounded-lg border border-yellow-400/25 bg-yellow-500/10 p-4 text-left">
+            <div className="text-sm font-semibold text-yellow-100">This prompt is broad and needs scope confirmation.</div>
+            <p className="mt-1 text-[13px] text-yellow-100/80">{preflightResult.reason}</p>
+
+            <div className="mt-3 grid gap-2 text-[12px] text-gray-300 sm:grid-cols-3">
+              <div><span className="text-gray-500">Domain:</span> {preflightResult.signature.domain}</div>
+              <div><span className="text-gray-500">Complexity:</span> {preflightResult.signature.complexity}</div>
+              <div><span className="text-gray-500">Risk:</span> {preflightResult.scope_analysis.risk_level}</div>
+            </div>
+
+            <div className="mt-3">
+              <div className="text-[12px] font-medium text-gray-200">{preflightResult.recommended_mvp.title}</div>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[12px] text-gray-400">
+                {preflightResult.recommended_mvp.features.map(feature => (
+                  <li key={feature}>{feature}</li>
+                ))}
+              </ul>
+            </div>
+
+            {preflightResult.scope_analysis.missing_decisions.length > 0 && (
+              <div className="mt-3">
+                <div className="text-[12px] font-medium text-gray-200">Missing decisions</div>
+                <ul className="mt-1 space-y-1 text-[12px] text-gray-400">
+                  {preflightResult.scope_analysis.missing_decisions.map(decision => (
+                    <li key={decision.key}>{decision.question}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleUseRecommendedMvp}
+                disabled={!canGenerate(effectiveState)}
+                className="rounded-md bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Use Recommended MVP
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateAnyway}
+                disabled={!canGenerate(effectiveState)}
+                className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-gray-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Generate Anyway
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelPreflight}
+                className="rounded-md border border-transparent px-3 py-1.5 text-[12px] font-medium text-gray-400 transition hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {preflightStatus === "error" && (
+          <div className="mb-3 rounded-lg border border-red-400/25 bg-red-500/10 p-4 text-left">
+            <div className="text-sm font-semibold text-red-100">Could not analyze prompt scope. You can try again or generate anyway.</div>
+            {preflightError && <p className="mt-1 text-[12px] text-red-100/75">{preflightError}</p>}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleGenerate}
+                disabled={!canGenerate(effectiveState)}
+                className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-gray-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Try Again
+              </button>
+              <button
+                type="button"
+                onClick={handleGenerateAnyway}
+                disabled={!canGenerate(effectiveState)}
+                className="rounded-md bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Generate Anyway
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelPreflight}
+                className="rounded-md border border-transparent px-3 py-1.5 text-[12px] font-medium text-gray-400 transition hover:bg-white/5"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="bg-panel rounded-xl border border-border shadow-sm flex flex-col focus-within:border-gray-500 transition-colors overflow-hidden shrink-0">
           <textarea
             className="w-full bg-transparent border-none px-4 py-4 text-[14px] text-gray-200 placeholder:text-gray-500 focus:outline-none resize-none leading-relaxed"
             rows={4}
             placeholder="Describe what you want to build..."
             value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
+            onChange={(e) => {
+              setPrompt(e.target.value)
+              if (preflightStatus === "needs_confirmation" || preflightStatus === "error") {
+                resetPreflight()
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
                 handleGenerate()
@@ -230,11 +418,11 @@ export default function PromptWorkspace() {
             
             <button 
               onClick={handleGenerate}
-              disabled={!prompt.trim() || !canGenerate(effectiveState)}
+              disabled={!prompt.trim() || !canGenerate(effectiveState) || preflightStatus === "loading"}
               className="bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white text-black font-medium text-[12px] px-4 py-1.5 rounded-md flex items-center transition-colors"
             >
               <Send className="w-3.5 h-3.5 mr-2" />
-              Generate
+              {preflightStatus === "loading" ? "Analyzing" : "Generate"}
             </button>
           </div>
         </div>

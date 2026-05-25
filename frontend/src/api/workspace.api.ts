@@ -60,6 +60,53 @@ export async function archiveWorkspace(workspaceId: string): Promise<WorkspaceMe
   })
 }
 
+export type BrainDecision =
+  | "local_only"
+  | "local_plus_question"
+  | "ask_user_before_generate"
+  | "provider_required"
+  | "provider_review_only"
+  | "compose_cases"
+
+export type BrainComplexity = "low" | "medium" | "high"
+export type BrainRiskLevel = "low" | "medium" | "high"
+
+export interface BrainDecisionResult {
+  decision: BrainDecision
+  confidence: number
+  reason: string
+  signature: {
+    domain: string
+    intent: string
+    app_type: string
+    complexity: BrainComplexity
+    feature_keywords: string[]
+    required_capabilities: string[]
+  }
+  scope_analysis: {
+    is_broad: boolean
+    risk_level: BrainRiskLevel
+    missing_decisions: Array<{
+      key: string
+      question: string
+      default_recommendation: string
+      risk: BrainRiskLevel
+    }>
+  }
+  recommended_mvp: {
+    title: string
+    features: string[]
+  }
+  matched_cases: unknown[]
+}
+
+export async function runBrainPreflight(prompt: string): Promise<BrainDecisionResult> {
+  return requestWorkspace<BrainDecisionResult>("/brain/preflight", {
+    method: "POST",
+    body: JSON.stringify({ prompt }),
+  })
+}
+
 export async function fetchWorkspaceRuns(workspaceId: string): Promise<RunMetadata[]> {
   const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/runs`)
   if (!res.ok) throw new Error("Failed to fetch runs")
