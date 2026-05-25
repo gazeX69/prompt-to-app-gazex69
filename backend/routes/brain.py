@@ -6,12 +6,18 @@ local analysis only and never mutates workspaces or starts providers.
 """
 
 from fastapi import APIRouter, HTTPException
+from fastapi.encoders import jsonable_encoder
 
 from backend.brain.case_retriever import retrieve_matching_cases
 from backend.brain.decision_engine import decide_preflight
-from backend.brain.memory_store import ensure_memory_files
+from backend.brain.memory_store import append_decision_history, ensure_memory_files
 from backend.brain.plan_signature import build_plan_signature
-from backend.brain.schemas import BrainDecisionResult, PreflightRequest
+from backend.brain.schemas import (
+    BrainDecisionResult,
+    PreflightHistoryRequest,
+    PreflightHistoryResponse,
+    PreflightRequest,
+)
 from backend.brain.scope_analyzer import analyze_scope
 
 router = APIRouter()
@@ -29,3 +35,10 @@ def preflight(req: PreflightRequest) -> BrainDecisionResult:
     matched_cases = retrieve_matching_cases(signature)
     return decide_preflight(prompt, signature, scope_analysis, matched_cases)
 
+
+@router.post("/preflight/history", response_model=PreflightHistoryResponse)
+def append_preflight_history(
+    req: PreflightHistoryRequest,
+) -> PreflightHistoryResponse:
+    record = append_decision_history(jsonable_encoder(req))
+    return PreflightHistoryResponse(ok=True, record=record)

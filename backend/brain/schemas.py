@@ -1,6 +1,6 @@
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class BrainDecision(str, Enum):
@@ -22,6 +22,12 @@ class RiskLevel(str, Enum):
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
+
+
+class PreflightHistoryAction(str, Enum):
+    AUTO_CONTINUE = "auto_continue"
+    USE_RECOMMENDED_MVP = "use_recommended_mvp"
+    GENERATE_ANYWAY = "generate_anyway"
 
 
 class PreflightRequest(BaseModel):
@@ -76,6 +82,50 @@ class BrainDecisionResult(BaseModel):
     matched_cases: list[MatchedCase] = Field(default_factory=list)
 
 
+class PreflightHistoryRequest(BaseModel):
+    original_prompt: str
+    final_prompt: str
+    action: PreflightHistoryAction
+    decision: BrainDecision
+    signature: PlanSignature | None = None
+    recommended_mvp: RecommendedMVP | None = None
+    missing_decision_keys: list[str] = Field(default_factory=list)
+    workspace_id: str | None = None
+
+    @validator("original_prompt")
+    def validate_original_prompt(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Original prompt must not be empty.")
+        return value
+
+    @validator("final_prompt")
+    def validate_final_prompt(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("Final prompt must not be empty.")
+        return value
+
+
+class PreflightHistoryRecord(BaseModel):
+    id: str
+    schema_version: str
+    created_at: str
+    original_prompt: str
+    final_prompt: str
+    action: PreflightHistoryAction
+    decision: BrainDecision
+    signature: PlanSignature | None = None
+    recommended_mvp: RecommendedMVP | None = None
+    missing_decision_keys: list[str] = Field(default_factory=list)
+    workspace_id: str | None = None
+
+
+class PreflightHistoryResponse(BaseModel):
+    ok: bool
+    record: PreflightHistoryRecord
+
+
 class CaseMemory(BaseModel):
     id: str
     title: str
@@ -108,4 +158,3 @@ class FailureMemory(BaseModel):
     failure_type: str
     avoided_capabilities: list[str] = Field(default_factory=list)
     summary: str | None = None
-
