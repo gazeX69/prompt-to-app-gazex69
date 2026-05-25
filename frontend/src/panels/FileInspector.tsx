@@ -14,6 +14,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
   const filePath = typeof file?.path === "string" ? file.path : ""
+  const pathId = typeof file?.pathId === "string" ? file.pathId : encodePathId(filePath)
   const fileName = typeof file?.name === "string" ? file.name : "Unknown file"
   
   const [content, setContent] = useState("")
@@ -29,25 +30,22 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
   
   useEffect(() => {
     if (!activeWorkspaceId || !filePath) {
-      if (file && !filePath) setError("File metadata is missing a path.")
       return
     }
     
-    // Reset state
-    setContent("")
-    setSizeBytes(0)
-    setLanguage("")
-    setTruncated(false)
-    setError(null)
-    setSymbols([])
-    setReferences(null)
-    setRegions([])
-    setPatches([])
+    queueMicrotask(() => {
+      setContent("")
+      setSizeBytes(0)
+      setLanguage("")
+      setTruncated(false)
+      setError(null)
+      setSymbols([])
+      setReferences(null)
+      setRegions([])
+      setPatches([])
+    })
     
-    // Encode path for API
-    const encodedPath = btoa(filePath).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-    
-    fetchFileContent(activeWorkspaceId, encodedPath, activeRunId || undefined)
+    fetchFileContent(activeWorkspaceId, pathId, activeRunId || undefined)
       .then(res => {
         setContent(typeof res?.content === "string" ? res.content : "")
         setSizeBytes(Number.isFinite(Number(res?.sizeBytes)) ? Number(res.sizeBytes) : 0)
@@ -57,19 +55,19 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
       })
       .catch(e => setError(e.message))
       
-    fetchSymbols(activeWorkspaceId, activeRunId || undefined, encodedPath)
+    fetchSymbols(activeWorkspaceId, activeRunId || undefined, pathId)
       .then(res => {
         setSymbols(Array.isArray(res) ? res : [])
       })
       .catch(console.error)
 
-    fetchReferences(activeWorkspaceId, encodedPath, activeRunId || undefined)
+    fetchReferences(activeWorkspaceId, pathId, activeRunId || undefined)
       .then(res => {
         setReferences(res)
       })
       .catch(console.error)
       
-    fetchRegions(activeWorkspaceId, encodedPath, activeRunId || undefined)
+    fetchRegions(activeWorkspaceId, pathId, activeRunId || undefined)
       .then(res => {
         setRegions(Array.isArray(res) ? res : [])
       })
@@ -95,7 +93,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
       setPatches(enrichedPatches)
     }).catch(console.error)
       
-  }, [activeWorkspaceId, activeRunId, file, filePath])
+  }, [activeWorkspaceId, activeRunId, file, filePath, pathId])
 
   const safeSymbols = Array.isArray(symbols) ? symbols : []
   const safeRegions = Array.isArray(regions) ? regions : []
@@ -106,6 +104,7 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
   const exports = safeSymbols.filter((s: SymbolMetadata) => s.exported && s.type !== 'import')
   const components = safeSymbols.filter((s: SymbolMetadata) => s.type === 'component')
   const functions = safeSymbols.filter((s: SymbolMetadata) => s.type === 'function')
+  const displayError = error || (!filePath ? "File metadata is missing a path." : null)
   
   return (
     <div className="flex h-full bg-[#1e1e1e] text-gray-300 font-mono">
@@ -126,10 +125,10 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
           </div>
         </div>
         
-        {error ? (
+        {displayError ? (
           <div className="p-6 text-red-400 text-sm flex items-start space-x-2">
             <ShieldAlert className="w-5 h-5 shrink-0" />
-            <span>Failed to load file: {error}</span>
+            <span>Failed to load file: {displayError}</span>
           </div>
         ) : (
           <div className="flex-1 overflow-auto p-4 bg-[#1e1e1e]">
@@ -358,4 +357,8 @@ export default function FileInspector({ file, onSymbolClick }: FileInspectorProp
       </div>
     </div>
   )
+}
+
+function encodePathId(path: string): string {
+  return btoa(path.replace(/\\/g, "/")).replace(/\+/g, "-").replace(/\//g, "_")
 }
