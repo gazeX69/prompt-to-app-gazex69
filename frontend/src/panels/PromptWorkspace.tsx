@@ -97,6 +97,9 @@ export default function PromptWorkspace() {
   const activeWorkspace = useWorkspaceStore((s) => s.activeWorkspaceId ? s.workspaces[s.activeWorkspaceId] : null)
   const { enabled, skills } = useSkillsStore()
   const failTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const preflightRequestRef = useRef(0)
+  const preflightLoadingRef = useRef(false)
+  const generationStartingRef = useRef(false)
 
   const safeSetAgentState = useAgentStore((s) => s.setState)
   
@@ -136,12 +139,14 @@ export default function PromptWorkspace() {
     const finalPrompt = generationPrompt.trim()
     if (!finalPrompt) return
     if (!canGenerate(effectiveState)) return
+    if (generationStartingRef.current) return
     
     useTerminalStore.getState().clear()
     useTerminalStore.getState().addLine({ text: `[Client] Sending generation request...`, type: 'info' })
     setStartTime(Date.now())
     setAgentState('GENERATING')
     useAgentStore.setState({ activities: [] })
+    generationStartingRef.current = true
     
     const enabledNames = skills.filter(s => enabled[s.name] !== false).map(s => s.name)
     
@@ -157,22 +162,33 @@ export default function PromptWorkspace() {
       console.error('Failed to start generation:', err)
       useTerminalStore.getState().addLine({ text: `[Client] HTTP error: ${err}`, type: 'stderr' })
       setAgentState('FAILED')
+    } finally {
+      generationStartingRef.current = false
     }
   }
 
   const resetPreflight = () => {
+    preflightLoadingRef.current = false
     setPreflightStatus("idle")
     setPreflightResult(null)
     setPreflightError(null)
     setPendingPrompt(null)
   }
 
+  const invalidatePreflight = () => {
+    preflightRequestRef.current += 1
+    resetPreflight()
+  }
+
   const handleGenerate = async () => {
     const submittedPrompt = prompt.trim()
     if (!submittedPrompt) return
     if (!canGenerate(effectiveState)) return
-    if (preflightStatus === "loading") return
+    if (preflightLoadingRef.current || preflightStatus === "loading") return
 
+    const requestId = preflightRequestRef.current + 1
+    preflightRequestRef.current = requestId
+    preflightLoadingRef.current = true
     setPendingPrompt(submittedPrompt)
     setPreflightResult(null)
     setPreflightError(null)
@@ -180,6 +196,8 @@ export default function PromptWorkspace() {
 
     try {
       const result = await runBrainPreflight(submittedPrompt)
+      if (preflightRequestRef.current !== requestId) return
+      preflightLoadingRef.current = false
       if (requiresPreflightConfirmation(result)) {
         setPreflightResult(result)
         setPreflightStatus("needs_confirmation")
@@ -190,6 +208,8 @@ export default function PromptWorkspace() {
       resetPreflight()
       await startGeneration(submittedPrompt)
     } catch (err) {
+      if (preflightRequestRef.current !== requestId) return
+      preflightLoadingRef.current = false
       console.error('Failed to analyze prompt scope:', err)
       setPreflightError(err instanceof Error ? err.message : "Preflight failed.")
       setPreflightStatus("error")
@@ -385,8 +405,8 @@ export default function PromptWorkspace() {
             value={prompt}
             onChange={(e) => {
               setPrompt(e.target.value)
-              if (preflightStatus === "needs_confirmation" || preflightStatus === "error") {
-                resetPreflight()
+              if (preflightStatus !== "idle") {
+                invalidatePreflight()
               }
             }}
             onKeyDown={(e) => {
