@@ -122,11 +122,61 @@ def _record_runtime_status(entry: RuntimeEntry | dict) -> dict:
     return status
 
 
+def _fail_runtime_readback(project_id: str, entry: RuntimeEntry, error: str) -> dict:
+    failed_status = {
+        "project_id": entry.project_id,
+        "run_id": entry.run_id,
+        "status": "failed",
+        "port": None,
+        "pid": entry.process_pid,
+        "url": None,
+        "started_at": entry.started_at,
+        "last_healthcheck": time.time(),
+        "error": error,
+    }
+    _record_runtime_status(failed_status)
+    if _runtime_registry.get(project_id) is entry:
+        del _runtime_registry[project_id]
+    return failed_status
+
+
+def _refresh_runtime_entry_status(project_id: str, entry: RuntimeEntry) -> dict:
+    exit_code = entry.popen.poll()
+    if exit_code is not None:
+        return _fail_runtime_readback(
+            project_id,
+            entry,
+            f"Runtime process exited unexpectedly (Exit {exit_code})",
+        )
+
+    if entry.process_status != "running":
+        return _runtime_entry_to_status(entry)
+
+    if not entry.preview_url:
+        return _fail_runtime_readback(project_id, entry, "Runtime marked running without a preview URL")
+
+    try:
+        status, body = _fetch_text(entry.preview_url, timeout=1.0)
+        entry.last_healthcheck = time.time()
+        if status >= 400:
+            return _fail_runtime_readback(project_id, entry, f"Runtime preview returned HTTP {status}")
+        if f'content="{entry.run_id}"' not in body and f'data-run-id="{entry.run_id}"' not in body:
+            return _fail_runtime_readback(
+                project_id,
+                entry,
+                "Runtime preview did not contain the active run marker",
+            )
+        _record_runtime_status(entry)
+        return _runtime_entry_to_status(entry)
+    except Exception as e:
+        return _fail_runtime_readback(project_id, entry, f"Runtime preview unreachable: {e}")
+
+
 def get_runtime_status(project_id: str | None = None) -> dict:
     if project_id:
         entry = _runtime_registry.get(project_id)
         if entry:
-            return _runtime_entry_to_status(entry)
+            return _refresh_runtime_entry_status(project_id, entry)
         if project_id in _runtime_status_snapshots:
             return _runtime_status_snapshots[project_id]
         return {
@@ -142,7 +192,7 @@ def get_runtime_status(project_id: str | None = None) -> dict:
         }
 
     return {
-        "runtimes": [_runtime_entry_to_status(entry) for entry in _runtime_registry.values()]
+        "runtimes": [_refresh_runtime_entry_status(project_id, entry) for project_id, entry in list(_runtime_registry.items())]
     }
 
 def _kill_process_tree(popen: subprocess.Popen, project_id: str) -> None:
