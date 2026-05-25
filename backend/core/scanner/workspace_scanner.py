@@ -1,14 +1,175 @@
 import os
 import json
 import base64
+import re
+import shutil
+import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB safe boundary
+PROJECT_METADATA_FILE = ".ai-agent-project.json"
+TRASH_ROOT_NAME = ".trash"
+SAFE_COPY_EXCLUDES = {
+    "node_modules",
+    "dist",
+    "build",
+    ".orchestration",
+    ".cache",
+    ".turbo",
+    ".vite",
+    "__pycache__",
+    ".pytest_cache",
+    "coverage",
+}
+
+EDIT_BLOCKED_SEGMENTS = {
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    ".trash",
+    ".orchestration",
+    ".cache",
+    ".turbo",
+    ".vite",
+    "__pycache__",
+    ".pytest_cache",
+    "coverage",
+}
+
+TEXT_EDIT_BLOCKED_SUFFIXES = {
+    ".exe", ".dll", ".png", ".jpg", ".jpeg", ".gif", ".mp4",
+    ".zip", ".pyc", ".o", ".class", ".pdf", ".ico", ".webp",
+}
 
 def get_workspaces_root() -> Path:
     # backend/core/scanner/workspace_scanner.py -> backend/core/scanner -> backend/core -> backend -> project_root -> workspaces
     return Path(__file__).resolve().parent.parent.parent.parent / "workspaces"
+
+def _now_ms() -> int:
+    return int(time.time() * 1000)
+
+def _slugify_project_name(name: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "-", name.strip().lower()).strip("-_")
+    cleaned = re.sub(r"-{2,}", "-", cleaned)
+    if not cleaned:
+        raise ValueError("Project name must include at least one letter or number")
+    return cleaned[:64]
+
+def _validate_project_name(name: str) -> str:
+    normalized = " ".join((name or "").strip().split())
+    if len(normalized) < 2:
+        raise ValueError("Project name must be at least 2 characters")
+    if len(normalized) > 80:
+        raise ValueError("Project name must be 80 characters or fewer")
+    if any(token in normalized for token in ("..", "/", "\\")):
+        raise ValueError("Project name cannot contain path separators")
+    return normalized
+
+def _encode_path_id(rel_path: str) -> str:
+    normalized = rel_path.replace("\\", "/")
+    return base64.urlsafe_b64encode(normalized.encode("utf-8")).decode("utf-8")
+
+def _decode_path_id(path_id: str) -> str:
+    try:
+        padded = path_id + ("=" * (-len(path_id) % 4))
+        rel_path = base64.urlsafe_b64decode(padded.encode("utf-8")).decode("utf-8")
+    except Exception as exc:
+        raise ValueError("Invalid path ID") from exc
+    return rel_path.replace("\\", "/")
+
+def _is_unsafe_relative_path(rel_path: str) -> bool:
+    return (
+        ".." in rel_path
+        or rel_path.startswith("/")
+        or rel_path.startswith("\\")
+        or Path(rel_path).is_absolute()
+    )
+
+def _ensure_workspace_root() -> Path:
+    root = get_workspaces_root()
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+def _resolve_workspace_path(workspace_id: str) -> Path:
+    if not re.fullmatch(r"[a-zA-Z0-9_-]+", workspace_id or ""):
+        raise ValueError("Invalid workspace id")
+    root = _ensure_workspace_root().resolve()
+    path = (root / workspace_id).resolve()
+    if path.parent != root:
+        raise ValueError("Workspace path escapes workspace root")
+    return path
+
+def _unique_workspace_id(name: str) -> str:
+    root = _ensure_workspace_root()
+    base = _slugify_project_name(name)
+    candidate = base
+    suffix = 2
+    while (root / candidate).exists():
+        candidate = f"{base}-{suffix}"
+        suffix += 1
+    return candidate
+
+def _metadata_path(workspace_path: Path) -> Path:
+    return workspace_path / PROJECT_METADATA_FILE
+
+def _read_project_metadata(workspace_path: Path) -> Dict[str, Any]:
+    path = _metadata_path(workspace_path)
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+def _write_project_metadata(workspace_path: Path, metadata: Dict[str, Any]) -> Dict[str, Any]:
+    _metadata_path(workspace_path).write_text(
+        json.dumps(metadata, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+    return metadata
+
+def _workspace_to_project(workspace_path: Path, runtime_status: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    stat = workspace_path.stat()
+    metadata = _read_project_metadata(workspace_path)
+    created_at = int(metadata.get("created_at") or metadata.get("createdAt") or stat.st_ctime * 1000)
+    updated_at = int(metadata.get("updated_at") or metadata.get("updatedAt") or stat.st_mtime * 1000)
+    name = metadata.get("name") or workspace_path.name
+    ecosystem = metadata.get("ecosystem") or "unknown"
+    run_count = len([x for x in workspace_path.iterdir() if x.is_dir() and x.name.startswith("run_")])
+    runtime_state = (runtime_status or {}).get("status") or "unknown"
+    if runtime_state == "running":
+        project_status = "running"
+        runtime_health = "healthy"
+    elif runtime_state == "failed":
+        project_status = "failed"
+        runtime_health = "degraded"
+    elif runtime_state == "stopped":
+        project_status = "stopped"
+        runtime_health = "offline"
+    else:
+        project_status = "ready" if workspace_path.exists() else "unknown"
+        runtime_health = "offline"
+
+    path_label = str(workspace_path.resolve())
+    return {
+        "id": workspace_path.name,
+        "name": name,
+        "path": path_label,
+        "pathLabel": path_label,
+        "ecosystem": ecosystem,
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "createdAt": created_at,
+        "updatedAt": updated_at,
+        "runCount": run_count,
+        "status": project_status,
+        "runtime_status": runtime_status or {"status": "unknown"},
+        "runtimeHealth": runtime_health,
+        "is_archived": bool(metadata.get("is_archived", False)),
+    }
 
 def get_run_dir(workspace_path: Path, run_id: Optional[str] = None) -> Optional[Path]:
     if run_id:
@@ -18,19 +179,46 @@ def get_run_dir(workspace_path: Path, run_id: Optional[str] = None) -> Optional[
         return None
 
     latest_path = workspace_path / "latest"
-    if latest_path.exists() and latest_path.is_dir():
+    if latest_path.exists() and latest_path.is_dir() and _looks_like_source_root(latest_path):
         return latest_path
-    
-    # fallback to sorting run_* dirs
+
     try:
-        run_dirs = [d for d in workspace_path.iterdir() if d.is_dir() and d.name.startswith("run_")]
+        run_dirs = [
+            d for d in workspace_path.iterdir()
+            if d.is_dir()
+            and d.name.startswith("run_")
+            and _looks_like_source_root(d)
+        ]
         if not run_dirs:
             return None
-        # Sort by mtime
+
         run_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
         return run_dirs[0]
     except Exception:
         return None
+
+def _looks_like_source_root(path: Path) -> bool:
+    return (
+        (path / "package.json").is_file()
+        or (path / "index.html").is_file()
+        or (path / "index.php").is_file()
+        or (path / "vite.config.ts").is_file()
+        or (path / "vite.config.js").is_file()
+        or (path / "src").is_dir()
+    )
+
+
+def get_latest_run_id(workspace_id: str) -> Optional[str]:
+    workspace_path = _resolve_workspace_path(workspace_id)
+    if not workspace_path.exists() or not workspace_path.is_dir():
+        return None
+
+    latest_path = workspace_path / "latest"
+    if latest_path.exists() and latest_path.is_dir():
+        return latest_path.name
+
+    run_dir = get_run_dir(workspace_path)
+    return run_dir.name if run_dir else None
 
 def scan_workspaces() -> List[Dict[str, Any]]:
     root = get_workspaces_root()
@@ -39,34 +227,102 @@ def scan_workspaces() -> List[Dict[str, Any]]:
         
     workspaces = []
     for d in root.iterdir():
-        if not d.is_dir():
+        if not d.is_dir() or d.name == TRASH_ROOT_NAME or d.name.startswith("."):
             continue
-            
-        latest_run = get_run_dir(d)
-        run_count = len([x for x in d.iterdir() if x.is_dir() and x.name.startswith("run_")])
-        
-        stat = d.stat()
-        created_at = int(stat.st_ctime * 1000)
-        updated_at = int(stat.st_mtime * 1000)
-        
-        # basic inference for ecosystem
-        ecosystem = "unknown"
-        if "react" in d.name.lower(): ecosystem = "react-vite-ts"
-        elif "php" in d.name.lower(): ecosystem = "php-basic"
-        elif "laravel" in d.name.lower(): ecosystem = "laravel"
-        
-        ws = {
-            "id": d.name,
-            "name": d.name,
-            "pathLabel": str(d.resolve()),
-            "ecosystem": ecosystem,
-            "createdAt": created_at,
-            "updatedAt": updated_at,
-            "runCount": run_count,
-            "runtimeHealth": "offline"
-        }
-        workspaces.append(ws)
-    return workspaces
+        metadata = _read_project_metadata(d)
+        if metadata.get("is_archived"):
+            continue
+        workspaces.append(_workspace_to_project(d))
+    return sorted(workspaces, key=lambda x: x["updatedAt"], reverse=True)
+
+def create_workspace_project(name: str, template: Optional[str] = None) -> Dict[str, Any]:
+    display_name = _validate_project_name(name)
+    workspace_id = _unique_workspace_id(display_name)
+    workspace_path = _resolve_workspace_path(workspace_id)
+    workspace_path.mkdir(parents=False, exist_ok=False)
+    now = _now_ms()
+    metadata = {
+        "id": workspace_id,
+        "name": display_name,
+        "ecosystem": template or "blank",
+        "created_at": now,
+        "updated_at": now,
+        "is_archived": False,
+    }
+    _write_project_metadata(workspace_path, metadata)
+    return _workspace_to_project(workspace_path)
+
+def update_workspace_project(workspace_id: str, name: str) -> Dict[str, Any]:
+    display_name = _validate_project_name(name)
+    workspace_path = _resolve_workspace_path(workspace_id)
+    if not workspace_path.exists() or not workspace_path.is_dir():
+        raise FileNotFoundError("Workspace not found")
+    metadata = _read_project_metadata(workspace_path)
+    metadata.update({
+        "id": workspace_id,
+        "name": display_name,
+        "updated_at": _now_ms(),
+        "is_archived": bool(metadata.get("is_archived", False)),
+    })
+    _write_project_metadata(workspace_path, metadata)
+    return _workspace_to_project(workspace_path)
+
+def duplicate_workspace_project(workspace_id: str, name: Optional[str] = None) -> Dict[str, Any]:
+    source_path = _resolve_workspace_path(workspace_id)
+    if not source_path.exists() or not source_path.is_dir():
+        raise FileNotFoundError("Workspace not found")
+    source_metadata = _read_project_metadata(source_path)
+    display_name = _validate_project_name(name or f"{source_metadata.get('name') or workspace_id} Copy")
+    target_id = _unique_workspace_id(display_name)
+    target_path = _resolve_workspace_path(target_id)
+
+    def ignore_transient(_dir: str, names: List[str]) -> set[str]:
+        return {item for item in names if item in SAFE_COPY_EXCLUDES or item.endswith(".log")}
+
+    shutil.copytree(source_path, target_path, ignore=ignore_transient)
+    now = _now_ms()
+    metadata = {
+        **source_metadata,
+        "id": target_id,
+        "name": display_name,
+        "created_at": now,
+        "updated_at": now,
+        "is_archived": False,
+    }
+    _write_project_metadata(target_path, metadata)
+    return _workspace_to_project(target_path)
+
+def archive_workspace_project(workspace_id: str) -> Dict[str, Any]:
+    workspace_path = _resolve_workspace_path(workspace_id)
+    if not workspace_path.exists() or not workspace_path.is_dir():
+        raise FileNotFoundError("Workspace not found")
+    metadata = _read_project_metadata(workspace_path)
+    metadata.update({
+        "id": workspace_id,
+        "name": metadata.get("name") or workspace_id,
+        "updated_at": _now_ms(),
+        "is_archived": True,
+    })
+    _write_project_metadata(workspace_path, metadata)
+
+    trash_root = (_ensure_workspace_root() / TRASH_ROOT_NAME / "projects").resolve()
+    workspace_root = _ensure_workspace_root().resolve()
+    if not str(trash_root).startswith(str(workspace_root)):
+        raise ValueError("Trash path escapes workspace root")
+    trash_root.mkdir(parents=True, exist_ok=True)
+    target = trash_root / f"{workspace_id}_{int(time.time())}"
+    if target.exists():
+        target = trash_root / f"{workspace_id}_{int(time.time())}_{os.getpid()}"
+    shutil.move(str(workspace_path), str(target))
+    return {
+        "id": workspace_id,
+        "name": metadata.get("name") or workspace_id,
+        "path": str(target.resolve()),
+        "pathLabel": str(target.resolve()),
+        "status": "archived",
+        "is_archived": True,
+        "runtime_status": {"status": "stopped"},
+    }
     
 def get_workspace_runs(workspace_id: str) -> List[Dict[str, Any]]:
     ws_path = get_workspaces_root() / workspace_id
@@ -158,10 +414,12 @@ def get_workspace_tree(workspace_id: str, run_id: Optional[str] = None) -> Dict[
                 if item.name in excluded:
                     continue
                 if item.is_dir():
+                    rel_path = str(item.relative_to(latest_run)).replace("\\", "/")
                     children = _scan(item)
                     nodes.append({
                         "name": item.name,
-                        "path": str(item.relative_to(latest_run)).replace("\\", "/"),
+                        "path": rel_path,
+                        "pathId": _encode_path_id(rel_path),
                         "type": "directory",
                         "children": children
                     })
@@ -177,10 +435,12 @@ def get_workspace_tree(workspace_id: str, run_id: Optional[str] = None) -> Dict[
                     is_entrypoint = item.name in {"main.tsx", "App.tsx", "index.php", "index.js", "server.js", "main.py"}
                     heat = "low"
                     if item.name in {"App.tsx", "index.php", "routes.ts"}: heat = "high"
+                    rel_path = str(item.relative_to(latest_run)).replace("\\", "/")
                     
                     nodes.append({
                         "name": item.name,
-                        "path": str(item.relative_to(latest_run)).replace("\\", "/"),
+                        "path": rel_path,
+                        "pathId": _encode_path_id(rel_path),
                         "type": "file",
                         "isEntrypoint": is_entrypoint,
                         "mutationHeat": heat,
@@ -301,11 +561,11 @@ def get_workspace_file_content(workspace_id: str, path_id: str, run_id: Optional
         return {"content": "", "truncated": False, "error": "Run not found"}
         
     try:
-        rel_path_str = base64.urlsafe_b64decode(path_id.encode("utf-8")).decode("utf-8")
-    except Exception:
+        rel_path_str = _decode_path_id(path_id)
+    except ValueError:
         return {"content": "", "truncated": False, "error": "Invalid path ID"}
         
-    if ".." in rel_path_str or rel_path_str.startswith("/") or rel_path_str.startswith("\\"):
+    if _is_unsafe_relative_path(rel_path_str):
         return {"content": "", "truncated": False, "error": "Path traversal blocked"}
         
     target_path = latest_run / rel_path_str
@@ -340,7 +600,75 @@ def get_workspace_file_content(workspace_id: str, path_id: str, run_id: Optional
     except Exception as e:
         return {"content": "", "truncated": False, "error": str(e)}
 
-import re
+def save_workspace_file_content(
+    workspace_id: str,
+    path_id: str,
+    content: str,
+    run_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    ws_path = get_workspaces_root() / workspace_id
+    if not ws_path.exists():
+        return {"ok": False, "error": "Workspace not found"}
+
+    latest_run = get_run_dir(ws_path, run_id)
+    if not latest_run:
+        return {"ok": False, "error": "Run not found"}
+
+    try:
+        rel_path_str = _decode_path_id(path_id)
+    except ValueError:
+        return {"ok": False, "error": "Invalid path ID"}
+
+    if _is_unsafe_relative_path(rel_path_str):
+        return {"ok": False, "error": "Path traversal blocked"}
+
+    rel_parts = Path(rel_path_str).parts
+    if any(part in EDIT_BLOCKED_SEGMENTS for part in rel_parts):
+        return {"ok": False, "error": "This path is not editable"}
+
+    target_path = latest_run / rel_path_str
+
+    try:
+        target_resolved = target_path.resolve()
+        run_resolved = latest_run.resolve()
+        target_resolved.relative_to(run_resolved)
+    except ValueError:
+        return {"ok": False, "error": "Path boundary violation"}
+    except Exception:
+        return {"ok": False, "error": "Resolution error"}
+
+    if not target_path.exists() or not target_path.is_file():
+        return {"ok": False, "error": "File not found"}
+
+    if target_path.suffix.lower() in TEXT_EDIT_BLOCKED_SUFFIXES:
+        return {"ok": False, "error": "Binary files are not editable"}
+
+    try:
+        existing_head = target_path.read_bytes()[:4096]
+        if b"\0" in existing_head:
+            return {"ok": False, "error": "Binary files are not editable"}
+    except Exception as exc:
+        return {"ok": False, "error": f"Could not inspect file: {exc}"}
+
+    encoded = content.encode("utf-8")
+    if len(encoded) > MAX_FILE_SIZE:
+        return {"ok": False, "error": "File too large"}
+
+    try:
+        target_path.write_text(content, encoding="utf-8", newline="")
+        stat = target_path.stat()
+        normalized_path = rel_path_str.replace("\\", "/")
+        return {
+            "ok": True,
+            "path": normalized_path,
+            "pathId": _encode_path_id(normalized_path),
+            "sizeBytes": stat.st_size,
+            "language": target_path.suffix.lstrip("."),
+            "updatedAt": int(stat.st_mtime * 1000),
+            "error": None,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
 
 def extract_workspace_symbols(workspace_id: str, run_id: Optional[str] = None, path_id: Optional[str] = None) -> List[Dict[str, Any]]:
     ws_path = get_workspaces_root() / workspace_id
@@ -425,8 +753,8 @@ def extract_workspace_symbols(workspace_id: str, run_id: Optional[str] = None, p
 
     if path_id:
         try:
-            rel_path_str = base64.urlsafe_b64decode(path_id.encode("utf-8")).decode("utf-8")
-            if ".." not in rel_path_str and not rel_path_str.startswith("/") and not rel_path_str.startswith("\\"):
+            rel_path_str = _decode_path_id(path_id)
+            if not _is_unsafe_relative_path(rel_path_str):
                 target_file = latest_run / rel_path_str
                 if target_file.exists() and target_file.is_file():
                     parse_file(target_file, rel_path_str)
@@ -466,11 +794,11 @@ def get_workspace_references(workspace_id: str, path_id: str, run_id: Optional[s
         return {"error": "Run not found"}
         
     try:
-        rel_path_str = base64.urlsafe_b64decode(path_id.encode("utf-8")).decode("utf-8")
-    except Exception:
+        rel_path_str = _decode_path_id(path_id)
+    except ValueError:
         return {"error": "Invalid path ID"}
         
-    if ".." in rel_path_str or rel_path_str.startswith("/") or rel_path_str.startswith("\\"):
+    if _is_unsafe_relative_path(rel_path_str):
         return {"error": "Path traversal blocked"}
         
     target_path = latest_run / rel_path_str
@@ -591,4 +919,3 @@ def get_workspace_references(workspace_id: str, path_id: str, run_id: Optional[s
         "mutation_heat": "low",
         "blast_radius_score": blast_radius
     }
-
