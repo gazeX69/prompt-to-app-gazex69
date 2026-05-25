@@ -1,13 +1,14 @@
 import asyncio
 import json
 import logging
+import os
 import httpx
 
 logger = logging.getLogger(__name__)
 
 class RuntimeClient:
-    def __init__(self, base_url: str = "http://127.0.0.1:3001"):
-        self.base_url = base_url
+    def __init__(self, base_url: str | None = None):
+        self.base_url = base_url or os.getenv("RUNTIME_BASE_URL", "http://127.0.0.1:3001")
         self._event_callback = None
 
     def set_event_callback(self, callback):

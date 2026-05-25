@@ -97,7 +97,7 @@ app.get('/runtime/health', (req, res) => {
   res.json({ status: 'ok', service: 'runtime', npm: 'available', node: 'available' });
 });
 
-const PORT = 3001;
+const PORT = Number(process.env.PORT || process.env.RUNTIME_PORT || 3001);
 app.listen(PORT, () => {
   console.log(`Node Runtime Sandbox listening on port ${PORT}`);
 });

@@ -3,8 +3,9 @@ import type {
   ArtifactSnapshot,
   RunMetadata
 } from "../stores/workspace.store"
+import { ENV } from "../config/env"
 
-const API_BASE = "http://127.0.0.1:8000" // adjust according to environment later
+const API_BASE = ENV.API_URL
 
 export async function fetchWorkspaces(): Promise<WorkspaceMetadata[]> {
   const res = await fetch(`${API_BASE}/workspaces`)
