@@ -14,7 +14,7 @@ import type { SkillMeta } from "../stores/skills.store"
 export type WorkspaceMode = "generate" | "explore" | "edit" | "preview"
 
 export default function WorkspaceLayout() {
-  const [activeView, setActiveView] = useState<WorkspaceMode>("generate")
+  const [activeView, setActiveViewState] = useState<WorkspaceMode>("generate")
   const [runtimeAction, setRuntimeAction] = useState<"run" | "stop" | "restart" | null>(null)
   const [runtimeActionError, setRuntimeActionError] = useState<string | null>(null)
   const setSkills = useSkillsStore((s) => s.setSkills)
@@ -47,12 +47,26 @@ export default function WorkspaceLayout() {
   const runtimeIsBusy = ["starting", "healthcheck", "installing", "building", "preparing", "checking_ports"].includes(normalizedRuntimeStatus)
   const actionPending = runtimeAction !== null
 
+  const setActiveView = (view: WorkspaceMode) => {
+    setActiveViewState(view)
+
+    if (activeWorkspaceId) {
+      persistWorkspaceMode(activeWorkspaceId, view)
+    }
+  }
+
   const handleCloseWorkspace = () => {
     if (editorDirty && !window.confirm("Discard unsaved editor changes and return to Projects?")) {
       return
     }
     closeWorkspace()
   }
+
+  useEffect(() => {
+    if (!activeWorkspaceId) return
+    setActiveViewState(readPersistedWorkspaceMode(activeWorkspaceId))
+  }, [activeWorkspaceId])
+
 
   useEffect(() => {
     api.fetch<SkillMeta[]>("/skills").then(setSkills).catch(() => {
@@ -391,4 +405,27 @@ function readableAgentState(state: string) {
   if (state === "IDLE") return "idle"
   if (state === "PREVIEW_READY") return "success"
   return state.toLowerCase()
+}
+
+const WORKSPACE_MODE_STORAGE_PREFIX = "ai-agent-workspace-mode"
+
+function workspaceModeStorageKey(workspaceId: string) {
+  return `${WORKSPACE_MODE_STORAGE_PREFIX}:${workspaceId}`
+}
+
+function readPersistedWorkspaceMode(workspaceId: string): WorkspaceMode {
+  if (typeof window === "undefined") return "generate"
+
+  const value = window.localStorage.getItem(workspaceModeStorageKey(workspaceId))
+
+  if (value === "generate" || value === "explore" || value === "edit" || value === "preview") {
+    return value
+  }
+
+  return "generate"
+}
+
+function persistWorkspaceMode(workspaceId: string, view: WorkspaceMode) {
+  if (typeof window === "undefined") return
+  window.localStorage.setItem(workspaceModeStorageKey(workspaceId), view)
 }
