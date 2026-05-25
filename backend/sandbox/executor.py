@@ -172,6 +172,53 @@ def _refresh_runtime_entry_status(project_id: str, entry: RuntimeEntry) -> dict:
         return _fail_runtime_readback(project_id, entry, f"Runtime preview unreachable: {e}")
 
 
+async def _emit_runtime_readback_failure(status: dict, entry: RuntimeEntry) -> None:
+    project_id = status.get("project_id")
+    run_id = status.get("run_id")
+    error = status.get("error") or "Runtime failed during status readback"
+    port = entry.assigned_port
+    pid = status.get("pid")
+    error_text = error.lower()
+    is_process_exit = "process exited" in error_text
+    lifecycle_type = "runtime.crashed" if is_process_exit else "runtime.healthcheck.failed"
+    error_code = (
+        RuntimeErrorCode.RUNTIME_PROCESS_CRASH
+        if is_process_exit
+        else RuntimeErrorCode.RUNTIME_DEVSERVER_UNREACHABLE
+    )
+
+    await emit_terminal_line(f"[RuntimeReadback] {error}", "stderr", project_id)
+    await _emit_runtime_lifecycle(
+        lifecycle_type,
+        project_id,
+        run_id,
+        error,
+        selected_port=port,
+        process_pid=pid,
+    )
+    await emit_runtime_error(
+        error_code,
+        error,
+        detail={"port": port, "pid": pid},
+        project_id=project_id,
+        run_id=run_id,
+        source="runtime",
+    )
+    await emit_agent_state("failed", project_id)
+
+
+async def get_runtime_status_for_readback(project_id: str) -> tuple[dict, bool]:
+    entry = _runtime_registry.get(project_id)
+    if not entry:
+        return get_runtime_status(project_id), False
+
+    status = _refresh_runtime_entry_status(project_id, entry)
+    invalidated = status.get("status") == "failed" and _runtime_registry.get(project_id) is not entry
+    if invalidated:
+        await _emit_runtime_readback_failure(status, entry)
+    return status, invalidated
+
+
 def get_runtime_status(project_id: str | None = None) -> dict:
     if project_id:
         entry = _runtime_registry.get(project_id)

@@ -101,6 +101,27 @@ async def _record_and_emit_generation_status(
     return snapshot
 
 
+async def mark_latest_generation_runtime_failed(project_id: str, runtime_status: dict) -> dict | None:
+    snapshot = _generation_status_by_project.get(project_id)
+    run_id = runtime_status.get("run_id")
+    if not snapshot or not run_id:
+        return None
+    if snapshot.get("runtime_run_id") != run_id:
+        return None
+    if snapshot.get("status") == "failed" and snapshot.get("phase") == "runtime_failed":
+        return snapshot
+
+    return await _record_and_emit_generation_status(
+        project_id,
+        snapshot.get("generation_id"),
+        status="failed",
+        phase="runtime_failed",
+        message=runtime_status.get("error") or "Runtime failed after generation completed.",
+        detail=snapshot.get("detail") or {},
+        runtime_status=runtime_status,
+    )
+
+
 @router.get("/status/{project_id}")
 async def generation_status(project_id: str) -> dict:
     status = _generation_status_by_project.get(project_id)
