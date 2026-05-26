@@ -97,6 +97,20 @@ def read_run_manifest(project_id: str, run_id: str) -> Optional[dict[str, Any]]:
     return _read_json(_run_manifest_path(project_id, run_id))
 
 
+def get_active_successful_run_id(project_id: str) -> Optional[str]:
+    project_status = read_project_generation_status(project_id)
+    run_id = (project_status or {}).get("active_run_id")
+    if not isinstance(run_id, str) or not run_id.startswith("run_"):
+        return None
+
+    run_manifest = read_run_manifest(project_id, run_id)
+    if not run_manifest:
+        return None
+    if run_manifest.get("status") != "succeeded":
+        return None
+    return run_id
+
+
 def _default_project_status(project_id: str) -> dict[str, Any]:
     now = _now_iso()
     return {
@@ -250,4 +264,3 @@ def mark_current_run(
         error=error,
         detail=detail,
     )
-

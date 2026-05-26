@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-from backend.core.scanner.run_manifest import read_project_generation_status, read_run_manifest
+from backend.core.scanner.run_manifest import get_active_successful_run_id, read_run_manifest
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB safe boundary
 PROJECT_METADATA_FILE = ".ai-agent-project.json"
@@ -190,6 +190,12 @@ def get_run_dir(workspace_path: Path, run_id: Optional[str] = None) -> Optional[
             return target_path
         return None
 
+    active_run_id = get_active_successful_run_id(workspace_path.name)
+    if active_run_id:
+        active_path = workspace_path / active_run_id
+        if active_path.exists() and active_path.is_dir() and _looks_like_source_root(active_path):
+            return active_path
+
     latest_path = workspace_path / "latest"
     if latest_path.exists() and latest_path.is_dir() and _looks_like_source_root(latest_path):
         return latest_path
@@ -225,8 +231,7 @@ def get_latest_run_id(workspace_id: str) -> Optional[str]:
     if not workspace_path.exists() or not workspace_path.is_dir():
         return None
 
-    manifest_status = read_project_generation_status(workspace_id)
-    active_run_id = (manifest_status or {}).get("active_run_id")
+    active_run_id = get_active_successful_run_id(workspace_id)
     if active_run_id and (workspace_path / active_run_id).is_dir():
         return active_run_id
 
