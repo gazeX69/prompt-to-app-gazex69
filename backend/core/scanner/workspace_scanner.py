@@ -1,11 +1,14 @@
 import os
 import json
 import base64
+import datetime
 import re
 import shutil
 import time
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+
+from backend.core.scanner.run_manifest import read_project_generation_status, read_run_manifest
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5MB safe boundary
 PROJECT_METADATA_FILE = ".ai-agent-project.json"
@@ -49,6 +52,15 @@ def get_workspaces_root() -> Path:
 
 def _now_ms() -> int:
     return int(time.time() * 1000)
+
+def _iso_to_ms(value: Any) -> Optional[int]:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        normalized = value.replace("Z", "+00:00")
+        return int(datetime.datetime.fromisoformat(normalized).timestamp() * 1000)
+    except Exception:
+        return None
 
 def _slugify_project_name(name: str) -> str:
     cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "-", name.strip().lower()).strip("-_")
@@ -213,6 +225,11 @@ def get_latest_run_id(workspace_id: str) -> Optional[str]:
     if not workspace_path.exists() or not workspace_path.is_dir():
         return None
 
+    manifest_status = read_project_generation_status(workspace_id)
+    active_run_id = (manifest_status or {}).get("active_run_id")
+    if active_run_id and (workspace_path / active_run_id).is_dir():
+        return active_run_id
+
     latest_path = workspace_path / "latest"
     if latest_path.exists() and latest_path.is_dir():
         return latest_path.name
@@ -334,6 +351,11 @@ def get_workspace_runs(workspace_id: str) -> List[Dict[str, Any]]:
         if not d.is_dir() or not d.name.startswith("run_"):
             continue
         stat = d.stat()
+        manifest = read_run_manifest(workspace_id, d.name) or {}
+        manifest_status = manifest.get("status") or "success"
+        manifest_prompt = manifest.get("prompt") or "Historical run"
+        manifest_created = _iso_to_ms(manifest.get("created_at")) if manifest else None
+        manifest_updated = _iso_to_ms(manifest.get("updated_at")) if manifest else None
         
         # Check artifacts
         orch_dir = d / ".orchestration"
@@ -379,11 +401,12 @@ def get_workspace_runs(workspace_id: str) -> List[Dict[str, Any]]:
             "id": d.name,
             "run_id": d.name,
             "path": str(d.resolve()),
-            "prompt": "Historical run",
-            "status": "success",
-            "createdAt": int(stat.st_ctime * 1000),
-            "updatedAt": int(stat.st_mtime * 1000),
-            "startedAt": int(stat.st_ctime * 1000),
+            "prompt": manifest_prompt,
+            "status": manifest_status,
+            "active": bool(manifest.get("active")),
+            "createdAt": manifest_created or int(stat.st_ctime * 1000),
+            "updatedAt": manifest_updated or int(stat.st_mtime * 1000),
+            "startedAt": manifest_created or int(stat.st_ctime * 1000),
             "durationMs": 0,
             "ecosystem": "unknown",
             "hasArtifacts": has_artifacts,

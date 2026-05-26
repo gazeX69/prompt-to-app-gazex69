@@ -11,6 +11,11 @@ import logging
 import time
 import uuid
 from fastapi import APIRouter, HTTPException
+from backend.core.scanner.run_manifest import (
+    mark_current_run,
+    read_project_generation_status,
+    record_project_generation_status,
+)
 from backend.models.schemas import GenerateRequest, GenerateResponse
 from backend.orchestrator.project_orchestrator import generate_project_async
 from backend.sandbox.executor import get_runtime_status, record_pre_runtime_failure
@@ -75,7 +80,60 @@ def _record_generation_status(
         snapshot["runtime_url"] = runtime_status.get("url")
         snapshot["runtime_port"] = runtime_status.get("port")
     _generation_status_by_project[project_id] = snapshot
+    try:
+        record_project_generation_status(
+            project_id,
+            status=status,
+            generation_id=snapshot.get("generation_id"),
+            error=message if status == "failed" else None,
+            detail=detail,
+        )
+    except Exception:
+        logger.exception("Failed to persist generation status for project=%s", project_id)
     return snapshot
+
+
+def _status_from_persisted(project_id: str) -> dict | None:
+    persisted = read_project_generation_status(project_id)
+    if not persisted:
+        return None
+
+    status = persisted.get("status") or "unknown"
+    phase = "generating" if status == "running" else status
+    if status == "succeeded":
+        phase = "completed"
+    elif status == "accepted":
+        phase = "accepted"
+    elif status == "failed":
+        phase = "generation"
+
+    return {
+        "project_id": project_id,
+        "generation_id": persisted.get("generation_id"),
+        "run_id": persisted.get("current_run_id"),
+        "active_run_id": persisted.get("active_run_id"),
+        "latest_run_id": persisted.get("latest_run_id"),
+        "status": status,
+        "phase": phase,
+        "message": persisted.get("error")
+        or (
+            "Generation completed."
+            if status == "succeeded"
+            else "Generation is running."
+            if status == "running"
+            else "Generation request accepted."
+            if status == "accepted"
+            else "Generation failed."
+            if status == "failed"
+            else "No generation known for this project."
+        ),
+        "detail": persisted.get("detail") or {},
+        "created_at": persisted.get("created_at"),
+        "updated_at": persisted.get("updatedAt") or persisted.get("updated_at"),
+        "runtime_run_id": None,
+        "runtime_url": None,
+        "runtime_port": None,
+    }
 
 
 async def _record_and_emit_generation_status(
@@ -111,6 +169,17 @@ async def mark_latest_generation_runtime_failed(project_id: str, runtime_status:
     if snapshot.get("status") == "failed" and snapshot.get("phase") == "runtime_failed":
         return snapshot
 
+    try:
+        mark_current_run(
+            project_id,
+            status="failed",
+            generation_id=snapshot.get("generation_id"),
+            error=runtime_status.get("error") or "Runtime failed after generation completed.",
+            detail=snapshot.get("detail") or {},
+        )
+    except Exception:
+        logger.exception("Failed to persist runtime failure for project=%s", project_id)
+
     return await _record_and_emit_generation_status(
         project_id,
         snapshot.get("generation_id"),
@@ -143,6 +212,9 @@ async def generation_status(project_id: str) -> dict:
                 snapshot["phase"] = "completed"
                 snapshot["message"] = "Generation completed; runtime is stopped."
         return snapshot
+    persisted = _status_from_persisted(project_id)
+    if persisted:
+        return persisted
     return {
         "project_id": project_id,
         "generation_id": None,
@@ -194,10 +266,25 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
             phase="generating",
             message="Generation is running.",
         )
-        result = await generate_project_async(req)
+        result = await generate_project_async(req, generation_id=generation_id)
         if not result.success:
             message = result.error or "Generation failed before runtime launch"
             stage = _classify_generation_failure_stage(message)
+            detail = {
+                "files_written": result.files_written,
+                "repair_attempts": result.repair_attempts,
+            }
+            try:
+                mark_current_run(
+                    req.project_id,
+                    status="failed",
+                    generation_id=generation_id,
+                    prompt=req.prompt,
+                    error=message,
+                    detail=detail,
+                )
+            except Exception:
+                logger.exception("Failed to persist failed run manifest for project=%s", req.project_id)
             if stage == "runtime":
                 runtime_status = get_runtime_status(req.project_id)
                 await _record_and_emit_generation_status(
@@ -206,10 +293,7 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
                     status="failed",
                     phase="runtime_failed",
                     message=message,
-                    detail={
-                        "files_written": result.files_written,
-                        "repair_attempts": result.repair_attempts,
-                    },
+                    detail=detail,
                     runtime_status=runtime_status,
                 )
             else:
@@ -221,36 +305,41 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
                     status="failed",
                     phase=stage,
                     message=message,
-                    detail={
-                        "files_written": result.files_written,
-                        "repair_attempts": result.repair_attempts,
-                    },
+                    detail=detail,
                     runtime_status=runtime_status,
                 )
                 await emit_generation_failure(
                     req.project_id,
                     message,
                     stage=stage,
-                    detail={
-                        "files_written": result.files_written,
-                        "repair_attempts": result.repair_attempts,
-                    },
+                    detail=detail,
                 )
                 await emit_terminal_line(f"[GenerationFailed] stage={stage}: {message}", "stderr", req.project_id)
             return
 
         runtime_status = get_runtime_status(req.project_id)
         runtime_running = runtime_status.get("status") == "running"
+        detail = {
+            "files_written": result.files_written,
+            "repair_attempts": result.repair_attempts,
+        }
+        try:
+            mark_current_run(
+                req.project_id,
+                status="succeeded",
+                generation_id=generation_id,
+                prompt=req.prompt,
+                detail=detail,
+            )
+        except Exception:
+            logger.exception("Failed to persist successful run manifest for project=%s", req.project_id)
         await _record_and_emit_generation_status(
             req.project_id,
             generation_id,
             status="succeeded",
             phase="runtime_ready" if runtime_running else "completed",
             message="Generation completed and runtime is ready." if runtime_running else "Generation completed.",
-            detail={
-                "files_written": result.files_written,
-                "repair_attempts": result.repair_attempts,
-            },
+            detail=detail,
             runtime_status=runtime_status,
         )
     except Exception as e:
@@ -259,6 +348,16 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
             stage = "generation"
             await record_pre_runtime_failure(req.project_id, str(e), stage=stage)
             runtime_status = get_runtime_status(req.project_id)
+            try:
+                mark_current_run(
+                    req.project_id,
+                    status="failed",
+                    generation_id=generation_id,
+                    prompt=req.prompt,
+                    error=str(e),
+                )
+            except Exception:
+                logger.exception("Failed to persist crashed run manifest for project=%s", req.project_id)
             await _record_and_emit_generation_status(
                 req.project_id,
                 generation_id,

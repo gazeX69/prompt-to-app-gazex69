@@ -12,6 +12,7 @@ from backend.agent.parser import ParseError, parse_ai_response
 from backend.agent.tools import write_file, append_file
 from backend.models.schemas import GenerateRequest, GenerateResponse
 from backend.core.router.routes import route_for_prompt, RouteResult
+from backend.core.scanner.run_manifest import record_run_manifest
 from backend.core.skills.interfaces import CommandStrategy
 from backend.services.ai_service import complete
 from backend.runtime_contract import RuntimeErrorCode
@@ -358,12 +359,22 @@ async def _filter_react_vite_generated_files(files: list, project_id: str) -> li
     return allowed_files
 
 
-async def generate_project_async(req: GenerateRequest) -> GenerateResponse:
+async def generate_project_async(req: GenerateRequest, generation_id: str | None = None) -> GenerateResponse:
     import random, string
     shortid = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
     run_id = f"run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{shortid}"
 
     logger.info("[Orchestrator] Starting generation project=%s run_id=%s", req.project_id, run_id)
+    try:
+        record_run_manifest(
+            req.project_id,
+            run_id,
+            status="running",
+            generation_id=generation_id,
+            prompt=req.prompt,
+        )
+    except Exception:
+        logger.exception("[Orchestrator] Failed to persist running manifest project=%s run_id=%s", req.project_id, run_id)
     await emit_agent_state("planning", req.project_id)
     await emit_terminal_line(f"[Orchestrator] Starting run: {run_id}", "info", req.project_id)
     await emit_terminal_line("[Intent] Analyzing prompt...", "info", req.project_id)
