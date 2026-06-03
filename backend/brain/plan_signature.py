@@ -15,9 +15,53 @@ def _unique(items: list[str]) -> list[str]:
     return result
 
 
+CRUD_TERMS = ["crud", "create read update delete"]
+CRUD_ENTITIES = [
+    "todo",
+    "task",
+    "produk",
+    "product",
+    "barang",
+    "item",
+    "user",
+    "customer",
+    "employee",
+    "student",
+    "book",
+    "order",
+    "transaction",
+    "transaksi",
+]
+CRUD_STORAGE_TERMS = [
+    "local storage",
+    "localstorage",
+    "sql",
+    "mysql",
+    "postgres",
+    "sqlite",
+    "database",
+    "db",
+    "json",
+    "backend",
+    "api",
+]
+
+
+def _has_crud(text: str) -> bool:
+    return _contains_any(text, CRUD_TERMS)
+
+
+def _has_crud_entity(text: str) -> bool:
+    return _contains_any(text, CRUD_ENTITIES)
+
+
+def _has_crud_storage(text: str) -> bool:
+    return _contains_any(text, CRUD_STORAGE_TERMS)
+
+
 def build_plan_signature(prompt: str) -> PlanSignature:
     text = prompt.strip().lower()
-    intent = "build_app" if _contains_any(text, ["buat", "build", "create", "aplikasi", "app"]) else "unknown"
+    intent = "build_app" if _contains_any(text, ["buat", "build", "create", "make", "aplikasi", "app", "crud"]) else "unknown"
 
     domain = "general"
     app_type = "app"
@@ -25,7 +69,13 @@ def build_plan_signature(prompt: str) -> PlanSignature:
     feature_keywords: list[str] = []
     required_capabilities: list[str] = ["state_management"]
 
-    if _contains_any(text, ["marketplace", "e-commerce", "ecommerce", "toko online", "online shop"]):
+    if _contains_any(text, ["hello world", "halo dunia"]):
+        domain = "utility"
+        app_type = "hello_world"
+        complexity = ComplexityLevel.LOW
+        feature_keywords = ["hello_world"]
+        required_capabilities = ["static_rendering"]
+    elif _contains_any(text, ["marketplace", "e-commerce", "ecommerce", "toko online", "online shop"]):
         domain = "marketplace"
         app_type = "marketplace"
         complexity = ComplexityLevel.HIGH
@@ -91,12 +141,24 @@ def build_plan_signature(prompt: str) -> PlanSignature:
         complexity = ComplexityLevel.HIGH
         feature_keywords = ["pages", "posts", "editor", "admin"]
         required_capabilities = ["crud", "state_management", "data_persistence", "admin_panel"]
-    elif _contains_any(text, ["dashboard"]) and _contains_any(text, ["backend", "database", "auth", "login"]):
+    elif _contains_any(text, ["dashboard"]) and _contains_any(text, ["admin", "backend", "database", "auth", "login"]):
         domain = "dashboard"
         app_type = "dashboard"
         complexity = ComplexityLevel.HIGH
         feature_keywords = ["dashboard", "charts", "auth", "database"]
         required_capabilities = ["state_management", "data_persistence", "backend_api", "reporting"]
+    elif _contains_any(text, ["login", "auth", "authentication", "register"]):
+        domain = "auth"
+        app_type = "auth_app"
+        complexity = ComplexityLevel.HIGH
+        feature_keywords = ["auth", "login", "session"]
+        required_capabilities = ["state_management", "data_persistence", "backend_api", "authentication"]
+    elif _contains_any(text, ["database", "db", "sql", "mysql", "postgres", "sqlite"]):
+        domain = "data"
+        app_type = "data_app"
+        complexity = ComplexityLevel.HIGH
+        feature_keywords = ["database", "persistence"]
+        required_capabilities = ["state_management", "data_persistence"]
     elif _contains_any(text, ["todo", "to-do", "task list"]):
         domain = "utility"
         app_type = "todo"
@@ -118,7 +180,15 @@ def build_plan_signature(prompt: str) -> PlanSignature:
 
     if _contains_any(text, ["admin"]) and "admin" not in feature_keywords:
         feature_keywords.append("admin")
-    if _contains_any(text, ["crud", "create read update delete"]) and "crud" not in required_capabilities:
+    if _has_crud(text) and app_type == "app":
+        domain = "crud"
+        app_type = "crud_app"
+        complexity = ComplexityLevel.MEDIUM
+        feature_keywords.extend(["crud"])
+        required_capabilities.extend(["crud", "state_management"])
+        if _has_crud_storage(text):
+            required_capabilities.append("data_persistence")
+    if _has_crud(text) and "crud" not in required_capabilities:
         required_capabilities.append("crud")
     if _contains_any(text, ["database", "db", "persist", "simpan data"]) and "data_persistence" not in required_capabilities:
         required_capabilities.append("data_persistence")
@@ -131,4 +201,3 @@ def build_plan_signature(prompt: str) -> PlanSignature:
         feature_keywords=_unique(feature_keywords),
         required_capabilities=_unique(required_capabilities),
     )
-

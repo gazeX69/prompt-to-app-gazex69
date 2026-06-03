@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -120,6 +121,17 @@ def validate_react_vite_contract(project_id: str, run_id: str | None = None) -> 
         if "<App" not in main_text:
             errors.append(f"{RuntimeErrorCode.E_REACT_ROOT_MISSING.value}:app_render")
 
+    declared_packages = _declared_package_names(package_data or {})
+    for source_path in _source_files(project_path):
+        rel_path = source_path.relative_to(project_path).as_posix()
+        for import_name in _external_imports(source_path):
+            package_name = _package_name(import_name)
+            if not package_name:
+                continue
+            dependency_error = classify_dependency_import(package_name, declared_packages)
+            if dependency_error:
+                errors.append(f"{dependency_error.value}:{package_name}:{rel_path}")
+
     return ContractReport(passed=not errors, errors=errors, warnings=warnings)
 
 
@@ -177,6 +189,70 @@ def _read_json(path: Path, errors: list[str], error_code: str) -> dict | None:
 def classify_declared_import(package_name: str, declared_packages: set[str]) -> str | None:
     code = classify_dependency_import(package_name, declared_packages)
     return code.value if code else None
+
+
+IMPORT_PATTERNS = [
+    re.compile(r"""import\s+(?:type\s+)?(?:[^'"]+\s+from\s+)?['"]([^'"]+)['"]"""),
+    re.compile(r"""import\(\s*['"]([^'"]+)['"]\s*\)"""),
+    re.compile(r"""require\(\s*['"]([^'"]+)['"]\s*\)"""),
+]
+
+
+def _declared_package_names(package_data: dict) -> set[str]:
+    dependencies = package_data.get("dependencies") if isinstance(package_data.get("dependencies"), dict) else {}
+    dev_dependencies = package_data.get("devDependencies") if isinstance(package_data.get("devDependencies"), dict) else {}
+    return set(dependencies) | set(dev_dependencies)
+
+
+def _source_files(project_path: Path) -> list[Path]:
+    source_roots = [project_path / "src", project_path / "vite.config.ts", project_path / "vite.config.js"]
+    files: list[Path] = []
+    for source_root in source_roots:
+        if source_root.is_file() and source_root.suffix in {".ts", ".tsx", ".js", ".jsx"}:
+            files.append(source_root)
+        elif source_root.is_dir():
+            files.extend(
+                path
+                for path in source_root.rglob("*")
+                if path.is_file() and path.suffix in {".ts", ".tsx", ".js", ".jsx"}
+            )
+    return files
+
+
+def _external_imports(source_path: Path) -> set[str]:
+    text = _strip_comments(_read_text(source_path) or "")
+    imports: set[str] = set()
+    for pattern in IMPORT_PATTERNS:
+        imports.update(match.group(1) for match in pattern.finditer(text))
+    return {value for value in imports if value and not _is_relative_or_asset_import(value)}
+
+
+def _strip_comments(text: str) -> str:
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.DOTALL)
+    return re.sub(r"^\s*//.*$", "", text, flags=re.MULTILINE)
+
+
+def _is_relative_or_asset_import(import_name: str) -> bool:
+    return (
+        import_name.startswith(".")
+        or import_name.startswith("/")
+        or import_name.startswith("data:")
+        or import_name.startswith("http:")
+        or import_name.startswith("https:")
+    )
+
+
+def _package_name(import_name: str) -> str | None:
+    if import_name.startswith("node:"):
+        return None
+    if import_name in {"react/jsx-runtime", "react/jsx-dev-runtime"}:
+        return "react"
+    parts = import_name.split("/")
+    if not parts:
+        return None
+    if parts[0].startswith("@") and len(parts) >= 2:
+        return "/".join(parts[:2])
+    return parts[0]
 
 
 def _read_text(path: Path) -> str | None:

@@ -6,12 +6,14 @@ import { useAgentStore } from '../stores/agent.store'
 import { useTerminalStore } from '../stores/terminal.store'
 import { useWorkspaceStore } from '../stores/workspace.store'
 import { api } from '../services/api'
+import { shouldAdoptRuntimeForActiveRun } from '../stateConsistency'
 
 export default function PreviewPanel() {
   const { url, isReloading, refreshToken, hardRefresh, runtimeStatus, generationFailure, generationStatus, setRuntimeStatus, clear } = usePreviewStore()
   const { state, activities, runtimeState, latestRuntimeLifecycleEvent } = useAgentStore()
   const { lines } = useTerminalStore()
   const activeWorkspaceId = useWorkspaceStore((store) => store.activeWorkspaceId)
+  const activeRunId = useWorkspaceStore((store) => store.activeRunId)
   
   const runId = usePreviewStore(state => state.runId) || 'legacy'
   const [isStopping, setIsStopping] = useState(false)
@@ -30,7 +32,7 @@ export default function PreviewPanel() {
     const loadRuntimeStatus = async () => {
       try {
         const status = await api.get<RuntimeStatusSnapshot>(`/runtime/${runtimeProjectId}`, { timeout: 5000 })
-        if (!cancelled) setRuntimeStatus(status)
+        if (!cancelled && shouldAdoptRuntimeForActiveRun(activeRunId, status.run_id)) setRuntimeStatus(status)
       } catch {
         // Runtime ownership status is best-effort in the preview chrome.
       }
@@ -42,11 +44,16 @@ export default function PreviewPanel() {
       cancelled = true
       window.clearInterval(interval)
     }
-  }, [runtimeProjectId, setRuntimeStatus])
+  }, [activeRunId, runtimeProjectId, setRuntimeStatus])
 
   const iframeUrl = useMemo(() => (
-    url ? `${url}?run_id=${runId}&refresh=${refreshToken}` : ''
-  ), [url, runId, refreshToken])
+    url && (!activeRunId || runId === activeRunId) ? `${url}?run_id=${runId}&refresh=${refreshToken}` : ''
+  ), [activeRunId, url, runId, refreshToken])
+
+  useEffect(() => {
+    if (!activeRunId || !runtimeStatus?.run_id) return
+    if (!shouldAdoptRuntimeForActiveRun(activeRunId, runtimeStatus.run_id)) clear()
+  }, [activeRunId, clear, runtimeStatus?.run_id])
   
   useEffect(() => {
     if (iframeUrl) {

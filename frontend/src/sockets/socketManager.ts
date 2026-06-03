@@ -2,7 +2,9 @@ import { socketService } from '../services/socket'
 import { useAgentStore } from '../stores/agent.store'
 import { useTerminalStore } from '../stores/terminal.store'
 import { usePreviewStore } from '../stores/preview.store'
+import { useWorkspaceStore } from '../stores/workspace.store'
 import { mapExecutionToRuntimeState, normalizeExecutionState, type RuntimeLifecycleEvent, type StructuredRuntimeError } from '../runtime/executionContract'
+import { shouldAdoptRuntimeForActiveRun } from '../stateConsistency'
 
 function onTerminalLine(data: { id: string; text: string; type: 'stdout' | 'stderr' | 'info' }) {
   if (data.text) useTerminalStore.getState().addLine({ text: data.text, type: data.type })
@@ -26,6 +28,12 @@ function onAgentActivity(data: { message: string; project_id: string }) {
 }
 
 function onPreviewReady(data: { project_id: string; url: string; run_id?: string; workspace?: string }) {
+  const activeRunId = useWorkspaceStore.getState().activeRunId
+  if (!shouldAdoptRuntimeForActiveRun(activeRunId, data.run_id)) {
+    usePreviewStore.getState().clear()
+    useAgentStore.getState().addActivity(`Ignored preview for non-active run: ${data.run_id}`)
+    return
+  }
   usePreviewStore.getState().setUrl(data.url, data.run_id)
   usePreviewStore.getState().setRuntimeStatus({
     project_id: data.project_id,
@@ -53,6 +61,11 @@ function onRuntimeError(data: StructuredRuntimeError) {
 
 function onRuntimeLifecycleEvent(data: RuntimeLifecycleEvent) {
   useAgentStore.getState().setRuntimeLifecycleEvent(data)
+  const activeRunId = useWorkspaceStore.getState().activeRunId
+  if (!shouldAdoptRuntimeForActiveRun(activeRunId, data.sessionId)) {
+    usePreviewStore.getState().clear()
+    return
+  }
   usePreviewStore.getState().setRuntimeStatus({
     project_id: data.workspaceId || null,
     run_id: data.sessionId || null,
@@ -113,6 +126,10 @@ function onGenerationFailed(data: {
 function onGenerationStatus(data: {
   project_id?: string | null
   generation_id?: string | null
+  run_id?: string | null
+  current_run_id?: string | null
+  active_run_id?: string | null
+  latest_run_id?: string | null
   status?: string
   phase?: string
   message?: string
@@ -126,6 +143,10 @@ function onGenerationStatus(data: {
   usePreviewStore.getState().setGenerationStatus({
     project_id: data.project_id || null,
     generation_id: data.generation_id || null,
+    run_id: data.run_id || null,
+    current_run_id: data.current_run_id || null,
+    active_run_id: data.active_run_id || null,
+    latest_run_id: data.latest_run_id || null,
     status: data.status || 'unknown',
     phase: data.phase || 'none',
     message: data.message || '',

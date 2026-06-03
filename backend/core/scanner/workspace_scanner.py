@@ -196,24 +196,7 @@ def get_run_dir(workspace_path: Path, run_id: Optional[str] = None) -> Optional[
         if active_path.exists() and active_path.is_dir() and _looks_like_source_root(active_path):
             return active_path
 
-    latest_path = workspace_path / "latest"
-    if latest_path.exists() and latest_path.is_dir() and _looks_like_source_root(latest_path):
-        return latest_path
-
-    try:
-        run_dirs = [
-            d for d in workspace_path.iterdir()
-            if d.is_dir()
-            and d.name.startswith("run_")
-            and _looks_like_source_root(d)
-        ]
-        if not run_dirs:
-            return None
-
-        run_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
-        return run_dirs[0]
-    except Exception:
-        return None
+    return None
 
 def _looks_like_source_root(path: Path) -> bool:
     return (
@@ -235,12 +218,7 @@ def get_latest_run_id(workspace_id: str) -> Optional[str]:
     if active_run_id and (workspace_path / active_run_id).is_dir():
         return active_run_id
 
-    latest_path = workspace_path / "latest"
-    if latest_path.exists() and latest_path.is_dir():
-        return latest_path.name
-
-    run_dir = get_run_dir(workspace_path)
-    return run_dir.name if run_dir else None
+    return None
 
 def scan_workspaces() -> List[Dict[str, Any]]:
     root = get_workspaces_root()
@@ -429,7 +407,7 @@ def get_workspace_tree(workspace_id: str, run_id: Optional[str] = None) -> Dict[
         
     latest_run = get_run_dir(ws_path, run_id)
     if not latest_run:
-        return {"tree": [], "ecosystem": "unknown", "totalFiles": 0}
+        return {"tree": [], "ecosystem": "unknown", "totalFiles": 0, "runId": None}
         
     excluded = {"node_modules", "dist", "build", "vendor", "coverage", ".git", "__pycache__", ".next"}
     
@@ -482,7 +460,8 @@ def get_workspace_tree(workspace_id: str, run_id: Optional[str] = None) -> Dict[
     return {
         "tree": tree,
         "ecosystem": "unknown",
-        "totalFiles": total_files
+        "totalFiles": total_files,
+        "runId": latest_run.name,
     }
     
 def get_workspace_artifacts(workspace_id: str, run_id: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -693,6 +672,194 @@ def save_workspace_file_content(
             "sizeBytes": stat.st_size,
             "language": target_path.suffix.lstrip("."),
             "updatedAt": int(stat.st_mtime * 1000),
+            "error": None,
+        }
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+def _normalize_edit_path(rel_path: str, entry_type: str) -> str:
+    normalized = (rel_path or "").replace("\\", "/").strip("/")
+    if not normalized:
+        raise ValueError("Path is required")
+    if entry_type not in {"file", "directory"}:
+        raise ValueError("Entry type must be file or directory")
+    if _is_unsafe_relative_path(normalized):
+        raise ValueError("Path traversal blocked")
+    rel_parts = Path(normalized).parts
+    if any(part in EDIT_BLOCKED_SEGMENTS for part in rel_parts):
+        raise ValueError("This path is not editable")
+    if entry_type == "file" and Path(normalized).suffix.lower() in TEXT_EDIT_BLOCKED_SUFFIXES:
+        raise ValueError("Binary files are not editable")
+    return normalized
+
+def _resolve_edit_target(run_dir: Path, rel_path: str) -> Path:
+    target_path = run_dir / rel_path
+    try:
+        target_resolved = target_path.resolve()
+        run_resolved = run_dir.resolve()
+        target_resolved.relative_to(run_resolved)
+    except ValueError as exc:
+        raise ValueError("Path boundary violation") from exc
+    except Exception as exc:
+        raise ValueError("Resolution error") from exc
+    return target_path
+
+def _workspace_entry_response(path: Path, run_dir: Path, entry_type: str) -> Dict[str, Any]:
+    rel_path = path.resolve().relative_to(run_dir.resolve()).as_posix()
+    stat = path.stat()
+    response: Dict[str, Any] = {
+        "ok": True,
+        "path": rel_path,
+        "pathId": _encode_path_id(rel_path),
+        "name": path.name,
+        "type": entry_type,
+        "updatedAt": int(stat.st_mtime * 1000),
+        "error": None,
+    }
+    if entry_type == "file":
+        response["sizeBytes"] = stat.st_size
+        response["language"] = path.suffix.lstrip(".")
+    return response
+
+def create_workspace_entry(
+    workspace_id: str,
+    rel_path: str,
+    entry_type: str,
+    content: str = "",
+    run_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    ws_path = get_workspaces_root() / workspace_id
+    if not ws_path.exists():
+        return {"ok": False, "error": "Workspace not found"}
+
+    run_dir = get_run_dir(ws_path, run_id)
+    if not run_dir:
+        return {"ok": False, "error": "Run not found"}
+
+    try:
+        normalized_path = _normalize_edit_path(rel_path, entry_type)
+        target_path = _resolve_edit_target(run_dir, normalized_path)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if target_path.exists():
+        return {"ok": False, "error": "Path already exists"}
+    if not target_path.parent.exists() or not target_path.parent.is_dir():
+        return {"ok": False, "error": "Parent folder not found"}
+
+    try:
+        if entry_type == "directory":
+            target_path.mkdir()
+        else:
+            encoded = (content or "").encode("utf-8")
+            if len(encoded) > MAX_FILE_SIZE:
+                return {"ok": False, "error": "File too large"}
+            target_path.write_text(content or "", encoding="utf-8", newline="")
+        return _workspace_entry_response(target_path, run_dir, entry_type)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+def move_workspace_entry(
+    workspace_id: str,
+    path_id: str,
+    new_path: str,
+    run_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    ws_path = get_workspaces_root() / workspace_id
+    if not ws_path.exists():
+        return {"ok": False, "error": "Workspace not found"}
+
+    run_dir = get_run_dir(ws_path, run_id)
+    if not run_dir:
+        return {"ok": False, "error": "Run not found"}
+
+    try:
+        source_rel_path = _decode_path_id(path_id)
+        if _is_unsafe_relative_path(source_rel_path):
+            return {"ok": False, "error": "Path traversal blocked"}
+        source_path = _resolve_edit_target(run_dir, source_rel_path)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if not source_path.exists():
+        return {"ok": False, "error": "Path not found"}
+
+    entry_type = "directory" if source_path.is_dir() else "file"
+    source_parts = Path(source_rel_path).parts
+    if any(part in EDIT_BLOCKED_SEGMENTS for part in source_parts):
+        return {"ok": False, "error": "This path is not editable"}
+    if entry_type == "file" and source_path.suffix.lower() in TEXT_EDIT_BLOCKED_SUFFIXES:
+        return {"ok": False, "error": "Binary files are not editable"}
+
+    try:
+        normalized_new_path = _normalize_edit_path(new_path, entry_type)
+        target_path = _resolve_edit_target(run_dir, normalized_new_path)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if target_path.exists():
+        return {"ok": False, "error": "Destination already exists"}
+    if not target_path.parent.exists() or not target_path.parent.is_dir():
+        return {"ok": False, "error": "Destination folder not found"}
+    if source_path.resolve() == run_dir.resolve():
+        return {"ok": False, "error": "Cannot move repository root"}
+    if entry_type == "directory":
+        try:
+            target_path.parent.resolve().relative_to(source_path.resolve())
+            return {"ok": False, "error": "Cannot move a folder into itself"}
+        except ValueError:
+            pass
+
+    try:
+        source_path.rename(target_path)
+        return _workspace_entry_response(target_path, run_dir, entry_type)
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)}
+
+def delete_workspace_entry(
+    workspace_id: str,
+    path_id: str,
+    run_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    ws_path = get_workspaces_root() / workspace_id
+    if not ws_path.exists():
+        return {"ok": False, "error": "Workspace not found"}
+
+    run_dir = get_run_dir(ws_path, run_id)
+    if not run_dir:
+        return {"ok": False, "error": "Run not found"}
+
+    try:
+        rel_path = _decode_path_id(path_id)
+        if _is_unsafe_relative_path(rel_path):
+            return {"ok": False, "error": "Path traversal blocked"}
+        target_path = _resolve_edit_target(run_dir, rel_path)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if not target_path.exists():
+        return {"ok": False, "error": "Path not found"}
+    if target_path.resolve() == run_dir.resolve():
+        return {"ok": False, "error": "Cannot delete repository root"}
+
+    entry_type = "directory" if target_path.is_dir() else "file"
+    rel_parts = Path(rel_path).parts
+    if any(part in EDIT_BLOCKED_SEGMENTS for part in rel_parts):
+        return {"ok": False, "error": "This path is not editable"}
+    if entry_type == "file" and target_path.suffix.lower() in TEXT_EDIT_BLOCKED_SUFFIXES:
+        return {"ok": False, "error": "Binary files are not editable"}
+
+    normalized_path = rel_path.replace("\\", "/").strip("/")
+    try:
+        if target_path.is_dir():
+            shutil.rmtree(target_path)
+        else:
+            target_path.unlink()
+        return {
+            "ok": True,
+            "path": normalized_path,
+            "pathId": _encode_path_id(normalized_path),
+            "type": entry_type,
             "error": None,
         }
     except Exception as exc:

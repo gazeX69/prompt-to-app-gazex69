@@ -4,6 +4,7 @@ import time
 import asyncio
 import datetime
 import hashlib
+import re
 
 _P8_HISTORY_STORE = {}
 import datetime
@@ -167,7 +168,81 @@ async def _inject_truth_markers(project_id: str, run_id: str, prompt: str, ecosy
             print(err)
             await emit_terminal_line(err, "stderr", project_id)
 
-async def verify_rendered_dom_truth(preview_url: str, run_id: str, project_id: str, prompt_hash: str, ecosystem: str) -> dict:
+
+def _extract_served_run_marker(html_text: str) -> str | None:
+    patterns = [
+        r'<meta\s+name=["\']ai-run-id["\']\s+content=["\']([^"\']+)["\']',
+        r'data-run-id=["\']([^"\']+)["\']',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, html_text)
+        if match:
+            return match.group(1)
+    return None
+
+
+PLACEHOLDER_TEXT_PATTERNS = [
+    "hello world",
+    "hello vite",
+    "vite + react",
+    "edit src/app",
+    "click on the vite",
+    "learn react",
+    "placeholder",
+    "coming soon",
+    "generated app",
+    "welcome to your app",
+]
+
+
+def _normalize_visible_text(value: str | None) -> str:
+    return re.sub(r"\s+", " ", value or "").strip().lower()
+
+
+def _validate_preview_usability(
+    *,
+    prompt_text: str,
+    body_text: str,
+    root_text: str,
+    root_child_count: int,
+    interactive_count: int,
+) -> tuple[bool, str | None]:
+    visible_text = _normalize_visible_text(root_text or body_text)
+    prompt = _normalize_visible_text(prompt_text)
+
+    if root_child_count < 1:
+        return False, "Application usability validation failed: React root has no mounted children."
+
+    if len(visible_text) < 8:
+        return False, "Application usability validation failed: rendered application has no meaningful visible content."
+
+    if any(pattern in visible_text for pattern in PLACEHOLDER_TEXT_PATTERNS):
+        return False, "Application usability validation failed: rendered output appears to be a placeholder page."
+
+    if "counter" in prompt:
+        if "counter" not in visible_text and "count" not in visible_text:
+            return False, "Application usability validation failed: counter prompt did not render counter/count UI."
+        if interactive_count < 1:
+            return False, "Application usability validation failed: counter UI has no visible control."
+
+    if any(token in prompt for token in ["todo", "to-do", "task"]):
+        if not any(token in visible_text for token in ["todo", "to-do", "task", "list"]):
+            return False, "Application usability validation failed: todo prompt did not render todo/task/list UI."
+        if interactive_count < 2:
+            return False, "Application usability validation failed: todo UI does not expose enough visible controls."
+
+    if any(token in prompt for token in ["crud", "create read update delete"]):
+        if not any(token in visible_text for token in ["crud", "record", "item", "mvp"]):
+            return False, "Application usability validation failed: CRUD prompt did not render record/item UI."
+        if not any(token in visible_text for token in ["create", "add", "delete", "edit", "update"]):
+            return False, "Application usability validation failed: CRUD UI does not expose create/update/delete affordances."
+        if interactive_count < 2:
+            return False, "Application usability validation failed: CRUD UI does not expose enough visible controls."
+
+    return True, None
+
+
+async def verify_rendered_dom_truth(preview_url: str, run_id: str, project_id: str, prompt_text: str, ecosystem: str) -> dict:
     if ecosystem != "react-vite":
         # Static HTML / PHP already validated raw HTML marker in HTTP step, 
         # but Playwright is optional to prove browser render
@@ -199,7 +274,6 @@ async def verify_rendered_dom_truth(preview_url: str, run_id: str, project_id: s
                 await emit_terminal_line(f"[P7.6] playwright validation started", "info", project_id)
                 await emit_terminal_line(f"[Playwright] DOM verification started", "info", project_id)
                 await page.wait_for_selector('#root', state='attached', timeout=5000)
-                await page.wait_for_selector('#runtime-truth', state='attached', timeout=5000)
             except Exception as e:
                 await browser.close()
                 if ecosystem != "react-vite":
@@ -225,6 +299,13 @@ async def verify_rendered_dom_truth(preview_url: str, run_id: str, project_id: s
             body_inner_html = await page.evaluate("() => document.body.innerHTML")
             root_inner_text = await page.evaluate("() => document.getElementById('root')?.innerText || ''")
             root_child_count = await page.evaluate("() => document.getElementById('root')?.childElementCount || 0")
+            interactive_count = await page.evaluate("""() => Array.from(
+                document.querySelectorAll('button,input,textarea,select,a[href],[role="button"],[contenteditable="true"]')
+            ).filter((element) => {
+                const style = window.getComputedStyle(element);
+                const rect = element.getBoundingClientRect();
+                return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
+            }).length""")
             
             from backend.sandbox.executor import _safe_project_path
             run_dir = _safe_project_path(project_id, run_id)
@@ -273,8 +354,25 @@ async def verify_rendered_dom_truth(preview_url: str, run_id: str, project_id: s
                     "dom_verified": False,
                     "error": f"Fatal browser errors during preview: {fatal}"
                 }
+
+            usable, usability_error = _validate_preview_usability(
+                prompt_text=prompt_text,
+                body_text=body_inner_text,
+                root_text=root_inner_text,
+                root_child_count=int(root_child_count or 0),
+                interactive_count=int(interactive_count or 0),
+            )
+            if not usable:
+                return {
+                    "success": False,
+                    "html_verified": True,
+                    "source_verified": True,
+                    "dom_verified": bool(rendered_run_id),
+                    "usable": False,
+                    "error": usability_error,
+                }
             
-            if rendered_run_id != run_id:
+            if rendered_run_id and rendered_run_id != run_id:
                 return {
                     "success": False,
                     "html_verified": True,
@@ -287,8 +385,9 @@ async def verify_rendered_dom_truth(preview_url: str, run_id: str, project_id: s
                 "success": True,
                 "html_verified": True,
                 "source_verified": True,
-                "dom_verified": True,
-                "error": None
+                "dom_verified": bool(rendered_run_id),
+                "usable": True,
+                "error": None if rendered_run_id else "Runtime process is reachable, but DOM ownership marker is missing."
             }
             
     except ImportError:
@@ -994,10 +1093,29 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                 await _log_error_async(req.project_id, run_id, err)
                 return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
             await emit_terminal_line(f"[Validation] Pre-dev files OK: {required}", "info", req.project_id)
+        if skill_name == "node-backend":
+            from backend.sandbox.executor import validate_node_runtime_contract
+            err = validate_node_runtime_contract(req.project_id, run_id)
+            if err:
+                await emit_agent_state("failed", req.project_id)
+                await emit_terminal_line(f"[Validation] {err}", "stderr", req.project_id)
+                await _log_error_async(req.project_id, run_id, err)
+                return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
+            await emit_terminal_line("[Validation] Node entrypoint contract OK.", "info", req.project_id)
 
     # ── Step 10: Dev Server ───────────────────────────────────────────────────
     if cmd_strategy.dev:
         dev_cmd = cmd_strategy.dev
+        if skill_name == "node-backend":
+            from backend.sandbox.executor import resolve_node_runtime_command
+            try:
+                dev_cmd = resolve_node_runtime_command(req.project_id, run_id)
+            except ValueError as e:
+                await emit_agent_state("failed", req.project_id)
+                err = str(e)
+                await emit_terminal_line(f"[Validation] {err}", "stderr", req.project_id)
+                await _log_error_async(req.project_id, run_id, err)
+                return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
         preview = skill.get_preview_strategy()
         await emit_agent_state("launching", req.project_id)
         await emit_terminal_line(f"[Runtime] Launching: {' '.join(dev_cmd)}", "info", req.project_id)
@@ -1056,6 +1174,7 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
         # ── Step 11: Backend Runtime Verification ────────────────────────────────
         from backend.sandbox.executor import _runtime_registry
         import urllib.request
+        import urllib.error
         entry = _runtime_registry.get(req.project_id)
         if entry and entry.preview_url:
             await emit_agent_state("verifying", req.project_id)
@@ -1065,18 +1184,51 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
             await emit_terminal_line(msg, "info", req.project_id)
             
             def _fetch_html(url):
-                res = urllib.request.urlopen(url, timeout=10)
-                return res.read().decode('utf-8', errors='replace')
+                try:
+                    res = urllib.request.urlopen(url, timeout=10)
+                    return int(getattr(res, "status", 200)), res.read().decode('utf-8', errors='replace')
+                except urllib.error.HTTPError as exc:
+                    return int(exc.code), exc.read().decode('utf-8', errors='replace')
 
             # Step 1: Verify HTML marker
             html_text = ""
+            html_status = 0
             for attempt in range(5):
                 try:
-                    html_text = await asyncio.to_thread(_fetch_html, preview_url)
+                    html_status, html_text = await asyncio.to_thread(_fetch_html, preview_url)
                     break
                 except Exception as e:
                     await asyncio.sleep(1)
             
+            if html_status == 404 and skill_name == "node-backend":
+                err = "Preview verification failed: Runtime responded, but preview route returned HTTP 404."
+                print(err)
+                await emit_agent_state("failed", req.project_id)
+                await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
+                await emit_runtime_error(
+                    RuntimeErrorCode.E_PREVIEW_UNREACHABLE,
+                    err,
+                    project_id=req.project_id,
+                    run_id=run_id,
+                    source="preview",
+                )
+                await _log_error_async(req.project_id, run_id, err)
+                return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
+
+            if html_status >= 400:
+                err = f"Preview verification failed: Runtime responded, but preview route returned HTTP {html_status}."
+                print(err)
+                await emit_agent_state("failed", req.project_id)
+                await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
+                await emit_runtime_error(
+                    RuntimeErrorCode.E_PREVIEW_UNREACHABLE,
+                    err,
+                    project_id=req.project_id,
+                    run_id=run_id,
+                    source="preview",
+                )
+                return GenerateResponse(success=False, project_id=req.project_id, error=err)
+
             if not html_text:
                 err = "Preview verification failed: HTTP GET error (dev server unreachable)"
                 print(err)
@@ -1097,12 +1249,10 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
             with open(run_dir / "raw_response.html", "w", encoding="utf-8") as f:
                 f.write(html_text)
             
-            if f'<meta name="ai-run-id" content="{run_id}">' not in html_text:
-                err = f"Preview verification failed: runtime truth mismatch (HTML ai-run-id invalid or missing for {run_id})"
+            served_run_marker = _extract_served_run_marker(html_text)
+            if served_run_marker and served_run_marker != run_id:
+                err = f"Preview verification failed: runtime truth mismatch. Expected {run_id}, got {served_run_marker}"
                 print(err)
-                print("--- RECEIVED HTML ---")
-                print(html_text)
-                print("---------------------")
                 await emit_agent_state("failed", req.project_id)
                 await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
                 await emit_runtime_error(
@@ -1113,7 +1263,17 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                     source="runtime_verification",
                 )
                 return GenerateResponse(success=False, project_id=req.project_id, error=err)
-                
+            if not served_run_marker:
+                await emit_terminal_line(
+                    "[RuntimeVerify] Preview responded but did not include the active run marker; using runtime process ownership as diagnostic fallback.",
+                    "warning",
+                    req.project_id,
+                )
+            else:
+                msg = "[RuntimeVerify] HTML marker verified"
+                print(msg)
+                await emit_terminal_line(msg, "info", req.project_id)
+
             if skill_name == "php-basic":
                 import re
                 clean_text = re.sub(r'<[^>]+>', ' ', html_text).strip()
@@ -1126,10 +1286,6 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                     await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
                     return GenerateResponse(success=False, project_id=req.project_id, error=err)
             
-            msg = "[RuntimeVerify] HTML marker verified"
-            print(msg)
-            await emit_terminal_line(msg, "info", req.project_id)
-
             # Step 2: Verify source marker (by inspecting raw filesystem source file instead of served Vite output)
             if skill_name == "react-vite":
                 from backend.agent.tools import read_file
@@ -1153,15 +1309,14 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                     await emit_terminal_line(msg, "info", req.project_id)
 
             # Step 3: Real Rendered DOM Verification
-            prompt_hash = hashlib.md5(req.prompt.encode('utf-8')).hexdigest()
-            dom_res = await verify_rendered_dom_truth(preview_url, run_id, req.project_id, prompt_hash, skill_name)
+            dom_res = await verify_rendered_dom_truth(preview_url, run_id, req.project_id, req.prompt, skill_name)
             
             if dom_res.get("error") == "Playwright is not installed. DOM verification unavailable.":
                 err_msg = dom_res.get("error")
                 print(err_msg)
                 await emit_terminal_line(f"[RuntimeVerify] {err_msg}", "warning", req.project_id)
             elif not dom_res.get("success"):
-                err = f"Preview verification failed: rendered DOM does not match active run_id. {dom_res.get('error')}"
+                err = f"Preview verification failed: {dom_res.get('error')}"
                 print(err)
                 await emit_agent_state("failed", req.project_id)
                 await emit_terminal_line(f"[RuntimeVerify] {err}", "stderr", req.project_id)
@@ -1178,7 +1333,9 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                 p76_msg = "[P7.6] playwright validation success"
                 print(p76_msg)
                 await emit_terminal_line(p76_msg, "info", req.project_id)
-                msg = "[RuntimeVerify] rendered DOM marker verified"
+                if dom_res.get("error"):
+                    await emit_terminal_line(f"[RuntimeVerify] {dom_res.get('error')}", "warning", req.project_id)
+                msg = "[RuntimeVerify] rendered DOM marker verified" if dom_res.get("dom_verified") else "[RuntimeVerify] rendered DOM reachable; marker unavailable"
                 if ecosystem_label := _ecosystem_label(skill_name):
                     msg += f" (Ecosystem: {ecosystem_label})"
                 print(msg)

@@ -1,2 +1,544 @@
-[]
-
+[
+  {
+    "original_prompt": "buat CRUD",
+    "final_prompt": "buat CRUD",
+    "action": "auto_continue",
+    "decision": "local_plus_question",
+    "signature": {
+      "domain": "general",
+      "intent": "build_app",
+      "app_type": "app",
+      "complexity": "medium",
+      "feature_keywords": [],
+      "required_capabilities": [
+        "state_management",
+        "crud"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "App MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-aplikasi-marketplace",
+    "id": "c107ace4-aebe-4b91-8480-980f77ea3a74",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T02:13:56Z"
+  },
+  {
+    "original_prompt": "make hello anjay",
+    "final_prompt": "make hello anjay",
+    "action": "auto_continue",
+    "decision": "local_plus_question",
+    "signature": {
+      "domain": "general",
+      "intent": "unknown",
+      "app_type": "app",
+      "complexity": "medium",
+      "feature_keywords": [],
+      "required_capabilities": [
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "App MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-aplikasi-marketplace",
+    "id": "d66bb6b4-b506-40b8-845c-999756dea46a",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T02:15:26Z"
+  },
+  {
+    "original_prompt": "make hello GINANNJAY",
+    "final_prompt": "make hello GINANNJAY",
+    "action": "auto_continue",
+    "decision": "local_plus_question",
+    "signature": {
+      "domain": "general",
+      "intent": "unknown",
+      "app_type": "app",
+      "complexity": "medium",
+      "feature_keywords": [],
+      "required_capabilities": [
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "App MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-aplikasi-marketplace",
+    "id": "c0b2de5f-ea56-43a9-ba2b-5275d1baf63d",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T02:17:50Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello_World MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "aws",
+    "id": "e25426d1-2e52-4bd2-ac5b-6492578d7767",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T06:48:54Z"
+  },
+  {
+    "original_prompt": "make CRUD sederhana",
+    "final_prompt": "Original request:\nmake CRUD sederhana\n\nUse this confirmed MVP scope:\nTitle: Crud_App MVP\n\nFeatures:\n- Core list view\n- Primary detail view\n- Simple local state\n\nConstraints:\n- Build the smallest working MVP.\n- Use simple local/mock data unless backend/database/auth is explicitly required.\n- Avoid adding unrequested external services.",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "medium",
+      "feature_keywords": [
+        "crud"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Crud_App MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "asw",
+    "id": "f061d765-38ae-4264-9d4a-680dd021d339",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T06:49:59Z"
+  },
+  {
+    "original_prompt": "buat CRUD sederhana",
+    "final_prompt": "Original request:\nbuat CRUD sederhana\n\nUse this confirmed MVP scope:\nTitle: Crud_App MVP\n\nFeatures:\n- Core list view\n- Primary detail view\n- Simple local state\n\nConstraints:\n- Build the smallest working MVP.\n- Use simple local/mock data unless backend/database/auth is explicitly required.\n- Avoid adding unrequested external services.",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "medium",
+      "feature_keywords": [
+        "crud"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Crud_App MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "tes",
+    "id": "07d24f7c-7d1e-4ef9-b040-3f0179789962",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T07:08:34Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello_World MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "tes",
+    "id": "c78ce388-4b85-4484-938d-f7d181a91215",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T07:12:05Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello_World MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "tesw",
+    "id": "fadad921-f3d8-412b-8dd2-2f5b149c2009",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T07:24:45Z"
+  },
+  {
+    "original_prompt": "buat aplikasi inventory",
+    "final_prompt": "buat aplikasi inventory",
+    "action": "generate_anyway",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "inventory",
+      "intent": "build_app",
+      "app_type": "inventory",
+      "complexity": "high",
+      "feature_keywords": [
+        "items",
+        "stock",
+        "crud",
+        "reporting"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence",
+        "reporting"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Inventory MVP",
+      "features": [
+        "Item list",
+        "Add/edit/delete item",
+        "Stock quantity tracking",
+        "Low stock indicator",
+        "Simple local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "authentication",
+      "database",
+      "roles",
+      "crud_scope",
+      "storage_type",
+      "reporting_analytics"
+    ],
+    "workspace_id": "aaas",
+    "id": "305276fb-c460-455d-a159-0785048b393d",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T08:04:10Z"
+  },
+  {
+    "original_prompt": "buat aplikasi marketplace",
+    "final_prompt": "Original request:\nbuat aplikasi marketplace\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Use simple local/mock data unless backend/database/auth is explicitly required.\n- Avoid adding unrequested external services.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [
+      "roles",
+      "product_schema",
+      "cart_checkout_scope",
+      "payment",
+      "database",
+      "admin_panel",
+      "crud_scope"
+    ],
+    "workspace_id": "wer",
+    "id": "7506aa1a-5579-4b3a-a15f-3fcce7074bfe",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T08:12:09Z"
+  },
+  {
+    "original_prompt": "buat CRUD sederhana",
+    "final_prompt": "Original request:\nbuat CRUD sederhana\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Use simple local/mock data unless backend/database/auth is explicitly required.\n- Avoid adding unrequested external services.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "medium",
+      "feature_keywords": [
+        "crud"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "aaaaaaaaa",
+    "id": "c111d8cf-6535-4a68-8b71-4497286f20e9",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T08:25:41Z"
+  },
+  {
+    "original_prompt": "buat CRUD sederhana",
+    "final_prompt": "Original request:\nbuat CRUD sederhana\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Use simple local/mock data unless backend/database/auth is explicitly required.\n- Avoid adding unrequested external services.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "medium",
+      "feature_keywords": [
+        "crud"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "wwwwwwwwww",
+    "id": "c52a567e-ca75-4845-a238-29dafa1b8829",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T08:35:05Z"
+  },
+  {
+    "original_prompt": "buat CRUD sederhana",
+    "final_prompt": "Original request:\nbuat CRUD sederhana\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Use simple local/mock data unless backend/database/auth is explicitly required.\n- Avoid adding unrequested external services.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "medium",
+      "feature_keywords": [
+        "crud"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "as",
+    "id": "d22cf86a-a03b-4c31-9040-2e0a42c66173",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T08:45:25Z"
+  },
+  {
+    "original_prompt": "buat \"Hello Apa Kabar ? Sehat ???\"",
+    "final_prompt": "buat \"Hello Apa Kabar ? Sehat ???\"",
+    "action": "auto_continue",
+    "decision": "local_plus_question",
+    "signature": {
+      "domain": "general",
+      "intent": "build_app",
+      "app_type": "app",
+      "complexity": "medium",
+      "feature_keywords": [],
+      "required_capabilities": [
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "App MVP",
+      "features": [
+        "Core list view",
+        "Primary detail view",
+        "Simple local state"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "sw",
+    "id": "e19f2501-66fc-4c8b-9c72-7ea1a5645370",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T08:55:27Z"
+  },
+  {
+    "original_prompt": "buat CRUD sederhana",
+    "final_prompt": "Original request:\nbuat CRUD sederhana\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "medium",
+      "feature_keywords": [
+        "crud"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "aaaaaa",
+    "id": "d9cb361e-7265-4d5b-91ee-c142119d6e6b",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-05-26T09:33:07Z"
+  }
+]

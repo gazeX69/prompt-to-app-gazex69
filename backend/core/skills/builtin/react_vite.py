@@ -53,7 +53,10 @@ class ReactViteSkill(ModularSkill):
             "- Return files using ===FILE:relative/path.ext=== ... ===END===\n"
             "- Do NOT generate package.json, vite.config.ts, tsconfig.json, tsconfig.app.json, tsconfig.node.json, index.html, or src/main.tsx.\n"
             "- If you must generate tsconfig files, NEVER use \"moduleResolution\": \"classic\". ALWAYS use \"moduleResolution\": \"bundler\" or \"node\".\n"
-            "- Use the dependencies already present in the canonical template."
+            "- Use the dependencies already present in the canonical template.\n"
+            "- Import rules: do NOT use path aliases such as \"@/...\".\n"
+            "- Use relative imports only, for example \"./types\", \"./utils/storage\", \"./components/ItemForm\", or \"../types\".\n"
+            "- Do not import packages, aliases, or modules that are not configured in the canonical template.\n"
         )
 
     def get_project_structure(self) -> list[str]:
@@ -92,7 +95,11 @@ class ReactViteSkill(ModularSkill):
         return [
             {
                 "role": "system",
-                "content": "You are generating a React + Vite + TypeScript application. Use functional components, hooks, and TailwindCSS.",
+                "content": (
+                    "You are generating a React + Vite + TypeScript application. "
+                    "Use functional components, hooks, and TailwindCSS. "
+                    "Do not use path aliases such as '@/...'; use relative imports only."
+                ),
             }
         ]
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { ArrowLeft, Loader2, Play, RefreshCw, RotateCw, Square } from "lucide-react"
 import SidebarPanel from "../panels/SidebarPanel"
 import MainWorkspace from "../panels/MainWorkspace"
@@ -10,16 +10,18 @@ import { useWorkspaceStore } from "../stores/workspace.store"
 import { useAgentStore } from "../stores/agent.store"
 import { usePreviewStore } from "../stores/preview.store"
 import type { SkillMeta } from "../stores/skills.store"
-
-export type WorkspaceMode = "generate" | "explore" | "edit" | "preview"
+import type { WorkspaceMode } from "../stores/workspace.store"
+import { getPostGenerationRefreshAction, getRuntimePreviewSyncAction } from "../stateConsistency"
 
 export default function WorkspaceLayout() {
-  const [activeView, setActiveViewState] = useState<WorkspaceMode>("generate")
   const [runtimeAction, setRuntimeAction] = useState<"run" | "stop" | "restart" | null>(null)
   const [runtimeActionError, setRuntimeActionError] = useState<string | null>(null)
   const setSkills = useSkillsStore((s) => s.setSkills)
   
   const activeWorkspaceId = useWorkspaceStore((s) => s.activeWorkspaceId)
+  const activeView = useWorkspaceStore((s) => s.activeWorkspaceMode)
+  const setActiveWorkspaceMode = useWorkspaceStore((s) => s.setActiveWorkspaceMode)
+  const activeRunId = useWorkspaceStore((s) => s.activeRunId)
   const workspaces = useWorkspaceStore((s) => s.workspaces)
   const closeWorkspace = useWorkspaceStore((s) => s.closeWorkspace)
   const editorDirty = useWorkspaceStore((s) => s.editorDirty)
@@ -27,6 +29,7 @@ export default function WorkspaceLayout() {
   const workspaceHydrationStatus = useWorkspaceStore((s) => s.workspaceHydrationStatus)
   const ensureWorkspaceHydrated = useWorkspaceStore((s) => s.ensureWorkspaceHydrated)
   const loadWorkspaceData = useWorkspaceStore((s) => s.loadWorkspaceData)
+  const loadWorkspaceRuns = useWorkspaceStore((s) => s.loadWorkspaceRuns)
   
   const runtimeState = useAgentStore((s) => s.runtimeState)
   const setAgentState = useAgentStore((s) => s.setState)
@@ -46,13 +49,10 @@ export default function WorkspaceLayout() {
   const runtimeIsRunning = normalizedRuntimeStatus === "running" || normalizedRuntimeStatus === "ready"
   const runtimeIsBusy = ["starting", "healthcheck", "installing", "building", "preparing", "checking_ports"].includes(normalizedRuntimeStatus)
   const actionPending = runtimeAction !== null
+  const postGenerationHydrationRef = useRef<string | null>(null)
 
   const setActiveView = (view: WorkspaceMode) => {
-    setActiveViewState(view)
-
-    if (activeWorkspaceId) {
-      persistWorkspaceMode(activeWorkspaceId, view)
-    }
+    setActiveWorkspaceMode(view)
   }
 
   const handleCloseWorkspace = () => {
@@ -61,12 +61,6 @@ export default function WorkspaceLayout() {
     }
     closeWorkspace()
   }
-
-  useEffect(() => {
-    if (!activeWorkspaceId) return
-    setActiveViewState(readPersistedWorkspaceMode(activeWorkspaceId))
-  }, [activeWorkspaceId])
-
 
   useEffect(() => {
     api.fetch<SkillMeta[]>("/skills").then(setSkills).catch(() => {
@@ -102,6 +96,7 @@ export default function WorkspaceLayout() {
         setRuntimeStatus(status)
         if (generation) setGenerationStatus(generation)
         syncRuntimeStores(status, {
+          activeRunId,
           previewUrl,
           previewRunId,
           setPreviewUrl,
@@ -121,6 +116,7 @@ export default function WorkspaceLayout() {
     }
   }, [
     activeWorkspaceId,
+    activeRunId,
     clearPreview,
     previewRunId,
     previewUrl,
@@ -129,6 +125,35 @@ export default function WorkspaceLayout() {
     setRuntimeState,
     setRuntimeStatus,
   ])
+
+  useEffect(() => {
+    if (!activeWorkspaceId || !generationStatus) return
+    if (generationStatus.project_id && generationStatus.project_id !== activeWorkspaceId) return
+
+    const status = String(generationStatus.status || "").toLowerCase()
+    const refreshAction = getPostGenerationRefreshAction(generationStatus)
+    if (refreshAction === "ignore") return
+
+    const generationKey = [
+      activeWorkspaceId,
+      generationStatus.generation_id,
+      generationStatus.active_run_id,
+      generationStatus.latest_run_id,
+      generationStatus.run_id,
+      generationStatus.runtime_run_id,
+      status,
+    ].filter(Boolean).join(":") || `${activeWorkspaceId}:${status}`
+
+    if (postGenerationHydrationRef.current === generationKey) return
+    postGenerationHydrationRef.current = generationKey
+
+    if (refreshAction === "reload_workspace_data") {
+      void loadWorkspaceData(activeWorkspaceId)
+      return
+    }
+
+    void loadWorkspaceRuns(activeWorkspaceId)
+  }, [activeWorkspaceId, generationStatus, loadWorkspaceData, loadWorkspaceRuns])
 
   const runRuntime = async (restart = false) => {
     if (!activeWorkspaceId || actionPending) return
@@ -144,6 +169,7 @@ export default function WorkspaceLayout() {
       )
       setRuntimeStatus(status)
       syncRuntimeStores(status, {
+        activeRunId,
         previewUrl,
         previewRunId,
         setPreviewUrl,
@@ -278,6 +304,10 @@ interface RuntimeStatusResponse {
 interface GenerationStatusResponse {
   project_id: string | null
   generation_id: string | null
+  run_id?: string | null
+  current_run_id?: string | null
+  active_run_id?: string | null
+  latest_run_id?: string | null
   status: string
   phase: string
   message: string
@@ -342,6 +372,7 @@ function RuntimeControls({
 function syncRuntimeStores(
   status: RuntimeStatusResponse,
   helpers: {
+    activeRunId: string | null
     previewUrl: string | null
     previewRunId: string | null
     setPreviewUrl: (url: string | null, runId?: string | null) => void
@@ -349,25 +380,30 @@ function syncRuntimeStores(
     setRuntimeState: (state: "IDLE" | "PREPARING" | "CHECKING_PORTS" | "INSTALLING" | "BUILDING" | "STARTING" | "HEALTHCHECK" | "READY" | "RUNNING" | "FAILED" | "STOPPED") => void
   },
 ) {
-  const normalized = String(status.status || "").toLowerCase()
-  if (normalized === "running" && status.url) {
+  const action = getRuntimePreviewSyncAction(status, helpers.activeRunId)
+  if (action === "mount_preview" && status.url) {
     if (helpers.previewUrl !== status.url || helpers.previewRunId !== status.run_id) {
       helpers.setPreviewUrl(status.url, status.run_id)
     }
     helpers.setRuntimeState("RUNNING")
     return
   }
-  if (normalized === "failed") {
-    helpers.clearPreview()
-    helpers.setRuntimeState("FAILED")
-    return
-  }
-  if (normalized === "stopped") {
+  if (action === "clear_preview") {
     helpers.clearPreview()
     helpers.setRuntimeState("STOPPED")
     return
   }
-  if (normalized === "starting") {
+  if (action === "mark_failed") {
+    helpers.clearPreview()
+    helpers.setRuntimeState("FAILED")
+    return
+  }
+  if (action === "mark_stopped") {
+    helpers.clearPreview()
+    helpers.setRuntimeState("STOPPED")
+    return
+  }
+  if (action === "mark_starting") {
     helpers.setRuntimeState("STARTING")
   }
 }
@@ -405,27 +441,4 @@ function readableAgentState(state: string) {
   if (state === "IDLE") return "idle"
   if (state === "PREVIEW_READY") return "success"
   return state.toLowerCase()
-}
-
-const WORKSPACE_MODE_STORAGE_PREFIX = "ai-agent-workspace-mode"
-
-function workspaceModeStorageKey(workspaceId: string) {
-  return `${WORKSPACE_MODE_STORAGE_PREFIX}:${workspaceId}`
-}
-
-function readPersistedWorkspaceMode(workspaceId: string): WorkspaceMode {
-  if (typeof window === "undefined") return "generate"
-
-  const value = window.localStorage.getItem(workspaceModeStorageKey(workspaceId))
-
-  if (value === "generate" || value === "explore" || value === "edit" || value === "preview") {
-    return value
-  }
-
-  return "generate"
-}
-
-function persistWorkspaceMode(workspaceId: string, view: WorkspaceMode) {
-  if (typeof window === "undefined") return
-  window.localStorage.setItem(workspaceModeStorageKey(workspaceId), view)
 }

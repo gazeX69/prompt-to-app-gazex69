@@ -16,6 +16,9 @@ BROAD_APP_TYPES = {
     "crm",
     "e-commerce",
     "dashboard",
+    "crud_app",
+    "auth_app",
+    "data_app",
 }
 
 
@@ -32,6 +35,42 @@ DECISION_LIBRARY = {
         default_recommendation="Use local persistence or seeded mock data for MVP unless durable backend storage is explicitly required.",
         risk=RiskLevel.HIGH,
     ),
+    "item_schema": MissingDecision(
+        key="item_schema",
+        question="Field item/barang apa saja yang perlu dilacak?",
+        default_recommendation="Start with name, SKU/category, quantity, and status for inventory MVP.",
+        risk=RiskLevel.MEDIUM,
+    ),
+    "stock_movement_rules": MissingDecision(
+        key="stock_movement_rules",
+        question="Bagaimana aturan stok bertambah/berkurang dan kapan stok dianggap rendah?",
+        default_recommendation="Use manual stock adjustment and a simple low-stock threshold for MVP.",
+        risk=RiskLevel.MEDIUM,
+    ),
+    "product_schema": MissingDecision(
+        key="product_schema",
+        question="Field produk apa saja yang wajib ada untuk marketplace MVP?",
+        default_recommendation="Start with name, price, image placeholder, stock, and description.",
+        risk=RiskLevel.MEDIUM,
+    ),
+    "cart_checkout_scope": MissingDecision(
+        key="cart_checkout_scope",
+        question="Checkout cukup simulasi atau perlu alur order/pembayaran nyata?",
+        default_recommendation="Use simulated checkout for MVP.",
+        risk=RiskLevel.HIGH,
+    ),
+    "auth_type": MissingDecision(
+        key="auth_type",
+        question="Jenis login apa yang dibutuhkan: mock login, email/password lokal, atau backend auth?",
+        default_recommendation="Use mock/local login for MVP unless backend auth is explicitly required.",
+        risk=RiskLevel.HIGH,
+    ),
+    "session_persistence": MissingDecision(
+        key="session_persistence",
+        question="Session login perlu disimpan di mana dan berapa lama?",
+        default_recommendation="Use local session state for MVP.",
+        risk=RiskLevel.MEDIUM,
+    ),
     "roles": MissingDecision(
         key="roles",
         question="Role pengguna apa saja yang dibutuhkan?",
@@ -40,14 +79,32 @@ DECISION_LIBRARY = {
     ),
     "crud_scope": MissingDecision(
         key="crud_scope",
-        question="Entity mana saja yang harus bisa dibuat, diedit, dan dihapus?",
+        question="CRUD ini untuk entitas apa, misalnya produk, user, todo, atau transaksi?",
         default_recommendation="Limit CRUD to the primary MVP entity first.",
+        risk=RiskLevel.MEDIUM,
+    ),
+    "entity": MissingDecision(
+        key="entity",
+        question="Entitas utama apa yang harus dikelola oleh CRUD ini?",
+        default_recommendation="Pick one primary entity for the first MVP screen.",
+        risk=RiskLevel.MEDIUM,
+    ),
+    "schema_fields": MissingDecision(
+        key="schema_fields",
+        question="Field apa saja yang harus dimiliki entitas tersebut?",
+        default_recommendation="Start with 3-5 essential fields for the primary entity.",
         risk=RiskLevel.MEDIUM,
     ),
     "storage_type": MissingDecision(
         key="storage_type",
-        question="Apakah penyimpanan cukup lokal/mock atau harus tersambung backend?",
+        question="Data disimpan di mana: local state, localStorage, JSON, SQL, database, atau backend API?",
         default_recommendation="Use browser/local persistence for MVP unless backend persistence is required.",
+        risk=RiskLevel.MEDIUM,
+    ),
+    "persistence": MissingDecision(
+        key="persistence",
+        question="Apakah CRUD ini hanya simulasi frontend atau harus persistent?",
+        default_recommendation="Use localStorage persistence for a safe MVP unless real backend persistence is explicitly required.",
         risk=RiskLevel.MEDIUM,
     ),
     "backend_api": MissingDecision(
@@ -102,8 +159,8 @@ DECISION_LIBRARY = {
 
 
 APP_DECISION_KEYS = {
-    "marketplace": ["authentication", "database", "roles", "payment", "admin_panel", "crud_scope"],
-    "inventory": ["authentication", "database", "roles", "crud_scope", "storage_type", "reporting_analytics"],
+    "marketplace": ["roles", "product_schema", "cart_checkout_scope", "payment", "database", "admin_panel", "crud_scope"],
+    "inventory": ["item_schema", "stock_movement_rules", "storage_type", "database", "roles", "reporting_analytics"],
     "lms": ["authentication", "database", "roles", "crud_scope", "file_upload", "reporting_analytics"],
     "cms": ["authentication", "database", "roles", "admin_panel", "file_upload", "deployment_target"],
     "recruitment": ["authentication", "database", "roles", "crud_scope", "file_upload", "reporting_analytics"],
@@ -114,6 +171,9 @@ APP_DECISION_KEYS = {
     "booking": ["authentication", "database", "roles", "realtime", "external_dependencies"],
     "social media": ["authentication", "database", "roles", "file_upload", "realtime"],
     "dashboard": ["authentication", "database", "backend_api", "roles", "reporting_analytics"],
+    "crud_app": ["crud_scope", "entity", "schema_fields", "storage_type", "persistence", "backend_api"],
+    "auth_app": ["auth_type", "roles", "session_persistence", "backend_api", "database"],
+    "data_app": ["database", "storage_type", "schema_fields", "backend_api", "persistence"],
 }
 
 
@@ -129,6 +189,17 @@ def _prompt_mentions_decision(prompt: str, key: str) -> bool:
         "deployment_target": ["deploy", "deployment", "hosting", "vercel"],
         "external_dependencies": ["integrasi", "api eksternal", "third party"],
         "backend_api": ["backend", "api"],
+        "item_schema": ["item", "barang", "sku", "quantity", "jumlah", "stok", "stock", "category", "kategori"],
+        "stock_movement_rules": ["masuk", "keluar", "adjustment", "threshold", "low stock", "stok rendah", "restock"],
+        "product_schema": ["produk", "product", "price", "harga", "stock", "stok", "description", "deskripsi"],
+        "cart_checkout_scope": ["cart", "keranjang", "checkout", "order", "pesanan", "payment", "pembayaran", "simulasi"],
+        "auth_type": ["mock login", "email", "password", "oauth", "backend auth", "firebase", "supabase"],
+        "session_persistence": ["session", "token", "remember", "local storage", "localstorage", "cookie"],
+        "crud_scope": ["todo", "task", "produk", "product", "barang", "item", "user", "customer", "employee", "student", "book", "order", "transaction", "transaksi"],
+        "entity": ["todo", "task", "produk", "product", "barang", "item", "user", "customer", "employee", "student", "book", "order", "transaction", "transaksi"],
+        "schema_fields": ["field", "fields", "kolom", "atribut", "name", "nama", "title", "judul", "description", "deskripsi", "status", "price", "harga", "email"],
+        "storage_type": ["local storage", "localstorage", "local state", "state lokal", "json", "database", "db", "sql", "mysql", "postgres", "sqlite", "backend", "api"],
+        "persistence": ["local storage", "localstorage", "persist", "persistent", "persistence", "simpan", "database", "db", "sql", "json"],
     }
     return any(term in text for term in hints.get(key, [key]))
 
@@ -155,4 +226,3 @@ def analyze_scope(prompt: str, signature: PlanSignature) -> ScopeAnalysis:
         risk_level=risk_level,
         missing_decisions=missing_decisions,
     )
-

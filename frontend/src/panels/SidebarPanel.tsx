@@ -1,6 +1,6 @@
 import { Code2, Compass, Layers, Play } from 'lucide-react'
 import { useWorkspaceStore } from '../stores/workspace.store'
-import type { WorkspaceMode } from '../layouts/WorkspaceLayout'
+import type { WorkspaceMode } from '../stores/workspace.store'
 
 interface SidebarPanelProps {
   activeView: WorkspaceMode

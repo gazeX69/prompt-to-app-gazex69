@@ -7,7 +7,12 @@ import { useTerminalStore } from "../stores/terminal.store"
 import { usePreviewStore } from "../stores/preview.store"
 import { useWorkspaceStore } from "../stores/workspace.store"
 import { api } from "../services/api"
-import { runBrainPreflight, type BrainDecisionResult } from "../api/workspace.api"
+import {
+  runBrainPreflight,
+  savePreflightHistory,
+  type BrainDecisionResult,
+  type PreflightHistoryAction,
+} from "../api/workspace.api"
 import { ProgressView } from "./ProgressView"
 
 function canGenerate(state: AgentState): boolean {
@@ -49,6 +54,13 @@ function agentStateFromGenerationStatus(value?: string | null): AgentState | nul
 
 type PreflightStatus = "idle" | "loading" | "needs_confirmation" | "error"
 
+type PendingPreflightHistory = {
+  originalPrompt: string
+  finalPrompt: string
+  action: PreflightHistoryAction
+  preflightResult: BrainDecisionResult
+}
+
 function requiresPreflightConfirmation(result: BrainDecisionResult): boolean {
   if (result.decision === "ask_user_before_generate") return true
   if (result.decision === "provider_required") return true
@@ -56,8 +68,18 @@ function requiresPreflightConfirmation(result: BrainDecisionResult): boolean {
   return result.decision === "compose_cases" && result.scope_analysis.is_broad
 }
 
+function blocksRawGeneration(result: BrainDecisionResult | null): boolean {
+  if (!result) return false
+  if (result.planning_required === true) return true
+  if (result.scope_analysis.risk_level === "high") return true
+  if (result.decision === "provider_required") return true
+  return result.signature.complexity === "high"
+}
+
 function buildRecommendedMvpPrompt(originalPrompt: string, result: BrainDecisionResult): string {
   const features = result.recommended_mvp.features.map(feature => `- ${feature}`).join("\n")
+  const implementationPlan = (result.implementation_plan ?? []).map(step => `- ${step}`).join("\n")
+  const taskList = (result.task_list ?? []).map(task => `- ${task}`).join("\n")
   return `Original request:
 ${originalPrompt}
 
@@ -69,8 +91,15 @@ ${features}
 
 Constraints:
 - Build the smallest working MVP.
-- Use simple local/mock data unless backend/database/auth is explicitly required.
-- Avoid adding unrequested external services.`
+- Target ecosystem: react-vite.
+- Build this as a React + Vite + TypeScript frontend app.
+- Render the working UI at the root route "/".
+- Use client-side state, mock data, or localStorage for MVP data.
+- Keep the implementation previewable in the browser.
+- Do not create server-side files for this MVP.
+- Do not import packages that are not already declared in package.json.
+${implementationPlan ? `\nImplementation plan:\n${implementationPlan}` : ""}
+${taskList ? `\nTask list:\n${taskList}` : ""}`
 }
 
 export default function PromptWorkspace() {
@@ -80,12 +109,14 @@ export default function PromptWorkspace() {
   const [preflightResult, setPreflightResult] = useState<BrainDecisionResult | null>(null)
   const [preflightError, setPreflightError] = useState<string | null>(null)
   const [pendingPrompt, setPendingPrompt] = useState<string | null>(null)
+  const [showPreflightDetails, setShowPreflightDetails] = useState(false)
   const { state, setState: setAgentState, setStartTime, socketConnected } = useAgentStore()
   const previewUrl = usePreviewStore((s) => s.url)
 
   const generationStatus = usePreviewStore((s) => s.generationStatus)
   const generationTerminalState = agentStateFromGenerationStatus(generationStatus?.status)
   const effectiveState = generationTerminalState || state
+  const canStartGeneration = canGenerate(effectiveState)
   // const showProgress =
   //   effectiveState !== 'IDLE' &&
   //   effectiveState !== 'FAILED' &&
@@ -135,18 +166,61 @@ export default function PromptWorkspace() {
     }
   }, [generationTerminalState, state, setAgentState])
 
-  const startGeneration = async (generationPrompt: string) => {
+  const resetPreflight = () => {
+    preflightLoadingRef.current = false
+    setPreflightStatus("idle")
+    setPreflightResult(null)
+    setPreflightError(null)
+    setPendingPrompt(null)
+    setShowPreflightDetails(false)
+  }
+
+  const invalidatePreflight = () => {
+    preflightRequestRef.current += 1
+    resetPreflight()
+  }
+
+  const saveHistoryBeforeGenerate = async (history: PendingPreflightHistory) => {
+    try {
+      await savePreflightHistory({
+        original_prompt: history.originalPrompt,
+        final_prompt: history.finalPrompt,
+        action: history.action,
+        decision: history.preflightResult.decision,
+        signature: history.preflightResult.signature,
+        recommended_mvp: history.preflightResult.recommended_mvp,
+        missing_decision_keys:
+          history.preflightResult.scope_analysis?.missing_decisions?.map((item) => item.key) ?? [],
+        workspace_id: activeWorkspaceId ?? null,
+      })
+    } catch (error) {
+      console.warn("Failed to save preflight history", error)
+    }
+  }
+
+  const startGeneration = async (
+    generationPrompt: string,
+    history?: PendingPreflightHistory,
+  ) => {
     const finalPrompt = generationPrompt.trim()
     if (!finalPrompt) return
-    if (!canGenerate(effectiveState)) return
+    if (!canStartGeneration) return
     if (generationStartingRef.current) return
-    
+
+    generationStartingRef.current = true
+    resetPreflight()
     useTerminalStore.getState().clear()
     useTerminalStore.getState().addLine({ text: `[Client] Sending generation request...`, type: 'info' })
     setStartTime(Date.now())
     setAgentState('GENERATING')
     useAgentStore.setState({ activities: [] })
-    generationStartingRef.current = true
+
+    if (history) {
+      void saveHistoryBeforeGenerate({
+        ...history,
+        finalPrompt,
+      })
+    }
     
     const enabledNames = skills.filter(s => enabled[s.name] !== false).map(s => s.name)
     
@@ -167,23 +241,10 @@ export default function PromptWorkspace() {
     }
   }
 
-  const resetPreflight = () => {
-    preflightLoadingRef.current = false
-    setPreflightStatus("idle")
-    setPreflightResult(null)
-    setPreflightError(null)
-    setPendingPrompt(null)
-  }
-
-  const invalidatePreflight = () => {
-    preflightRequestRef.current += 1
-    resetPreflight()
-  }
-
   const handleGenerate = async () => {
     const submittedPrompt = prompt.trim()
     if (!submittedPrompt) return
-    if (!canGenerate(effectiveState)) return
+    if (!canStartGeneration) return
     if (preflightLoadingRef.current || preflightStatus === "loading") return
 
     const requestId = preflightRequestRef.current + 1
@@ -200,13 +261,18 @@ export default function PromptWorkspace() {
       preflightLoadingRef.current = false
       if (requiresPreflightConfirmation(result)) {
         setPreflightResult(result)
+        setShowPreflightDetails(false)
         setPreflightStatus("needs_confirmation")
         useTerminalStore.getState().addLine({ text: `[Preflight] Scope confirmation required: ${result.reason}`, type: 'info' })
         return
       }
 
-      resetPreflight()
-      await startGeneration(submittedPrompt)
+      await startGeneration(submittedPrompt, {
+        originalPrompt: submittedPrompt,
+        finalPrompt: submittedPrompt,
+        action: "auto_continue",
+        preflightResult: result,
+      })
     } catch (err) {
       if (preflightRequestRef.current !== requestId) return
       preflightLoadingRef.current = false
@@ -218,16 +284,39 @@ export default function PromptWorkspace() {
 
   const handleUseRecommendedMvp = async () => {
     if (!pendingPrompt || !preflightResult) return
+    const originalPrompt = pendingPrompt
+    const result = preflightResult
     const narrowedPrompt = buildRecommendedMvpPrompt(pendingPrompt, preflightResult)
-    resetPreflight()
-    await startGeneration(narrowedPrompt)
+    await startGeneration(narrowedPrompt, {
+      originalPrompt,
+      finalPrompt: narrowedPrompt,
+      action: "use_recommended_mvp",
+      preflightResult: result,
+    })
   }
 
   const handleGenerateAnyway = async () => {
     if (!pendingPrompt) return
     const originalPrompt = pendingPrompt
-    resetPreflight()
-    await startGeneration(originalPrompt)
+    const result = preflightResult
+    if (blocksRawGeneration(result)) {
+      useTerminalStore.getState().addLine({
+        text: "[Preflight] Raw generation is disabled for high-risk prompts. Use the recommended MVP or refine the prompt.",
+        type: "info",
+      })
+      return
+    }
+    await startGeneration(
+      originalPrompt,
+      result
+        ? {
+            originalPrompt,
+            finalPrompt: originalPrompt,
+            action: "generate_anyway",
+            preflightResult: result,
+          }
+        : undefined,
+    )
   }
 
   const handleCancelPreflight = () => {
@@ -235,14 +324,26 @@ export default function PromptWorkspace() {
   }
 
   useEffect(() => {
+    if (canStartGeneration || preflightStatus === "idle") return
+    invalidatePreflight()
+  }, [canStartGeneration, preflightStatus])
+
+  useEffect(() => {
     if (state !== 'IDLE' && !generationTerminalState) {
       setAgentState('IDLE')
     }
   }, [activeWorkspaceId])
 
+  const isConfirmingPreflight = preflightStatus === "needs_confirmation" && !!preflightResult && canStartGeneration
+  const mvpFeatureSummary = preflightResult?.recommended_mvp.features.slice(0, 5).join(", ") || "Recommended MVP scope"
+  const missingDecisionCount = preflightResult?.scope_analysis.missing_decisions.length ?? 0
+  const implementationPlan = preflightResult?.implementation_plan ?? []
+  const taskList = preflightResult?.task_list ?? []
+  const rawGenerationBlocked = blocksRawGeneration(preflightResult)
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 p-4 md:p-8 overflow-y-auto">
-      <div className="max-w-4xl w-full mx-auto flex-1 flex flex-col justify-end pb-4">
+    <div className="h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-10 md:p-8 md:pb-10">
+      <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col">
         <div className="mb-4 border border-border bg-panel rounded-lg p-3 flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="text-[11px] uppercase tracking-widest text-gray-500 font-semibold">Generate</div>
@@ -267,7 +368,7 @@ export default function PromptWorkspace() {
             </button>
             <button
               type="button"
-              disabled={!canGenerate(effectiveState) || preflightStatus === "loading"}
+              disabled={!canStartGeneration || preflightStatus === "loading"}
               onClick={handleGenerate}
               className="text-[12px] px-3 py-1.5 rounded border border-border text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-accent"
             >
@@ -276,28 +377,30 @@ export default function PromptWorkspace() {
           </div>
         </div>
         
-        {effectiveState === 'IDLE' || effectiveState === 'COMPLETED' || effectiveState === 'FAILED' ? (
-          <div className="flex-1 flex flex-col justify-center items-center text-center opacity-50 mb-12 min-h-[120px]">
-             <AlignLeft className="w-8 h-8 mb-4 text-gray-500" />
-             <h2 className="text-lg font-medium text-gray-200">What should AI Agent build?</h2>
-             <p className="text-[13px] text-gray-400 mt-2 max-w-sm">
-               Describe the app, page, or change you want for this project.
-             </p>
-          </div>
-        ) : effectiveState === 'DISCONNECTED' || effectiveState === 'RECONNECTING' ? (
-          <div className="flex-1 flex flex-col justify-center items-center text-center mb-12 min-h-[120px]">
-             <WifiOff className="w-8 h-8 mb-4 text-yellow-500" />
-             <h2 className="text-lg font-medium text-yellow-400">Connection Lost</h2>
-             <p className="text-[13px] text-gray-400 mt-2 max-w-sm">
-               {effectiveState === 'RECONNECTING' 
-                 ? 'Reconnecting to backend... Your session will resume.'
-                 : 'Backend is offline. Waiting for connection...'}
-             </p>
-          </div>
-        ) : (
-          <div className="flex-1 mb-8 overflow-y-auto">
-            <ProgressView />
-          </div>
+        {!isConfirmingPreflight && (
+          effectiveState === 'IDLE' || effectiveState === 'COMPLETED' || effectiveState === 'FAILED' ? (
+            <div className="flex-1 flex flex-col justify-center items-center text-center opacity-50 mb-12 min-h-[120px]">
+               <AlignLeft className="w-8 h-8 mb-4 text-gray-500" />
+               <h2 className="text-lg font-medium text-gray-200">What should AI Agent build?</h2>
+               <p className="text-[13px] text-gray-400 mt-2 max-w-sm">
+                 Describe the app, page, or change you want for this project.
+               </p>
+            </div>
+          ) : effectiveState === 'DISCONNECTED' || effectiveState === 'RECONNECTING' ? (
+            <div className="flex-1 flex flex-col justify-center items-center text-center mb-12 min-h-[120px]">
+               <WifiOff className="w-8 h-8 mb-4 text-yellow-500" />
+               <h2 className="text-lg font-medium text-yellow-400">Connection Lost</h2>
+               <p className="text-[13px] text-gray-400 mt-2 max-w-sm">
+                 {effectiveState === 'RECONNECTING' 
+                   ? 'Reconnecting to backend... Your session will resume.'
+                   : 'Backend is offline. Waiting for connection...'}
+               </p>
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 pb-8">
+              <ProgressView />
+            </div>
+          )
         )}
 
         {preflightStatus === "loading" && (
@@ -306,54 +409,41 @@ export default function PromptWorkspace() {
           </div>
         )}
 
-        {preflightStatus === "needs_confirmation" && preflightResult && (
-          <div className="mb-3 rounded-lg border border-yellow-400/25 bg-yellow-500/10 p-4 text-left">
-            <div className="text-sm font-semibold text-yellow-100">This prompt is broad and needs scope confirmation.</div>
-            <p className="mt-1 text-[13px] text-yellow-100/80">{preflightResult.reason}</p>
-
-            <div className="mt-3 grid gap-2 text-[12px] text-gray-300 sm:grid-cols-3">
-              <div><span className="text-gray-500">Domain:</span> {preflightResult.signature.domain}</div>
-              <div><span className="text-gray-500">Complexity:</span> {preflightResult.signature.complexity}</div>
-              <div><span className="text-gray-500">Risk:</span> {preflightResult.scope_analysis.risk_level}</div>
+        {isConfirmingPreflight && preflightResult && (
+          <div className="mb-3 flex min-h-0 flex-col rounded-lg border border-yellow-400/25 bg-yellow-500/10 p-4 text-left">
+            <div className="shrink-0">
+              <div className="text-sm font-semibold text-yellow-100">Planning required before generation</div>
+              <p className="mt-1 text-[13px] text-yellow-100/80">{preflightResult.reason}</p>
             </div>
 
-            <div className="mt-3">
-              <div className="text-[12px] font-medium text-gray-200">{preflightResult.recommended_mvp.title}</div>
-              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[12px] text-gray-400">
-                {preflightResult.recommended_mvp.features.map(feature => (
-                  <li key={feature}>{feature}</li>
-                ))}
-              </ul>
-            </div>
-
-            {preflightResult.scope_analysis.missing_decisions.length > 0 && (
-              <div className="mt-3">
-                <div className="text-[12px] font-medium text-gray-200">Missing decisions</div>
-                <ul className="mt-1 space-y-1 text-[12px] text-gray-400">
-                  {preflightResult.scope_analysis.missing_decisions.map(decision => (
-                    <li key={decision.key}>{decision.question}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            <div className="mt-4 flex flex-wrap gap-2">
+            <div className="mt-3 flex shrink-0 flex-wrap gap-2">
               <button
                 type="button"
                 onClick={handleUseRecommendedMvp}
-                disabled={!canGenerate(effectiveState)}
+                disabled={!canStartGeneration}
                 className="rounded-md bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Use Recommended MVP
               </button>
-              <button
-                type="button"
-                onClick={handleGenerateAnyway}
-                disabled={!canGenerate(effectiveState)}
-                className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-gray-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                Generate Anyway
-              </button>
+              {rawGenerationBlocked ? (
+                <button
+                  type="button"
+                  disabled
+                  title="Raw generation is disabled for high-risk prompts."
+                  className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-gray-500 opacity-60 cursor-not-allowed"
+                >
+                  Generate Anyway
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleGenerateAnyway}
+                  disabled={!canStartGeneration}
+                  className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-gray-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Generate Anyway
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleCancelPreflight}
@@ -362,6 +452,82 @@ export default function PromptWorkspace() {
                 Cancel
               </button>
             </div>
+
+            {rawGenerationBlocked && (
+              <p className="mt-2 text-[12px] text-yellow-100/75">
+                Raw generation is disabled for high-risk prompts. Use the recommended MVP or cancel and refine the prompt.
+              </p>
+            )}
+
+            <div className="mt-3 grid gap-2 text-[12px] text-gray-300 sm:grid-cols-3">
+              <div><span className="text-gray-500">Domain:</span> {preflightResult.signature.domain}</div>
+              <div><span className="text-gray-500">Complexity:</span> {preflightResult.signature.complexity}</div>
+              <div><span className="text-gray-500">Risk:</span> {preflightResult.scope_analysis.risk_level}</div>
+            </div>
+
+            <div className="mt-3 rounded-md border border-yellow-400/15 bg-black/10 p-3">
+              <div className="text-[12px] font-medium text-gray-200">{preflightResult.recommended_mvp.title}</div>
+              <div className="mt-1 text-[12px] text-gray-400">{mvpFeatureSummary}</div>
+              <div className="mt-2 text-[12px] text-gray-400">
+                {missingDecisionCount > 0 ? `${missingDecisionCount} unresolved decisions` : "No unresolved decisions"}
+              </div>
+            </div>
+
+            {(implementationPlan.length > 0 || taskList.length > 0) && (
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                {implementationPlan.length > 0 && (
+                  <div className="rounded-md border border-yellow-400/15 bg-black/10 p-3">
+                    <div className="text-[12px] font-medium text-gray-200">Implementation plan</div>
+                    <ol className="mt-1 list-decimal space-y-0.5 pl-5 text-[12px] text-gray-400">
+                      {implementationPlan.slice(0, 5).map(step => (
+                        <li key={step}>{step}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+
+                {taskList.length > 0 && (
+                  <div className="rounded-md border border-yellow-400/15 bg-black/10 p-3">
+                    <div className="text-[12px] font-medium text-gray-200">Task list</div>
+                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[12px] text-gray-400">
+                      {taskList.slice(0, 5).map(task => (
+                        <li key={task}>{task}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowPreflightDetails((value) => !value)}
+              className="mt-3 w-fit text-[12px] font-medium text-yellow-100/80 transition hover:text-yellow-100"
+            >
+              {showPreflightDetails ? "Hide details" : "Show details"}
+            </button>
+
+            {showPreflightDetails && (
+              <div className="mt-2 max-h-40 min-h-0 overflow-y-auto rounded-md border border-yellow-400/15 bg-black/10 p-3">
+                <div className="text-[12px] font-medium text-gray-200">Recommended MVP features</div>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5 text-[12px] text-gray-400">
+                  {preflightResult.recommended_mvp.features.map(feature => (
+                    <li key={feature}>{feature}</li>
+                  ))}
+                </ul>
+
+                {preflightResult.scope_analysis.missing_decisions.length > 0 && (
+                  <div className="mt-3">
+                    <div className="text-[12px] font-medium text-gray-200">Missing decisions</div>
+                    <ul className="mt-1 space-y-1 text-[12px] text-gray-400">
+                      {preflightResult.scope_analysis.missing_decisions.map(decision => (
+                        <li key={decision.key}>{decision.question}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              )}
           </div>
         )}
 
@@ -373,7 +539,7 @@ export default function PromptWorkspace() {
               <button
                 type="button"
                 onClick={handleGenerate}
-                disabled={!canGenerate(effectiveState)}
+                disabled={!canStartGeneration}
                 className="rounded-md border border-border px-3 py-1.5 text-[12px] font-medium text-gray-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Try Again
@@ -381,7 +547,7 @@ export default function PromptWorkspace() {
               <button
                 type="button"
                 onClick={handleGenerateAnyway}
-                disabled={!canGenerate(effectiveState)}
+                disabled={!canStartGeneration}
                 className="rounded-md bg-gray-100 px-3 py-1.5 text-[12px] font-medium text-black transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Generate Anyway
@@ -438,7 +604,7 @@ export default function PromptWorkspace() {
             
             <button 
               onClick={handleGenerate}
-              disabled={!prompt.trim() || !canGenerate(effectiveState) || preflightStatus === "loading"}
+              disabled={!prompt.trim() || !canStartGeneration || preflightStatus === "loading"}
               className="bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-white text-black font-medium text-[12px] px-4 py-1.5 rounded-md flex items-center transition-colors"
             >
               <Send className="w-3.5 h-3.5 mr-2" />

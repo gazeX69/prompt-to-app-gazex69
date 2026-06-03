@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { selectActiveRunId, selectHydrationRunId } from '../stateConsistency'
 
 export interface RepositoryFileNode {
   path: string
@@ -17,6 +18,7 @@ export interface RepositorySnapshot {
   tree: RepositoryFileNode[]
   ecosystem: string
   totalFiles: number
+  runId?: string | null
 }
 
 export interface WorkspaceRuntimeSnapshot {
@@ -64,7 +66,8 @@ export interface RunMetadata {
   run_id: string
   path: string
   prompt: string
-  status: 'success' | 'failure' | 'running'
+  status: 'success' | 'succeeded' | 'failure' | 'failed' | 'running' | string
+  active?: boolean
   createdAt: number
   updatedAt: number
   startedAt: number
@@ -84,6 +87,15 @@ export interface EditorFileMetadata {
   language?: string
 }
 
+export type WorkspaceMode = "generate" | "explore" | "edit" | "preview"
+
+export interface ExplorerSelectionMetadata {
+  name: string
+  path: string
+  pathId?: string
+  type: 'file' | 'directory'
+}
+
 export type WorkspaceHydrationStatus = 'idle' | 'loading' | 'ready' | 'error'
 
 function asArray<T>(value: T[] | unknown): T[] {
@@ -94,6 +106,7 @@ interface WorkspaceStore {
   
   // Identity
   activeWorkspaceId: string | null
+  activeWorkspaceMode: WorkspaceMode
   
   // Registry
   workspaces: Record<string, WorkspaceMetadata>
@@ -121,22 +134,36 @@ interface WorkspaceStore {
   editorDirty: boolean
   editorSaving: boolean
   editorError: string | null
+
+  // Explorer UI
+  selectedExplorerNode: ExplorerSelectionMetadata | null
+  explorerSelectionWorkspaceId: string | null
+  explorerSelectionRunId: string | null
+  explorerCollapsedFolderPaths: string[]
+  explorerCollapseWorkspaceId: string | null
+  explorerCollapseRunId: string | null
   
   // Actions
   bindWorkspace: (workspace: WorkspaceMetadata) => void
   closeWorkspace: () => void
+  setActiveWorkspaceMode: (mode: WorkspaceMode) => void
   addRunToHistory: (run: RunMetadata) => void
   setActiveRun: (runId: string | null) => void
   hydrateWorkspace: (repo: RepositorySnapshot, runtime: WorkspaceRuntimeSnapshot, artifacts: ArtifactSnapshot[]) => void
   loadWorkspaceData: (workspaceId: string) => Promise<void>
+  loadWorkspaceRuns: (workspaceId: string) => Promise<void>
   ensureWorkspaceHydrated: (workspaceId?: string | null) => Promise<void>
   loadRunData: (workspaceId: string, runId: string) => Promise<void>
   openFileInEditor: (file: EditorFileMetadata, content: string, workspaceId: string, runId?: string | null) => void
+  updateEditorFileMetadata: (file: EditorFileMetadata, workspaceId: string, runId?: string | null) => void
   setEditorContent: (content: string) => void
   setEditorSaving: (saving: boolean) => void
   setEditorError: (error: string | null) => void
   markEditorSaved: (content: string) => void
   clearEditorState: () => void
+  selectExplorerNode: (node: ExplorerSelectionMetadata, workspaceId: string, runId?: string | null) => void
+  clearExplorerSelection: () => void
+  toggleExplorerFolder: (path: string, workspaceId: string, runId?: string | null) => void
 }
 
 const emptyEditorState = {
@@ -150,10 +177,20 @@ const emptyEditorState = {
   editorError: null,
 }
 
+const emptyExplorerState = {
+  selectedExplorerNode: null,
+  explorerSelectionWorkspaceId: null,
+  explorerSelectionRunId: null,
+  explorerCollapsedFolderPaths: [],
+  explorerCollapseWorkspaceId: null,
+  explorerCollapseRunId: null,
+}
+
 export const useWorkspaceStore = create<WorkspaceStore>()(
   persist(
     (set) => ({
       activeWorkspaceId: null,
+      activeWorkspaceMode: 'generate',
       workspaces: {},
       recentWorkspaces: [],
       activeRunId: null,
@@ -166,6 +203,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
       workspaceHydrationError: null,
       hydratingWorkspaceId: null,
       ...emptyEditorState,
+      ...emptyExplorerState,
 
       bindWorkspace: (ws) => set((state) => {
         const updatedWorkspaces = { ...state.workspaces, [ws.id]: ws }
@@ -197,6 +235,8 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         hydratingWorkspaceId: null,
         ...emptyEditorState
       }),
+
+      setActiveWorkspaceMode: (mode) => set({ activeWorkspaceMode: mode }),
       
       addRunToHistory: (run) => set((state) => ({
         runHistory: [run, ...asArray<RunMetadata>(state.runHistory)]
@@ -223,18 +263,19 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         try {
           const { fetchWorkspaceTree, fetchArtifacts, fetchWorkspaceRuns } = await import('../api/workspace.api')
 
-          const [tree, artifacts, runs] = await Promise.all([
-            fetchWorkspaceTree(workspaceId),
-            fetchArtifacts(workspaceId).catch(() => []),
-            fetchWorkspaceRuns(workspaceId).catch(() => [])
+          const safeRuns = asArray<RunMetadata>(await fetchWorkspaceRuns(workspaceId).catch(() => []))
+          const activeRunId = selectHydrationRunId(safeRuns, useWorkspaceStore.getState().activeRunId)
+          const [tree, artifacts] = await Promise.all([
+            fetchWorkspaceTree(workspaceId, activeRunId || undefined),
+            fetchArtifacts(workspaceId, activeRunId || undefined).catch(() => []),
           ])
 
           set(() => ({
             activeWorkspaceId: workspaceId,
             repositorySnapshot: tree,
             artifactSnapshots: asArray<ArtifactSnapshot>(artifacts),
-            runHistory: asArray<RunMetadata>(runs),
-            activeRunId: asArray<RunMetadata>(runs)[0]?.run_id || null,
+            runHistory: safeRuns,
+            activeRunId: tree.runId || activeRunId,
             runtimeSnapshot: {
               orchestrationHealth: 'healthy',
               sequencingStabilityScore: 9.8,
@@ -258,6 +299,20 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
             runtimeSnapshot: null,
             artifactSnapshots: [],
           })
+        }
+      },
+
+      loadWorkspaceRuns: async (workspaceId: string) => {
+        try {
+          const { fetchWorkspaceRuns } = await import('../api/workspace.api')
+          const runs = asArray<RunMetadata>(await fetchWorkspaceRuns(workspaceId).catch(() => []))
+          const activeRunId = selectActiveRunId(runs)
+          set((state) => ({
+            runHistory: runs,
+            activeRunId: activeRunId || state.activeRunId,
+          }))
+        } catch (e) {
+          console.error("Failed to load workspace runs:", e)
         }
       },
 
@@ -300,7 +355,7 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
           set(() => ({
             repositorySnapshot: tree,
             artifactSnapshots: asArray<ArtifactSnapshot>(artifacts),
-            activeRunId: runId
+            activeRunId: tree?.runId || runId
           }))
         } catch (e) {
           console.error("Failed to load run data:", e)
@@ -323,6 +378,21 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         editorError: null,
       }),
 
+      updateEditorFileMetadata: (file, workspaceId, runId = null) => set((state) => {
+        if (!state.selectedEditorFile) return {}
+        if (state.editorWorkspaceId !== workspaceId) return {}
+        if ((state.editorRunId || null) !== (runId || null)) return {}
+        return {
+          selectedEditorFile: {
+            name: file.name,
+            path: file.path,
+            pathId: file.pathId,
+            language: file.language,
+          },
+          editorError: null,
+        }
+      }),
+
       setEditorContent: (content) => set((state) => ({
         editorContent: content,
         editorDirty: content !== state.editorOriginalContent,
@@ -340,15 +410,57 @@ export const useWorkspaceStore = create<WorkspaceStore>()(
         editorError: null,
       }),
 
-      clearEditorState: () => set(emptyEditorState)
+      clearEditorState: () => set(emptyEditorState),
+
+      selectExplorerNode: (node, workspaceId, runId = null) => set({
+        selectedExplorerNode: {
+          name: node.name,
+          path: node.path,
+          pathId: node.pathId,
+          type: node.type,
+        },
+        explorerSelectionWorkspaceId: workspaceId,
+        explorerSelectionRunId: runId || null,
+      }),
+
+      clearExplorerSelection: () => set({
+        selectedExplorerNode: null,
+        explorerSelectionWorkspaceId: null,
+        explorerSelectionRunId: null,
+      }),
+
+      toggleExplorerFolder: (path, workspaceId, runId = null) => set((state) => {
+        const sameTree =
+          state.explorerCollapseWorkspaceId === workspaceId &&
+          (state.explorerCollapseRunId || null) === (runId || null)
+        const current = sameTree ? asArray<string>(state.explorerCollapsedFolderPaths) : []
+        const next = current.includes(path)
+          ? current.filter(folderPath => folderPath !== path)
+          : [...current, path]
+
+        return {
+          explorerCollapsedFolderPaths: next,
+          explorerCollapseWorkspaceId: workspaceId,
+          explorerCollapseRunId: runId || null,
+        }
+      })
     }),
     {
       name: 'workspace-storage',
       partialize: (state) => ({
         activeWorkspaceId: state.activeWorkspaceId,
+        activeWorkspaceMode: state.activeWorkspaceMode,
         workspaces: state.workspaces,
         recentWorkspaces: state.recentWorkspaces,
-        
+        selectedEditorFile: state.selectedEditorFile,
+        editorWorkspaceId: state.editorWorkspaceId,
+        editorRunId: state.editorRunId,
+        selectedExplorerNode: state.selectedExplorerNode,
+        explorerSelectionWorkspaceId: state.explorerSelectionWorkspaceId,
+        explorerSelectionRunId: state.explorerSelectionRunId,
+        explorerCollapsedFolderPaths: state.explorerCollapsedFolderPaths,
+        explorerCollapseWorkspaceId: state.explorerCollapseWorkspaceId,
+        explorerCollapseRunId: state.explorerCollapseRunId,
       })
 
     }

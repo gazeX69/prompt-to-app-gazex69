@@ -76,9 +76,12 @@ class BrainDecisionResult(BaseModel):
     decision: BrainDecision
     confidence: float
     reason: str
+    planning_required: bool = False
     signature: PlanSignature
     scope_analysis: ScopeAnalysis
     recommended_mvp: RecommendedMVP
+    implementation_plan: list[str] = Field(default_factory=list)
+    task_list: list[str] = Field(default_factory=list)
     matched_cases: list[MatchedCase] = Field(default_factory=list)
 
 

@@ -6,6 +6,7 @@ Supports multi-skill activation and fallback routing.
 """
 
 import logging
+import re
 from typing import Optional
 
 from backend.core.scanner.engine import ProjectScanResult
@@ -47,6 +48,159 @@ class RouteResult:
         }
 
 
+def _has_word(text: str, word: str) -> bool:
+    return re.search(rf"(?<![a-z0-9_]){re.escape(word)}(?![a-z0-9_])", text) is not None
+
+
+def _has_phrase_or_word(text: str, keyword: str) -> bool:
+    keyword = keyword.lower().strip()
+    if " " in keyword or "/" in keyword or "." in keyword or "-" in keyword:
+        return keyword in text
+    return _has_word(text, keyword)
+
+
+def _skill_by_name(name: str, enabled_skills: list[str] | None = None) -> Optional[BaseSkill]:
+    if enabled_skills is not None and name not in enabled_skills:
+        return None
+
+    for skill in get_all_skills():
+        if skill.metadata.name == name:
+            return skill
+
+    return None
+
+
+def _route_to_skill(
+    name: str,
+    reason: str,
+    enabled_skills: list[str] | None = None,
+) -> RouteResult | None:
+    skill = _skill_by_name(name, enabled_skills)
+    if not skill:
+        return None
+
+    available = get_all_skills()
+    if enabled_skills is not None:
+        available = [s for s in available if s.metadata.name in enabled_skills]
+
+    result = RouteResult(primary=skill)
+    result.activated.append(ActivatedSkill(skill, reason))
+    result.fallbacks = [s for s in available if s.metadata.name != name]
+    return result
+
+
+def _has_any(text: str, keywords: list[str]) -> bool:
+    return any(keyword in text for keyword in keywords)
+
+
+def _has_frontend_target(text: str) -> bool:
+    frontend_keywords = [
+        "target ecosystem: react-vite",
+        "react-vite",
+        "react + vite",
+        "react/vite",
+        "react",
+        "vite",
+        "frontend",
+        "client-side",
+        "client side",
+        "ui",
+        "browser ui",
+        "previewable",
+        "root route",
+        'route "/"',
+    ]
+    return _has_any(text, frontend_keywords)
+
+
+def _is_explicit_backend_request(text: str) -> bool:
+    # These phrases mean backend/server words are restrictions, not requests.
+    backend_negation_phrases = [
+        "do not create backend",
+        "do not create a backend",
+        "do not create backend/api",
+        "do not create a backend/api",
+        "do not create server-side",
+        "do not create server side",
+        "without backend",
+        "no backend",
+        "tanpa backend",
+        "unless backend",
+        "unless a backend",
+        "unless explicitly requested",
+        "unless explicitly required",
+        "kecuali diminta",
+        "kecuali diminta eksplisit",
+    ]
+
+    if _has_frontend_target(text):
+        return False
+
+    if _has_any(text, backend_negation_phrases):
+        return False
+
+    explicit_backend_keywords = [
+        "rest api",
+        "backend api",
+        "api",
+        "backend",
+        "express",
+        "node server",
+        "server node",
+        "server.js",
+        "api server",
+        "endpoint",
+        "database",
+        "sql",
+        "mysql",
+        "postgres",
+        "postgresql",
+        "sqlite",
+        "mongodb",
+    ]
+
+    return any(_has_phrase_or_word(text, keyword) for keyword in explicit_backend_keywords)
+
+
+def _should_force_node_backend(prompt: str) -> bool:
+    text = prompt.lower()
+
+    if _has_frontend_target(text):
+        return False
+
+    return _is_explicit_backend_request(text)
+
+
+def _should_force_react_vite(prompt: str) -> bool:
+    text = prompt.lower()
+
+    if _has_frontend_target(text):
+        return True
+
+    if _is_explicit_backend_request(text):
+        return False
+
+    previewable_mvp_keywords = [
+        "hello world",
+        "counter",
+        "todo",
+        "todo list",
+        "crud",
+        "crud sederhana",
+        "inventory",
+        "inventory sederhana",
+        "dashboard sederhana",
+        "local storage",
+        "localstorage",
+        "mock data",
+        "mvp",
+        "recommended mvp",
+        "use this confirmed mvp scope",
+    ]
+
+    return _has_any(text, previewable_mvp_keywords)
+
+
 async def route_for_scan(scan: ProjectScanResult) -> RouteResult:
     """
     Given a ProjectScanResult, determine which skills to activate.
@@ -79,6 +233,23 @@ async def route_for_scan(scan: ProjectScanResult) -> RouteResult:
 
     return result
 
+keyword_map = {
+    "react": "react",
+    "vite": "react",
+    "vue": "vue",
+    "next": "nextjs",
+    "laravel": "laravel",
+    "php": "php",
+    "php-basic": "php",
+    "node": "node",
+    "express": "express",
+    "api": "api",
+    "frontend": "frontend",
+    "backend": "backend",
+    "fullstack": "fullstack",
+    "tailwind": "tailwind",
+}
+
 
 async def route_for_prompt(prompt: str, enabled_skills: list[str] | None = None) -> RouteResult:
     """
@@ -87,26 +258,29 @@ async def route_for_prompt(prompt: str, enabled_skills: list[str] | None = None)
     `enabled_skills` is an optional list of skill names to restrict routing to.
     """
     prompt_lower = prompt.lower()
+
+    if _should_force_node_backend(prompt):
+        forced = _route_to_skill(
+            "node-backend",
+            "forced: explicit backend/API/database request",
+            enabled_skills,
+        )
+        if forced:
+            return forced
+
+    if _should_force_react_vite(prompt):
+        forced = _route_to_skill(
+            "react-vite",
+            "forced: previewable frontend MVP/simple app",
+            enabled_skills,
+        )
+        if forced:
+            return forced
+
     tags = []
 
-    keyword_map = {
-        "react": "react",
-        "vue": "vue",
-        "next": "nextjs",
-        "laravel": "laravel",
-        "php": "php",
-        "php-basic": "php",
-        "node": "node",
-        "express": "express",
-        "api": "api",
-        "frontend": "frontend",
-        "backend": "backend",
-        "fullstack": "fullstack",
-        "tailwind": "tailwind",
-    }
-
     for keyword, tag in keyword_map.items():
-        if keyword in prompt_lower:
+        if _has_phrase_or_word(prompt_lower, keyword):
             tags.append(tag)
 
     context = {"framework": "", "tags": tags}
@@ -124,7 +298,7 @@ async def route_for_prompt(prompt: str, enabled_skills: list[str] | None = None)
         if all_skills:
             result.primary = all_skills[0]
             result.activated.append(ActivatedSkill(all_skills[0], "fallback: first available"))
-            result.fallbacks = all_skills[1:]
+            result.fallbacks = [s for s in all_skills if s.metadata.name != result.primary.metadata.name]
 
     return result
 

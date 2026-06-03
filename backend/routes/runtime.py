@@ -12,11 +12,13 @@ from pydantic import BaseModel
 
 from backend.routes.generate import mark_latest_generation_runtime_failed
 from backend.agent.tools import _safe_project_path
+from backend.core.scanner.run_manifest import get_active_successful_run_id
 from backend.core.scanner.workspace_scanner import get_latest_run_id
 from backend.runtime_contract import RuntimeErrorCode
 from backend.sandbox.executor import (
     get_runtime_status,
     get_runtime_status_for_readback,
+    resolve_node_runtime_entrypoint,
     run_dev_server_array_async,
     stop_runtime,
 )
@@ -52,8 +54,9 @@ async def start_project_runtime(project_id: str, req: RuntimeStartRequest | None
     if current_status.get("status") == "running" and not body.restart:
         return current_status
 
-    requested_run_id = body.run_id or current_status.get("run_id") or get_latest_run_id(project_id)
+    requested_run_id = body.run_id or get_latest_run_id(project_id)
 
+    run_id = requested_run_id
     try:
         run_id = _resolve_runtime_run_id(project_id, requested_run_id)
         command, port_pattern = _infer_runtime_command(project_id, run_id)
@@ -109,6 +112,9 @@ def _has_supported_runtime_entrypoint(path: Path) -> bool:
     if (path / "package.json").is_file():
         return True
 
+    if (path / "index.js").is_file() or (path / "server.js").is_file():
+        return True
+
     if (path / "index.php").is_file():
         return True
 
@@ -145,20 +151,19 @@ def _find_latest_runnable_run_id(project_root: Path) -> Optional[str]:
 
 
 def _resolve_runtime_run_id(project_id: str, requested_run_id: str | None = None) -> str:
+    active_run_id = get_active_successful_run_id(project_id)
+
     if requested_run_id:
+        if requested_run_id != active_run_id:
+            raise ValueError("Runtime can only start for the active successful run.")
         requested_path = _safe_project_path(project_id, requested_run_id)
         if _has_supported_runtime_entrypoint(requested_path):
             return requested_run_id
 
-    project_root = _safe_project_path(project_id, None)
-
-    latest_path = project_root / "latest"
-    if _has_supported_runtime_entrypoint(latest_path):
-        return "latest"
-
-    discovered_run_id = _find_latest_runnable_run_id(project_root)
-    if discovered_run_id:
-        return discovered_run_id
+    if active_run_id:
+        active_path = _safe_project_path(project_id, active_run_id)
+        if _has_supported_runtime_entrypoint(active_path):
+            return active_run_id
 
     raise FileNotFoundError("No runnable generated run found for this project.")
 
@@ -170,16 +175,27 @@ def _infer_runtime_command(project_id: str, run_id: str) -> tuple[list[str], str
     package_json = run_path / "package.json"
     if package_json.exists():
         data = _read_json(package_json)
-        scripts = data.get("scripts") if isinstance(data, dict) else {}
-        if not isinstance(scripts, dict) or "dev" not in scripts:
-            raise ValueError("package.json does not define a dev script.")
         deps = {
             **(data.get("dependencies") if isinstance(data.get("dependencies"), dict) else {}),
             **(data.get("devDependencies") if isinstance(data.get("devDependencies"), dict) else {}),
         }
         if "vite" in deps:
+            scripts = data.get("scripts") if isinstance(data, dict) else {}
+            if not isinstance(scripts, dict) or "dev" not in scripts:
+                raise ValueError("package.json does not define a dev script.")
             return ["npm", "run", "dev", "--", "--host", "127.0.0.1", "--port", "{port}"], r"http://(?:localhost|127\.0\.0\.1):(\d+)"
-        return ["npm", "run", "dev"], r"http://(?:localhost|127\.0\.0\.1):(\d+)|listening|started"
+        node_entrypoint = resolve_node_runtime_entrypoint(run_path)
+        if node_entrypoint.get("ok"):
+            command = node_entrypoint.get("command")
+            if isinstance(command, list) and command:
+                return [str(part) for part in command], r"http://(?:localhost|127\.0\.0\.1):(\d+)|listening|started"
+        raise ValueError(str(node_entrypoint.get("error") or "No supported Node entrypoint found."))
+
+    node_entrypoint = resolve_node_runtime_entrypoint(run_path)
+    if node_entrypoint.get("ok"):
+        command = node_entrypoint.get("command")
+        if isinstance(command, list) and command:
+            return [str(part) for part in command], r"http://(?:localhost|127\.0\.0\.1):(\d+)|listening|started"
 
     if (run_path / "index.php").exists():
         return ["php", "-S", "127.0.0.1:{port}"], r"http://(?:localhost|127\.0\.0\.1):(\d+)|started|Development Server|Listening"

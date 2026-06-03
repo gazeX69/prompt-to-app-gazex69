@@ -25,7 +25,7 @@ class NodeBackendSkill(BaseSkill):
         return CommandStrategy(
             install=["npm", "install", "--no-progress"],
             build=None,
-            dev=["node", "index.js"],
+            dev=["npm", "run", "dev"],
             lint=None,
             test=["npm", "test"],
         )
@@ -49,12 +49,12 @@ class NodeBackendSkill(BaseSkill):
             "- Use JavaScript or TypeScript.\n"
             "- Generate package.json with required dependencies.\n"
             "- Return files using ===FILE:relative/path.ext=== ... ===END===\n"
-            "- Include a server entry point (index.js, app.js, or server.js).\n"
+            "- Include a server entry point (index.js or server.js), or package.json scripts/main pointing to one.\n"
             "- Do NOT generate React, Vite, or frontend code unless requested."
         )
 
     def get_project_structure(self) -> list[str]:
-        return ["index.js", "package.json"]
+        return ["package.json", "index.js or server.js"]
 
     def get_file_patterns(self) -> list[str]:
         return ["*.js", "*.ts", "*.json", "*.mjs"]
@@ -63,7 +63,7 @@ class NodeBackendSkill(BaseSkill):
         return ["package.json"]
 
     def get_required_files_before_dev(self) -> list[str]:
-        return ["index.js", "package.json"]
+        return ["package.json"]
 
     def get_generation_hints(self) -> dict:
         return {

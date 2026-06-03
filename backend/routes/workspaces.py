@@ -13,6 +13,9 @@ from backend.core.scanner.workspace_scanner import (
     get_workspace_artifact_content,
     get_workspace_file_content,
     save_workspace_file_content,
+    create_workspace_entry,
+    move_workspace_entry,
+    delete_workspace_entry,
     extract_workspace_symbols,
     get_workspace_references
 )
@@ -29,6 +32,17 @@ router = APIRouter()
 
 class WorkspaceFileSaveRequest(BaseModel):
     content: str
+
+
+class WorkspaceEntryCreateRequest(BaseModel):
+    path: str
+    type: str
+    content: str = ""
+
+
+class WorkspaceEntryMoveRequest(BaseModel):
+    path_id: str
+    new_path: str
 
 class WorkspaceCreateRequest(BaseModel):
     name: str
@@ -146,6 +160,35 @@ def save_file_content(
     run_id: str | None = None,
 ):
     result = save_workspace_file_content(workspace_id, path_id, req.content, run_id)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@router.post("/{workspace_id}/entry")
+def create_entry(
+    workspace_id: str,
+    req: WorkspaceEntryCreateRequest,
+    run_id: str | None = None,
+):
+    result = create_workspace_entry(workspace_id, req.path, req.type, req.content, run_id)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@router.patch("/{workspace_id}/entry")
+def move_entry(
+    workspace_id: str,
+    req: WorkspaceEntryMoveRequest,
+    run_id: str | None = None,
+):
+    result = move_workspace_entry(workspace_id, req.path_id, req.new_path, run_id)
+    if result.get("error"):
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+@router.delete("/{workspace_id}/entry")
+def delete_entry(workspace_id: str, path_id: str, run_id: str | None = None):
+    result = delete_workspace_entry(workspace_id, path_id, run_id)
     if result.get("error"):
         raise HTTPException(status_code=400, detail=result["error"])
     return result

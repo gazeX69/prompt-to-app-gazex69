@@ -4,7 +4,7 @@ import type { RepositoryFileNode } from "../stores/workspace.store"
 import { fetchFileContent, fetchSymbols, fetchReferences, fetchRegions, fetchPatches, fetchReplays, fetchSimulations } from "../api/workspace.api"
 import type { SymbolMetadata, ReferenceMetadata, RegionMetadata, PatchMetadata, ReplayReport, SimulationReport } from "../api/workspace.api"
 import { FileCode, Code, Tag, Hash, Box, ArrowRight, ShieldAlert, GitMerge, Layout, AlertTriangle, FileDiff, Pencil } from "lucide-react"
-import type { WorkspaceMode } from "../layouts/WorkspaceLayout"
+import type { WorkspaceMode } from "../stores/workspace.store"
 
 interface FileInspectorProps {
   file: RepositoryFileNode

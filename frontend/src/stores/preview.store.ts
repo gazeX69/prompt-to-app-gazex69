@@ -23,6 +23,10 @@ export interface GenerationFailureSnapshot {
 export interface GenerationStatusSnapshot {
   project_id: string | null
   generation_id: string | null
+  run_id?: string | null
+  current_run_id?: string | null
+  active_run_id?: string | null
+  latest_run_id?: string | null
   status: 'accepted' | 'generating' | 'succeeded' | 'failed' | 'unknown' | string
   phase: string
   message: string

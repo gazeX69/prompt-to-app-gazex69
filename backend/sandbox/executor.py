@@ -20,6 +20,7 @@ import asyncio
 import re
 import os
 import threading
+import json
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -50,6 +51,7 @@ _MINIMAL_ENV = {}
 import time
 import socket
 import urllib.request
+import urllib.error
 from dataclasses import dataclass
 from typing import Dict, Optional
 
@@ -72,6 +74,7 @@ _runtime_registry: Dict[str, RuntimeEntry] = {}
 _runtime_status_snapshots: Dict[str, dict] = {}
 
 DEFAULT_TIMEOUT_SECONDS = 180
+NODE_ENTRYPOINT_CHECKS = "package.json scripts.start, scripts.dev, main, index.js, server.js"
 
 
 async def _emit_runtime_lifecycle(
@@ -158,14 +161,22 @@ def _refresh_runtime_entry_status(project_id: str, entry: RuntimeEntry) -> dict:
     try:
         status, body = _fetch_text(entry.preview_url, timeout=1.0)
         entry.last_healthcheck = time.time()
+        if status == 404:
+            entry.error = "Runtime responded, but preview route returned 404."
+            _record_runtime_status(entry)
+            return _runtime_entry_to_status(entry)
         if status >= 400:
-            return _fail_runtime_readback(project_id, entry, f"Runtime preview returned HTTP {status}")
-        if f'content="{entry.run_id}"' not in body and f'data-run-id="{entry.run_id}"' not in body:
+            entry.error = f"Runtime responded with HTTP {status}."
+            _record_runtime_status(entry)
+            return _runtime_entry_to_status(entry)
+        marker_ok, marker_error = _validate_runtime_marker(body, entry.run_id)
+        if not marker_ok:
             return _fail_runtime_readback(
                 project_id,
                 entry,
-                "Runtime preview did not contain the active run marker",
+                marker_error or "Runtime preview ownership marker is invalid.",
             )
+        entry.error = marker_error
         _record_runtime_status(entry)
         return _runtime_entry_to_status(entry)
     except Exception as e:
@@ -361,9 +372,38 @@ async def _wait_for_port_release(port: int, seconds: float = 10.0) -> bool:
 
 
 def _fetch_text(url: str, timeout: float = 2.0) -> tuple[int, str]:
-    res = urllib.request.urlopen(url, timeout=timeout)
-    body = res.read().decode("utf-8", errors="replace")
-    return int(getattr(res, "status", 200)), body
+    try:
+        res = urllib.request.urlopen(url, timeout=timeout)
+        body = res.read().decode("utf-8", errors="replace")
+        return int(getattr(res, "status", 200)), body
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")
+        return int(exc.code), body
+
+
+def _is_route_not_found_status(status: int) -> bool:
+    return status == 404
+
+
+def _extract_run_marker(body: str) -> str | None:
+    patterns = [
+        r'<meta\s+name=["\']ai-run-id["\']\s+content=["\']([^"\']+)["\']',
+        r'data-run-id=["\']([^"\']+)["\']',
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, body)
+        if match:
+            return match.group(1)
+    return None
+
+
+def _validate_runtime_marker(body: str, run_id: str) -> tuple[bool, str | None]:
+    marker = _extract_run_marker(body)
+    if not marker:
+        return True, "Runtime process is reachable, but preview ownership marker is missing."
+    if marker != run_id:
+        return False, f"Runtime preview belongs to a different run. Expected {run_id}, got {marker}."
+    return True, None
 
 
 async def _wait_for_verified_runtime(
@@ -379,12 +419,15 @@ async def _wait_for_verified_runtime(
     while time.time() < deadline:
         try:
             status, body = await asyncio.to_thread(_fetch_text, url)
+            if _is_route_not_found_status(status):
+                return True, "Runtime responded, but preview route returned 404."
             if status >= 400:
                 last_error = f"HTTP {status}"
-            elif f'content="{run_id}"' in body or f'data-run-id="{run_id}"' in body:
-                return True, None
             else:
-                last_error = "served HTML did not contain the active run marker"
+                marker_ok, marker_error = _validate_runtime_marker(body, run_id)
+                if marker_ok:
+                    return True, marker_error
+                last_error = marker_error
         except Exception as e:
             last_error = str(e)
         await asyncio.sleep(0.5)
@@ -407,6 +450,104 @@ def _resolve_npm_on_windows(exe_name: str) -> str:
         if npm_cmd:
             return npm_cmd
     return _resolve_executable(exe_name)
+
+
+def _read_package_json(path: Path) -> dict:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid package.json: {exc}") from exc
+
+
+def _extract_script_entrypoint(script: str) -> str | None:
+    for match in re.finditer(r"(?P<entry>[\w./@-]+\.(?:mjs|cjs|js))", script):
+        entry = match.group("entry").replace("\\", "/").lstrip("./")
+        if entry.startswith("node_modules/"):
+            continue
+        return entry
+    return None
+
+
+def _entry_exists(run_path: Path, entry: str | None) -> bool:
+    if not entry:
+        return False
+    relative = Path(entry)
+    if relative.is_absolute() or ".." in relative.parts:
+        return False
+    return (run_path / relative).is_file()
+
+
+def resolve_node_runtime_entrypoint(run_path: Path) -> dict:
+    """Resolve a strict Node backend entrypoint from package metadata or known files."""
+    if not run_path.exists() or not run_path.is_dir():
+        return {
+            "ok": False,
+            "error": "Generated run folder not found.",
+            "checked": NODE_ENTRYPOINT_CHECKS,
+        }
+
+    package_path = run_path / "package.json"
+    if package_path.is_file():
+        package = _read_package_json(package_path)
+        scripts = package.get("scripts") if isinstance(package.get("scripts"), dict) else {}
+        for script_name in ["start", "dev"]:
+            script = scripts.get(script_name)
+            if isinstance(script, str):
+                entry = _extract_script_entrypoint(script)
+                if _entry_exists(run_path, entry):
+                    return {
+                        "ok": True,
+                        "source": f"scripts.{script_name}",
+                        "entry": entry,
+                        "command": ["npm", "run", script_name],
+                        "checked": NODE_ENTRYPOINT_CHECKS,
+                    }
+
+        main_entry = package.get("main")
+        if isinstance(main_entry, str):
+            main_entry = main_entry.replace("\\", "/").lstrip("./")
+            if _entry_exists(run_path, main_entry):
+                return {
+                    "ok": True,
+                    "source": "main",
+                    "entry": main_entry,
+                    "command": ["node", main_entry],
+                    "checked": NODE_ENTRYPOINT_CHECKS,
+                }
+
+    for entry in ["index.js", "server.js"]:
+        if (run_path / entry).is_file():
+            return {
+                "ok": True,
+                "source": entry,
+                "entry": entry,
+                "command": ["node", entry],
+                "checked": NODE_ENTRYPOINT_CHECKS,
+            }
+
+    return {
+        "ok": False,
+        "error": f"No supported Node entrypoint found. Checked {NODE_ENTRYPOINT_CHECKS}.",
+        "checked": NODE_ENTRYPOINT_CHECKS,
+    }
+
+
+def validate_node_runtime_contract(project_id: str, run_id: str = None) -> str | None:
+    run_path = _safe_project_path(project_id, run_id)
+    result = resolve_node_runtime_entrypoint(run_path)
+    return None if result.get("ok") else str(result.get("error"))
+
+
+def resolve_node_runtime_command(project_id: str, run_id: str = None) -> list[str]:
+    run_path = _safe_project_path(project_id, run_id)
+    result = resolve_node_runtime_entrypoint(run_path)
+    if not result.get("ok"):
+        raise ValueError(str(result.get("error")))
+    command = result.get("command")
+    if not isinstance(command, list) or not command:
+        raise ValueError(str(result.get("error") or "No supported Node runtime command found."))
+    return [str(item) for item in command]
 
 
 def _check_required_files(project_id: str, required: list[str], run_id: str = None) -> str | None:
@@ -875,18 +1016,26 @@ async def run_dev_server_array_async(
                         entry.preview_url = url
                         entry.process_status = "running"
                         entry.last_healthcheck = time.time()
-                        entry.error = None
+                        entry.error = verify_error
                         _record_runtime_status(entry)
+                        ready_message = (
+                            f"Runtime reachable on port {selected_port}; preview route returned 404"
+                            if verify_error
+                            else f"Runtime verified on port {selected_port}"
+                        )
                         await _emit_runtime_lifecycle(
                             "runtime.ready",
                             project_id,
                             run_id,
-                            f"Runtime verified on port {selected_port}",
+                            ready_message,
                             selected_port=selected_port,
                             process_pid=popen.pid,
                         )
                         await emit_preview_ready(project_id, url, run_id=run_id, workspace=resolved_cwd)
-                        await emit_terminal_line(f"[Preview] status: ready", "info", project_id)
+                        if verify_error:
+                            await emit_terminal_line(f"[Preview] {verify_error}", "warning", project_id)
+                        else:
+                            await emit_terminal_line(f"[Preview] status: ready", "info", project_id)
                         await emit_agent_state("preview_ready", project_id)
                         return ExecuteResponse(success=True, command="dev", exit_code=0)
 

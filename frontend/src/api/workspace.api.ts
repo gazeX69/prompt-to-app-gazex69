@@ -75,6 +75,7 @@ export interface BrainDecisionResult {
   decision: BrainDecision
   confidence: number
   reason: string
+  planning_required?: boolean
   signature: {
     domain: string
     intent: string
@@ -97,6 +98,8 @@ export interface BrainDecisionResult {
     title: string
     features: string[]
   }
+  implementation_plan?: string[]
+  task_list?: string[]
   matched_cases: unknown[]
 }
 
@@ -107,14 +110,62 @@ export async function runBrainPreflight(prompt: string): Promise<BrainDecisionRe
   })
 }
 
+export type PreflightHistoryAction =
+  | "auto_continue"
+  | "use_recommended_mvp"
+  | "generate_anyway"
+
+export type PreflightHistoryPayload = {
+  original_prompt: string
+  final_prompt: string
+  action: PreflightHistoryAction
+  decision: BrainDecisionResult["decision"]
+  signature?: BrainDecisionResult["signature"] | null
+  recommended_mvp?: BrainDecisionResult["recommended_mvp"] | null
+  missing_decision_keys?: string[]
+  workspace_id?: string | null
+}
+
+export type PreflightHistoryResponse = {
+  ok: boolean
+  record: {
+    id: string
+    schema_version: string
+    created_at: string
+    original_prompt: string
+    final_prompt: string
+    action: PreflightHistoryAction
+    decision: BrainDecisionResult["decision"]
+    signature?: BrainDecisionResult["signature"] | null
+    recommended_mvp?: BrainDecisionResult["recommended_mvp"] | null
+    missing_decision_keys: string[]
+    workspace_id?: string | null
+  }
+}
+
+export async function savePreflightHistory(
+  payload: PreflightHistoryPayload
+): Promise<PreflightHistoryResponse> {
+  return requestWorkspace<PreflightHistoryResponse>("/brain/preflight/history", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  })
+}
+
 export async function fetchWorkspaceRuns(workspaceId: string): Promise<RunMetadata[]> {
   const res = await fetch(`${API_BASE}/workspaces/${workspaceId}/runs`)
   if (!res.ok) throw new Error("Failed to fetch runs")
   return res.json()
 }
 
+export function buildWorkspaceTreeUrl(workspaceId: string, runId?: string | null): string {
+  return runId
+    ? `${API_BASE}/workspaces/${workspaceId}/repository-tree?run_id=${encodeURIComponent(runId)}`
+    : `${API_BASE}/workspaces/${workspaceId}/repository-tree`
+}
+
 export async function fetchWorkspaceTree(workspaceId: string, runId?: string) {
-  const url = runId ? `${API_BASE}/workspaces/${workspaceId}/repository-tree?run_id=${runId}` : `${API_BASE}/workspaces/${workspaceId}/repository-tree`
+  const url = buildWorkspaceTreeUrl(workspaceId, runId)
   const res = await fetch(url)
   if (!res.ok) throw new Error("Failed to fetch repository tree")
   const data = await res.json()
@@ -123,6 +174,7 @@ export async function fetchWorkspaceTree(workspaceId: string, runId?: string) {
     tree: Array.isArray(data?.tree) ? data.tree : [],
     ecosystem: typeof data?.ecosystem === "string" ? data.ecosystem : "unknown",
     totalFiles: Number.isFinite(Number(data?.totalFiles)) ? Number(data.totalFiles) : 0,
+    runId: typeof data?.runId === "string" ? data.runId : null,
   }
 }
 
@@ -167,6 +219,65 @@ export async function saveFileContent(workspaceId: string, pathId: string, conte
   return requestWorkspace<SaveFileContentResponse>(url, {
     method: "PUT",
     body: JSON.stringify({ content }),
+  })
+}
+
+export interface WorkspaceEntryMutationResponse {
+  ok: boolean
+  path: string
+  pathId: string
+  name?: string
+  type: "file" | "directory"
+  sizeBytes?: number
+  language?: string
+  updatedAt?: number
+  error: string | null
+}
+
+export async function createWorkspaceEntry(
+  workspaceId: string,
+  payload: { path: string; type: "file" | "directory"; content?: string },
+  runId?: string | null,
+): Promise<WorkspaceEntryMutationResponse> {
+  const params = new URLSearchParams()
+  if (runId) params.append("run_id", runId)
+  const query = params.toString()
+  return requestWorkspace<WorkspaceEntryMutationResponse>(
+    `/workspaces/${workspaceId}/entry${query ? `?${query}` : ""}`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  )
+}
+
+export async function moveWorkspaceEntry(
+  workspaceId: string,
+  pathId: string,
+  newPath: string,
+  runId?: string | null,
+): Promise<WorkspaceEntryMutationResponse> {
+  const params = new URLSearchParams()
+  if (runId) params.append("run_id", runId)
+  const query = params.toString()
+  return requestWorkspace<WorkspaceEntryMutationResponse>(
+    `/workspaces/${workspaceId}/entry${query ? `?${query}` : ""}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ path_id: pathId, new_path: newPath }),
+    },
+  )
+}
+
+export async function deleteWorkspaceEntry(
+  workspaceId: string,
+  pathId: string,
+  runId?: string | null,
+): Promise<WorkspaceEntryMutationResponse> {
+  const params = new URLSearchParams({ path_id: pathId })
+  if (runId) params.append("run_id", runId)
+  return requestWorkspace<WorkspaceEntryMutationResponse>(`/workspaces/${workspaceId}/entry?${params.toString()}`, {
+    method: "DELETE",
   })
 }
 

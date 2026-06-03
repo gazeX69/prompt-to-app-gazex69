@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import Editor from "@monaco-editor/react"
 import {
   AlertCircle,
   Check,
@@ -17,10 +18,11 @@ import StatusBar from "../components/StatusBar"
 import RepositoryExplorer from "./RepositoryExplorer"
 import PreviewPanel from "./PreviewPanel"
 import { ErrorBoundary } from "../components/ErrorBoundary"
-import type { WorkspaceMode } from "../layouts/WorkspaceLayout"
 import { useWorkspaceStore } from "../stores/workspace.store"
+import type { WorkspaceMode } from "../stores/workspace.store"
 import { usePreviewStore } from "../stores/preview.store"
 import { fetchFileContent, saveFileContent } from "../api/workspace.api"
+import { shouldClearMissingEditorFile } from "../stateConsistency"
 
 interface MainWorkspaceProps {
   activeView: WorkspaceMode
@@ -83,8 +85,8 @@ export default function MainWorkspace({ activeView, onViewChange }: MainWorkspac
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#1e1e1e] min-w-0">
-      <div className="flex-1 min-h-0 bg-[#1e1e1e]">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-[#1e1e1e]">
+      <div className="flex min-h-0 flex-1 overflow-hidden bg-[#1e1e1e]">
         {renderView()}
       </div>
       <StatusBar />
@@ -119,16 +121,22 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
 
   const [openingPathId, setOpeningPathId] = useState<string | null>(null)
   const [collapsedFolders, setCollapsedFolders] = useState<Set<string>>(() => new Set())
-  const lineNumberRef = useRef<HTMLDivElement | null>(null)
+  const restoredFileKeyRef = useRef<string | null>(null)
 
   const editorFiles = useMemo(() => collectEditableFiles(repositorySnapshot), [repositorySnapshot])
   const editorTree = useMemo(() => buildEditorTree(editorFiles), [editorFiles])
   const lineCount = useMemo(() => Math.max(1, editorContent.split("\n").length), [editorContent])
+  const selectedEditorFileExists = useMemo(() => {
+    if (!selectedEditorFile?.pathId) return false
+    if (!repositorySnapshot) return true
+    return editorFiles.some(file => file.pathId === selectedEditorFile.pathId)
+  }, [editorFiles, repositorySnapshot, selectedEditorFile?.pathId])
 
 
 
   useEffect(() => {
     if (!selectedEditorFile) return
+    if (workspaceHydrationStatus !== "ready") return
     const activeRunKey = activeRunId || null
     const editorRunKey = editorRunId || null
     const editorContextChanged = editorWorkspaceId !== activeWorkspaceId || editorRunKey !== activeRunKey
@@ -145,6 +153,67 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
     editorRunId,
     editorWorkspaceId,
     selectedEditorFile,
+    workspaceHydrationStatus,
+  ])
+
+  useEffect(() => {
+    if (!selectedEditorFile || !repositorySnapshot || selectedEditorFileExists) return
+
+    const message = `The selected file "${selectedEditorFile.path}" does not exist in the current repository tree.`
+    if (shouldClearMissingEditorFile({
+      hasSelectedFile: Boolean(selectedEditorFile),
+      hasRepositorySnapshot: Boolean(repositorySnapshot),
+      selectedFileExists: selectedEditorFileExists,
+      editorDirty,
+    })) {
+      clearEditorState()
+    }
+    setEditorError(message)
+  }, [
+    clearEditorState,
+    editorDirty,
+    repositorySnapshot,
+    selectedEditorFile,
+    selectedEditorFileExists,
+    setEditorError,
+  ])
+
+  useEffect(() => {
+    if (!activeWorkspaceId || !selectedEditorFile || !repositorySnapshot) return
+    if (workspaceHydrationStatus !== "ready") return
+    if (!selectedEditorFileExists) return
+    if (editorDirty || editorContent !== "") return
+    if (editorWorkspaceId !== activeWorkspaceId) return
+    if ((editorRunId || null) !== (activeRunId || null)) return
+
+    const restoreKey = `${activeWorkspaceId}:${activeRunId || ""}:${selectedEditorFile.pathId}`
+    if (restoredFileKeyRef.current === restoreKey) return
+    restoredFileKeyRef.current = restoreKey
+
+    fetchFileContent(activeWorkspaceId, selectedEditorFile.pathId, activeRunId || undefined)
+      .then((response) => {
+        if (response.error) throw new Error(response.error)
+        if (response.truncated) throw new Error("Cannot restore truncated file content into the editor.")
+        markEditorSaved(typeof response.content === "string" ? response.content : "")
+      })
+      .catch((error) => {
+        clearEditorState()
+        setEditorError(error instanceof Error ? error.message : "Failed to restore selected file.")
+      })
+  }, [
+    activeRunId,
+    activeWorkspaceId,
+    clearEditorState,
+    editorContent,
+    editorDirty,
+    editorRunId,
+    editorWorkspaceId,
+    markEditorSaved,
+    repositorySnapshot,
+    selectedEditorFile,
+    selectedEditorFileExists,
+    setEditorError,
+    workspaceHydrationStatus,
   ])
 
   const saveCurrentFile = useCallback(async () => {
@@ -167,6 +236,10 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
     }
     if ((editorRunId || null) !== (activeRunId || null)) {
       setEditorError("This editor selection belongs to a different run. Reopen the file from Explore.")
+      return
+    }
+    if (!selectedEditorFileExists) {
+      setEditorError("This file no longer exists in the current repository tree. Unsaved content was kept as a local draft.")
       return
     }
     if (!editorDirty) return
@@ -200,6 +273,7 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
     hardRefresh,
     markEditorSaved,
     selectedEditorFile,
+    selectedEditorFileExists,
     setEditorError,
     setEditorSaving,
   ])
@@ -226,6 +300,11 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
       setEditorError("This editor selection belongs to a different run. Reopen the file from Explore.")
       return
     }
+    if (!selectedEditorFileExists) {
+      setEditorError("This file no longer exists in the current repository tree.")
+      if (!editorDirty) clearEditorState()
+      return
+    }
     if (editorDirty && !window.confirm("Discard unsaved editor changes and reload from disk?")) {
       return
     }
@@ -242,7 +321,9 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
       if (response.truncated) throw new Error("Cannot reload truncated file content into the editor.")
       markEditorSaved(typeof response.content === "string" ? response.content : "")
     } catch (error) {
-      setEditorError(error instanceof Error ? error.message : "Failed to reload file from disk.")
+      const message = error instanceof Error ? error.message : "Failed to reload file from disk."
+      if (!editorDirty) clearEditorState()
+      setEditorError(message)
     } finally {
       setEditorReloading(false)
     }
@@ -254,8 +335,10 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
     editorRunId,
     editorSaving,
     editorWorkspaceId,
+    clearEditorState,
     markEditorSaved,
     selectedEditorFile,
+    selectedEditorFileExists,
     setEditorError,
   ])
 
@@ -296,13 +379,18 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
         activeRunId || null,
       )
     } catch (error) {
-      setEditorError(error instanceof Error ? error.message : "Failed to open file.")
+      const message = error instanceof Error ? error.message : "Failed to open file."
+      if (!editorDirty) {
+        clearEditorState()
+      }
+      setEditorError(editorDirty ? `${message} Unsaved editor content was kept as a local draft.` : message)
     } finally {
       setOpeningPathId(null)
     }
   }, [
     activeRunId,
     activeWorkspaceId,
+    clearEditorState,
     editorDirty,
     openFileInEditor,
     selectedEditorFile?.pathId,
@@ -319,12 +407,6 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
       }
       return next
     })
-  }, [])
-
-  const handleEditorScroll = useCallback((event: React.UIEvent<HTMLTextAreaElement>) => {
-    if (lineNumberRef.current) {
-      lineNumberRef.current.scrollTop = event.currentTarget.scrollTop
-    }
   }, [])
 
   useEffect(() => {
@@ -459,27 +541,37 @@ function EditCodePanel({ onViewChange }: { onViewChange: (view: WorkspaceMode) =
                   </div>
                 </div>
               ) : (
-                <div className="flex min-h-0 flex-1 bg-[#1e1e1e]">
-                  <div
-                    ref={lineNumberRef}
-                    className="w-14 shrink-0 overflow-hidden border-r border-[#2d2d2d] bg-[#181818] py-4 pr-3 text-right font-mono text-sm leading-6 text-gray-600 select-none"
-                    aria-hidden="true"
-                  >
-                    {Array.from({ length: lineCount }, (_, index) => (
-                      <div key={index}>{index + 1}</div>
-                    ))}
-                  </div>
-
-                  <textarea
+                <div className="min-h-0 flex-1 bg-[#1e1e1e]">
+                  <Editor
+                    key={`${activeWorkspaceId || "workspace"}:${activeRunId || "run"}:${selectedEditorFile.pathId}`}
+                    path={`${activeWorkspaceId || "workspace"}/${activeRunId || "run"}/${selectedEditorFile.path}`}
                     value={editorContent}
-                    onChange={(event) => setEditorContent(event.target.value)}
-                    onScroll={handleEditorScroll}
-                    spellCheck={false}
-                    autoCapitalize="off"
-                    autoCorrect="off"
-                    className="min-h-0 flex-1 resize-none overflow-auto border-0 bg-[#1e1e1e] px-4 py-4 font-mono text-sm leading-6 text-gray-200 outline-none placeholder:text-gray-600 focus:ring-0"
-                    style={{ tabSize: 2 }}
-                    aria-label={`Editing ${selectedEditorFile.path}`}
+                    language={monacoLanguageFromEditorLanguage(selectedEditorFile.language || selectedEditorFile.path)}
+                    theme="vs-dark"
+                    loading={
+                      <div className="flex h-full items-center justify-center bg-[#1e1e1e] text-xs text-gray-500">
+                        Loading editor...
+                      </div>
+                    }
+                    onChange={(value) => setEditorContent(value ?? "")}
+                    options={{
+                      automaticLayout: true,
+                      contextmenu: false,
+                      detectIndentation: true,
+                      folding: true,
+                      fontFamily: "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace",
+                      fontSize: 14,
+                      lineHeight: 24,
+                      lineNumbers: "on",
+                      minimap: { enabled: false },
+                      overviewRulerBorder: false,
+                      padding: { top: 16, bottom: 16 },
+                      renderLineHighlight: "line",
+                      scrollBeyondLastLine: false,
+                      tabSize: 2,
+                      wordWrap: "off",
+                      ariaLabel: `Editing ${selectedEditorFile.path}`,
+                    }}
                   />
                 </div>
               )}
@@ -751,6 +843,35 @@ function languageFromPath(path: string): string {
   }
 
   return map[extension] || extension
+}
+
+function monacoLanguageFromEditorLanguage(languageOrPath: string): string {
+  const normalized = languageOrPath.toLowerCase()
+  const extension = normalized.includes(".") ? normalized.split(".").pop() || normalized : normalized
+
+  const map: Record<string, string> = {
+    env: "plaintext",
+    html: "html",
+    css: "css",
+    js: "javascript",
+    javascript: "javascript",
+    jsx: "javascript",
+    json: "json",
+    md: "markdown",
+    markdown: "markdown",
+    php: "php",
+    py: "python",
+    python: "python",
+    text: "plaintext",
+    ts: "typescript",
+    tsx: "typescript",
+    typescript: "typescript",
+    txt: "plaintext",
+    yaml: "yaml",
+    yml: "yaml",
+  }
+
+  return map[extension] || map[normalized] || "plaintext"
 }
 
 function isLikelyEditableFile(path: string): boolean {
