@@ -1,3 +1,6 @@
+__pycache__/
+*.pyc
+
 .orchestration/
 .vscode/
 ERROR_LOG.md
