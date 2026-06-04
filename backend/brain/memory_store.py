@@ -10,7 +10,9 @@ MEMORY_FILES = {
     "plans": "plans.json",
     "decisions": "decisions.json",
     "failures": "failures.json",
+    "providers": "providers.json",
 }
+
 
 
 def ensure_memory_files() -> None:
@@ -74,3 +76,12 @@ def append_decision_history(record: dict, limit: int = 500) -> dict:
     records.append(saved_record)
     _write_array(MEMORY_FILES["decisions"], records[-limit:])
     return saved_record
+
+
+def load_providers() -> list[dict]:
+    return _load_array(MEMORY_FILES["providers"])
+
+
+def write_providers(records: list[dict]) -> None:
+    _write_array(MEMORY_FILES["providers"], records)
+

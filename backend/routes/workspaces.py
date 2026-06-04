@@ -27,6 +27,10 @@ from backend.core.scanner.patch_grounding import (
 from backend.core.scanner.patch_simulation import get_persisted_simulations
 from backend.core.scanner.execution_readiness import get_execution_readiness
 from backend.sandbox.executor import get_runtime_status
+from backend.memory.project_memory import ProjectMemory
+from backend.memory.workspace_awareness import WorkspaceAwareness
+from backend.brain.change_scope import ChangeScopeAnalyzer
+from backend.reflection.reflection_engine import ReflectionEngine
 
 router = APIRouter()
 
@@ -74,11 +78,16 @@ def _with_runtime_status(workspace: dict) -> dict:
         runtime_health = "degraded"
     else:
         runtime_health = "offline"
+    try:
+        project_state = ProjectMemory.get_project_state(workspace["id"])
+    except Exception:
+        project_state = None
     return {
         **workspace,
         "status": status if status in {"running", "failed"} else workspace.get("status", "ready"),
         "runtime_status": runtime_status,
         "runtimeHealth": runtime_health,
+        "project_state": project_state,
     }
 
 
@@ -90,7 +99,9 @@ def list_workspaces():
 @router.post("")
 def create_workspace(req: WorkspaceCreateRequest):
     try:
-        return create_workspace_project(req.name, req.template)
+        workspace = create_workspace_project(req.name, req.template)
+        ProjectMemory.initialize_project(workspace["id"], req.template or "blank")
+        return {**workspace, "project_state": ProjectMemory.get_project_state(workspace["id"])}
     except Exception as exc:
         raise _http_error(exc)
 
@@ -220,3 +231,67 @@ def get_simulations(workspace_id: str, run_id: str | None = None):
 @router.get("/{workspace_id}/readiness")
 def get_readiness(workspace_id: str, run_id: str | None = None):
     return get_execution_readiness(workspace_id, run_id)
+
+
+@router.get("/{workspace_id}/project-state")
+def get_project_state(workspace_id: str):
+    try:
+        ProjectMemory.initialize_project(workspace_id, "unknown")
+        return ProjectMemory.get_project_state(workspace_id)
+    except Exception as exc:
+        raise _http_error(exc)
+
+
+@router.get("/{workspace_id}/project-summary")
+def get_project_summary(workspace_id: str):
+    try:
+        return ProjectMemory.describe_project(workspace_id)
+    except Exception as exc:
+        raise _http_error(exc)
+
+
+@router.get("/{workspace_id}/workspace-awareness")
+def get_workspace_awareness(workspace_id: str, run_id: str | None = None, prompt: str | None = None):
+    try:
+        return WorkspaceAwareness.scan(workspace_id, run_id=run_id, prompt=prompt)
+    except Exception as exc:
+        raise _http_error(exc)
+
+
+@router.get("/{workspace_id}/workspace-summary")
+def get_workspace_summary(workspace_id: str):
+    try:
+        return WorkspaceAwareness.describe(workspace_id)
+    except Exception as exc:
+        raise _http_error(exc)
+
+
+@router.get("/{workspace_id}/change-scope")
+def get_change_scope(workspace_id: str, prompt: str | None = None, run_id: str | None = None):
+    try:
+        if prompt:
+            ProjectMemory.initialize_project(workspace_id, "unknown")
+            state = ProjectMemory.get_project_state(workspace_id)
+            action = ProjectMemory.classify_action(workspace_id, prompt)
+            awareness = WorkspaceAwareness.scan(workspace_id, run_id=run_id, prompt=prompt)
+            return ChangeScopeAnalyzer.analyze(
+                workspace_id,
+                prompt,
+                project_state=state,
+                project_action=action,
+                workspace_awareness=awareness,
+            )
+        scope = ChangeScopeAnalyzer.load(workspace_id)
+        if not scope:
+            raise FileNotFoundError("Change scope analysis not found")
+        return scope
+    except Exception as exc:
+        raise _http_error(exc)
+
+
+@router.get("/{workspace_id}/reflection")
+def get_reflection_engine(workspace_id: str):
+    try:
+        return ReflectionEngine.load(workspace_id)
+    except Exception as exc:
+        raise _http_error(exc)

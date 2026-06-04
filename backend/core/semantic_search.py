@@ -353,13 +353,18 @@ class SemanticSearchEngine:
     ) -> Optional[SymbolLocation]:
         """Extract line number and context for a symbol."""
         if language == 'python':
-            pattern = rf'^(?:class|def)\s+{re.escape(symbol_name)}\s*[\(:]'
+            pattern = r'^(?:class|def)\s+' + re.escape(symbol_name) + r'\s*[\(:]'
         elif language in ['javascript', 'typescript']:
-            pattern = rf"(?:export\s+)?(?:const|function|class)\s+{re.escape(symbol_name)}\s*[\(\{=]"
+            pattern = (
+                r"(?:export\s+)?(?:const|function|class)\s+"
+                + re.escape(symbol_name)
+                + r"\s*[\(\{=]"
+            )
         elif language == 'php':
-            pattern = rf'(?:class|function)\s+{re.escape(symbol_name)}\s*[\(\{]'
+            pattern = r'(?:class|function)\s+' + re.escape(symbol_name) + r'\s*[\(\{]'
         else:
             return None
+
         
         match = re.search(pattern, content, re.MULTILINE)
         if not match:
@@ -406,7 +411,7 @@ class SemanticSearchEngine:
     def _extract_props(self, content: str, comp_name: str) -> List[str]:
         """Extract component props."""
         # Find component definition
-        pattern = rf'(?:function|const)\s+{re.escape(comp_name)}\s*\(({[^}]*}|[^)]*)\)'
+        pattern = r'(?:function|const)\s+' + re.escape(comp_name) + r'\s*\(({[^}]*}|[^)]*)\)'
         match = re.search(pattern, content)
         if not match:
             return []

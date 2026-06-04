@@ -1,6 +1,7 @@
 from backend.graph.knowledge_graph import KnowledgeGraph
 from backend.memory.reflection_memory import ReflectionMemory
 from backend.memory.project_memory import ProjectMemory
+from backend.memory.workspace_awareness import WorkspaceAwareness
 
 class ContextCompressor:
     """Summarizes project state to prevent context window collapse."""
@@ -13,6 +14,24 @@ class ContextCompressor:
         summary = "## Current Architecture Summary\n"
         if project_state:
             summary += f"- Ecosystem: {project_state.get('ecosystem')}\n"
+            summary += f"- Project Type: {project_state.get('project_type')}\n"
+            features = project_state.get("features") or []
+            if features:
+                summary += "- Existing Features: " + ", ".join(features) + "\n"
+            decisions = project_state.get("decisions") or {}
+            if decisions:
+                summary += "- Decisions: " + ", ".join(f"{k}={v}" for k, v in decisions.items()) + "\n"
+        try:
+            workspace_awareness = WorkspaceAwareness.load(project_id)
+            if workspace_awareness:
+                patterns = workspace_awareness.get("patterns") or {}
+                architecture = workspace_awareness.get("architecture") or {}
+                summary += f"- Workspace Stack: {', '.join(workspace_awareness.get('stack', {}).get('stack') or [])}\n"
+                summary += f"- Workspace Flow: {' -> '.join(architecture.get('flow') or [])}\n"
+                summary += f"- State Pattern: {', '.join(patterns.get('state_management') or [])}\n"
+                summary += f"- API Pattern: {', '.join(patterns.get('api_layer') or [])}\n"
+        except Exception:
+            pass
         
         files = arch_map["files"]
         if len(files) > 20:

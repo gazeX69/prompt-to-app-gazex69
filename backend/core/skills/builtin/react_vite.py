@@ -57,6 +57,11 @@ class ReactViteSkill(ModularSkill):
             "- Import rules: do NOT use path aliases such as \"@/...\".\n"
             "- Use relative imports only, for example \"./types\", \"./utils/storage\", \"./components/ItemForm\", or \"../types\".\n"
             "- Do not import packages, aliases, or modules that are not configured in the canonical template.\n"
+            "- STRICT TYPESCRIPT & STATE RULES:\n"
+            "  * Never spread objects that could be null or undefined. If you update state by copying another object, ensure that object is fully populated and non-nullable.\n"
+            "  * Never use Partial<T> or nullable states (e.g. `Type | null`) for forms. Instead, separate Entity Types (e.g. `{ id: number; name: string; price: number }`) from Form Types (e.g. `{ name: string; price: number }`), and initialize the form state with a complete, fully-populated non-nullable default object.\n"
+            "  * Always initialize React.useState for forms with a concrete default object containing all fields (e.g., empty strings or zero numbers), rather than starting with `null` or a partial/empty object.\n"
+            "  * Ensure all variables and parameters have strict, correct TypeScript types. Build must pass type-check strictly without any TS compilation errors.\n"
         )
 
     def get_project_structure(self) -> list[str]:

@@ -199,24 +199,56 @@ append.py
 !frontend/src/runtime/**
 
 # =========================================================
-# Preserve Engineering Memory
+# Preserve Engineering Memory (COMMENTED OUT TO RESPECT CLEAN PROJECT CONSTRAINT)
 # =========================================================
-!ENGINEERING_FREEZE.md
-!mutation_contracts.md
-!workspace_schema.md
-!task.md
+# The following files are now ignored by the general *.md pattern.
+# !ENGINEERING_FREEZE.md
+# !mutation_contracts.md
+# !workspace_schema.md
+# !task.md
+# 
+# !runtime/ARCHITECTURE_MAP.md
+# !runtime/PLAN.md
+# 
+# !P7_IMPLEMENTATION_SUMMARY.md
+# !P7_PHASE_COMPLETE.md
+# !P7_README.md
+# 
+# !P8_5_IMPLEMENTATION_SUMMARY.md
+# !P8_5_PHASE_COMPLETE.md
+# 
+# !LogAI.md
 
-!runtime/ARCHITECTURE_MAP.md
-!runtime/PLAN.md
+# =========================================================
+# Markdown Files Constraint (All ignored except README.md)
+# =========================================================
+*.md
+**/*.md
+!README.md
+!readme.md
+!**/README.md
+!**/readme.md
 
-!P7_IMPLEMENTATION_SUMMARY.md
-!P7_PHASE_COMPLETE.md
-!P7_README.md
+# =========================================================
+# Re-ignore Cache files from un-ignored directories
+# =========================================================
+backend/sandbox/__pycache__/
+backend/sandbox/**/*.py[cod]
+backend/tests/__pycache__/
+backend/tests/**/*.py[cod]
+templates/**/__pycache__/
+templates/**/*.py[cod]
 
-!P8_5_IMPLEMENTATION_SUMMARY.md
-!P8_5_PHASE_COMPLETE.md
-
-!LogAI.md
+# =========================================================
+# Local Scratch / Temp / State / Configs
+# =========================================================
+scratch/
+backend/brain/memory/change_scope_analysis_progress.json
+backend/brain/memory/reflection_engine_progress.json
+backend/brain/memory/state_driven_preflight_fix.json
+backend/brain/memory/state_preservation_roadmap.json
+backend/brain/memory/providers.json
+AUDIT_FINAL_SUMMARY_*.txt
 
 # =========================================================
 # Optional VSCode Shared Settings

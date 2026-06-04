@@ -32,6 +32,7 @@ class PreflightHistoryAction(str, Enum):
 
 class PreflightRequest(BaseModel):
     prompt: str = Field(..., description="Raw user generation prompt")
+    project_id: str | None = Field(None, description="Optional workspace/project id for project-aware preflight")
 
 
 class PlanSignature(BaseModel):
@@ -43,11 +44,19 @@ class PlanSignature(BaseModel):
     required_capabilities: list[str] = Field(default_factory=list)
 
 
+class DecisionOption(BaseModel):
+    text: str
+    score: float
+    is_recommended: bool
+
+
 class MissingDecision(BaseModel):
     key: str
     question: str
     default_recommendation: str
     risk: RiskLevel
+    options: list[DecisionOption] = Field(default_factory=list)
+
 
 
 class ScopeAnalysis(BaseModel):
@@ -70,6 +79,34 @@ class MatchedCase(BaseModel):
     feature_keywords: list[str] = Field(default_factory=list)
     required_capabilities: list[str] = Field(default_factory=list)
     summary: str | None = None
+    original_prompt: str | None = None
+    context: str | None = None
+    constraints: str | None = None
+    solution: str | None = None
+    lessons_learned: str | None = None
+    structural_score: float | None = None
+    cosine_score: float | None = None
+
+
+
+class EntityFieldSchema(BaseModel):
+    name: str
+    type: str
+
+class DomainEntitySchema(BaseModel):
+    name: str
+    fields: list[EntityFieldSchema] = Field(default_factory=list)
+
+class SubdomainSchema(BaseModel):
+    name: str
+    description: str
+    entities: list[DomainEntitySchema] = Field(default_factory=list)
+
+class VerticalSliceSchema(BaseModel):
+    name: str
+    description: str
+    target_components: list[str] = Field(default_factory=list)
+    dependencies: list[str] = Field(default_factory=list)
 
 
 class BrainDecisionResult(BaseModel):
@@ -83,6 +120,15 @@ class BrainDecisionResult(BaseModel):
     implementation_plan: list[str] = Field(default_factory=list)
     task_list: list[str] = Field(default_factory=list)
     matched_cases: list[MatchedCase] = Field(default_factory=list)
+    dss_recommendations: list[dict] = Field(default_factory=list)
+    project_state: dict | None = None
+    project_action: dict | None = None
+    workspace_awareness: dict | None = None
+    workspace_impact: dict | None = None
+    change_scope: dict | None = None
+    subdomains: list[SubdomainSchema] = Field(default_factory=list)
+    vertical_slices: list[VerticalSliceSchema] = Field(default_factory=list)
+
 
 
 class PreflightHistoryRequest(BaseModel):
@@ -137,6 +183,13 @@ class CaseMemory(BaseModel):
     feature_keywords: list[str] = Field(default_factory=list)
     required_capabilities: list[str] = Field(default_factory=list)
     summary: str | None = None
+    original_prompt: str | None = None
+    context: str | None = None
+    constraints: str | None = None
+    solution: str | None = None
+    result: str | None = "success"
+    lessons_learned: str | None = None
+
 
 
 class ImplementationPlanMemory(BaseModel):
@@ -161,3 +214,20 @@ class FailureMemory(BaseModel):
     failure_type: str
     avoided_capabilities: list[str] = Field(default_factory=list)
     summary: str | None = None
+
+
+class AdvisorySuggestion(BaseModel):
+    title: str = Field(..., description="Short title of the suggestion")
+    description: str = Field(..., description="Actionable description")
+    difficulty: str = Field(..., description="Difficulty: low, medium, high")
+    impact: str = Field(..., description="Impact: low, medium, high")
+    suggested_files: list[str] = Field(default_factory=list, description="Files affected/created")
+    command: str | None = Field(None, description="Optional command to execute this step")
+
+
+class DevelopmentAdvisory(BaseModel):
+    project_id: str
+    run_id: str
+    current_status: str
+    analysis: str
+    suggestions: list[AdvisorySuggestion] = Field(default_factory=list)

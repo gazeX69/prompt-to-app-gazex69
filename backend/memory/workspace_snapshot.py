@@ -609,5 +609,8 @@ class WorkspaceMemorySnapshot:
         except Exception as e:
             logger.error(f"Failed to load sequencing risks: {e}")
             return None
+
+def create_workspace_snapshot(workspace_root: str) -> WorkspaceMemorySnapshot:
     """Create a workspace memory snapshot manager."""
     return WorkspaceMemorySnapshot(workspace_root)
+

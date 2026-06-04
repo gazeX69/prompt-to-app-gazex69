@@ -14,9 +14,19 @@ Implement core file-management operations inside the existing Explorer only: new
 
 ## Fixes
 
-- [x] Added backend scanner operations for create, move/rename, and delete inside the selected run directory.
-- [x] Added workspace routes for Explorer entry mutations.
-- [x] Added frontend API wrappers for entry create, move/rename, and delete.
+- [x] Modify `plan_signature.py` to support `saas`, `dashboard admin`, and complex/large CRUD apps as high complexity.
+- [x] Modify `scope_analyzer.py` to include `saas` in `BROAD_APP_TYPES`.
+- [x] Modify `decision_engine.py` to enforce planning (`ASK_USER_BEFORE_GENERATE`) on broad prompt keywords.
+- [x] Modify `react_vite.py` (built-in skill) to add strict TypeScript/state rules to the generator prompt.
+- [x] Modify `repair_loop.py` to classify and target `ts2345_nullable_state` build errors with specific correction instructions.
+- [x] Modify `project_orchestrator.py` to:
+  - [x] Enforce shadow mode simulation failure check.
+  - [x] Save concrete patches during shadow run and reuse them during real execution.
+  - [x] Terminate execution immediately on shadow run failures.
+  - [x] Make monolithic collapse a hard quality gate (aborts run).
+  - [x] Block single-shot monolithic fallback for medium and broad prompts.
+  - [x] Persist session snapshots during real execution.
+- [x] Run automated tests to verify stability.
 - [x] Added Explorer controls for new file, new folder, rename, delete, and move without changing layout architecture.
 - [x] Preserved editor dirty content when an open file is renamed or moved by updating only file metadata.
 - [x] Clear editor state when the open file is deleted.

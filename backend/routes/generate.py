@@ -20,6 +20,8 @@ from backend.models.schemas import GenerateRequest, GenerateResponse
 from backend.orchestrator.project_orchestrator import generate_project_async
 from backend.sandbox.executor import get_runtime_status, record_pre_runtime_failure
 from backend.sockets.manager import emit_agent_state, emit_generation_failure, emit_generation_status, emit_terminal_line
+from backend.brain.plan_signature import build_plan_signature
+from backend.brain.cbr_engine import retain_case
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -270,6 +272,20 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
         if not result.success:
             message = result.error or "Generation failed before runtime launch"
             stage = _classify_generation_failure_stage(message)
+            
+            try:
+                from backend.core.reliability import ReliabilityTracker
+                ReliabilityTracker.record_event("failure", {"stage": stage, "error": message})
+            except Exception:
+                pass
+
+            try:
+                sig = build_plan_signature(req.prompt)
+                from backend.brain.cbr_engine import retain_failure
+                retain_failure(req.prompt, sig, message)
+            except Exception:
+                logger.exception("Failed to retain failed generation as case")
+
             detail = {
                 "files_written": result.files_written,
                 "repair_attempts": result.repair_attempts,
@@ -333,6 +349,14 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
             )
         except Exception:
             logger.exception("Failed to persist successful run manifest for project=%s", req.project_id)
+
+        # Learn from this successful case
+        try:
+            sig = build_plan_signature(req.prompt)
+            retain_case(req.prompt, sig, detail)
+        except Exception:
+            logger.exception("Failed to retain successful generation as case")
+
         await _record_and_emit_generation_status(
             req.project_id,
             generation_id,
@@ -344,6 +368,17 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
         )
     except Exception as e:
         logger.exception(f"Background orchestrator failed: {e}")
+        try:
+            from backend.core.reliability import ReliabilityTracker
+            ReliabilityTracker.record_event("failure", {"stage": "orchestrator_crash", "error": str(e)})
+        except Exception:
+            pass
+        try:
+            sig = build_plan_signature(req.prompt)
+            from backend.brain.cbr_engine import retain_failure
+            retain_failure(req.prompt, sig, str(e))
+        except Exception:
+            pass
         try:
             stage = "generation"
             await record_pre_runtime_failure(req.project_id, str(e), stage=stage)

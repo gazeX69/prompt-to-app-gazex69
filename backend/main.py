@@ -22,6 +22,7 @@ from backend.routes.execute import router as execute_router
 from backend.routes.workspaces import router as workspaces_router
 from backend.routes.runtime import router as runtime_router
 from backend.routes.brain import router as brain_router
+from backend.routes.settings import router as settings_router
 from backend.sockets.manager import sio, emit_terminal_line, emit_agent_state, emit_agent_activity, emit_preview_ready, emit_runtime_error, emit_runtime_lifecycle_event
 from backend.core.config import settings
 from backend.runtime_client.client import runtime_client
@@ -169,11 +170,14 @@ def _register_builtin_skills():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    from backend.core.reliability import ReliabilityTracker
     _register_builtin_skills()
     runtime_client.set_event_callback(_bridge_runtime_event)
     bg_task = asyncio.create_task(runtime_client.start_event_stream())
     logger.info("Runtime event stream bridge started")
+    ReliabilityTracker.record_event("start", {"reason": "application_startup"})
     yield
+    ReliabilityTracker.record_event("stop", {"reason": "application_shutdown"})
     bg_task.cancel()
     try:
         await bg_task
@@ -208,6 +212,8 @@ fastapi_app.include_router(execute_router, prefix="/execute", tags=["Execution"]
 fastapi_app.include_router(workspaces_router, prefix="/workspaces", tags=["Workspaces"])
 fastapi_app.include_router(runtime_router, prefix="/runtime", tags=["Runtime"])
 fastapi_app.include_router(brain_router, prefix="/brain", tags=["Brain"])
+fastapi_app.include_router(settings_router, prefix="/settings", tags=["Settings"])
+
 
 
 # ── Skill & Scan Routes ───────────────────────────────────────────

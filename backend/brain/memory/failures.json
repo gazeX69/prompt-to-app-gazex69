@@ -1,2 +1,360 @@
-[]
-
+[
+  {
+    "id": "fail_13885588",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "Mock generation compile error: module 'emojis' not found"
+  },
+  {
+    "id": "fail_58d118fd",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "E_DEPENDENCY_MISSING:uuid:src/contexts/TodoContext.tsx"
+  },
+  {
+    "id": "fail_8e286cd6",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "\u001b[31mx\u001b[39m Build failed in 67ms\n\u001b[31merror during build:\n\u001b[31mCould not resolve \"./App.css\" from \"src/App.tsx\"\u001b[31m\nfile: \u001b[36mC:/Users/gaze/Documents/cobacoba/ai-agent/workspaces/aswa/run_20260603_2"
+  },
+  {
+    "id": "fail_cf4f19c1",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_fb431d32",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_039f9b48",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_d7e3aa71",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_acf91165",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_e12499bb",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_e6cb6a05",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_4f572dfa",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "node:internal/process/promises:332\n    triggerUncaughtException(err, true /* fromPromise */);\n    ^\n[Failed to load PostCSS config: Failed to load PostCSS config (searchPath: C:/Users/gaze/Documents/c"
+  },
+  {
+    "id": "fail_8aa00491",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "cannot access local variable 'user_prompt' where it is not associated with a value"
+  },
+  {
+    "id": "fail_68cd5e1e",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected task list terminology."
+  },
+  {
+    "id": "fail_6ece1bc8",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected task list terminology."
+  },
+  {
+    "id": "fail_400aa6b8",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected task list terminology."
+  },
+  {
+    "id": "fail_38136854",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected task list terminology."
+  },
+  {
+    "id": "fail_50478ab7",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "No valid delimiter blocks found in AI response."
+  },
+  {
+    "id": "fail_4277a307",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "Build failed after deterministic contract repair"
+  },
+  {
+    "id": "fail_b9731b2f",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_b609ba47",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected task list terminology."
+  },
+  {
+    "id": "fail_31dfaf44",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_290fe868",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_736d8dae",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "Generation failed quality gate: component separation collapsed (monolithic collapse detected)."
+  },
+  {
+    "id": "fail_ce4dbe0e",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "TaskGraph execution failed or was empty for a medium/broad prompt. Monolithic fallback is blocked for high complexity/broad scope."
+  },
+  {
+    "id": "fail_db0d8576",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "node:internal/process/promises:332\n    triggerUncaughtException(err, true /* fromPromise */);\n    ^\n[Failed to load PostCSS config: Failed to load PostCSS config (searchPath: C:/Users/gaze/Documents/c"
+  },
+  {
+    "id": "fail_cb897f09",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "Generation failed quality gate: component separation collapsed (monolithic collapse detected)."
+  },
+  {
+    "id": "fail_eee54221",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_38251c31",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_221667a8",
+    "domain": "general",
+    "app_type": "crud_app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management",
+      "crud",
+      "data_persistence"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected crud_app domain terminology."
+  },
+  {
+    "id": "fail_426bed60",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  }
+]

@@ -4,8 +4,19 @@
     "title": "Marketplace MVP",
     "domain": "marketplace",
     "app_type": "marketplace",
-    "feature_keywords": ["products", "cart", "checkout", "admin"],
-    "required_capabilities": ["crud", "state_management", "product_catalog", "cart", "checkout_simulation"],
+    "feature_keywords": [
+      "products",
+      "cart",
+      "checkout",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
     "summary": "Small marketplace with product browsing, cart, simulated checkout, and admin product CRUD."
   },
   {
@@ -13,8 +24,18 @@
     "title": "Inventory MVP",
     "domain": "inventory",
     "app_type": "inventory",
-    "feature_keywords": ["items", "stock", "crud", "reporting"],
-    "required_capabilities": ["crud", "state_management", "data_persistence", "reporting"],
+    "feature_keywords": [
+      "items",
+      "stock",
+      "crud",
+      "reporting"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence",
+      "reporting"
+    ],
     "summary": "Inventory tracker focused on item CRUD, stock quantity, low stock signals, and simple persistence."
   },
   {
@@ -22,9 +43,868 @@
     "title": "Counter App",
     "domain": "utility",
     "app_type": "counter",
-    "feature_keywords": ["counter"],
-    "required_capabilities": ["state_management"],
+    "feature_keywords": [
+      "counter"
+    ],
+    "required_capabilities": [
+      "state_management"
+    ],
     "summary": "Minimal counter with increment, decrement, and reset controls."
+  },
+  {
+    "id": "case_a791e6b9",
+    "title": "Todo Tracker Pro",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "A lightweight, browser-based todo app with localStorage persistence and real-time statistics (e.g., total tasks, completed ratio, overdue count)."
+  },
+  {
+    "id": "case_5cf0edab",
+    "title": "Hello Boyaa Simple",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A minimal console or web-based application that displays the text \"HELLO BOYAA\" as a straightforward output."
+  },
+  {
+    "id": "case_101114d9",
+    "title": "Todo List MVP",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A minimal, functional todo list application allowing users to add, view, and mark tasks as completed."
+  },
+  {
+    "id": "case_7abbf9fb",
+    "title": "Hello World App",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A simple \"Hello World\" application was created to display a basic greeting message.",
+    "original_prompt": "buat hello world sederhana",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Developed using only HTML, CSS, and JavaScript without any external frameworks.",
+    "solution": "Created a single HTML file with embedded CSS and JavaScript to render and style the \"Hello World\" message.",
+    "result": "success",
+    "lessons_learned": "Keeping the code minimal and self-contained is effective for simple projects and improves readability."
+  },
+  {
+    "id": "case_704a15cf",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built using React with basic functionality for adding, viewing, and deleting tasks.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for persistence.",
+    "solution": "Implemented a functional React app with state management using useState and local storage for data persistence.",
+    "result": "success",
+    "lessons_learned": "Use local storage carefully to avoid performance issues and ensure data is properly serialized."
+  },
+  {
+    "id": "case_74bd5daf",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A modern to-do list application with clean UI and interactive features.",
+    "original_prompt": "buat todolist moderen",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Built using React and Tailwind CSS, no backend required.",
+    "solution": "Implemented a responsive interface with local storage for task persistence and drag-and-drop functionality.",
+    "result": "success",
+    "lessons_learned": "Prioritize user experience by focusing on intuitive interactions and visual clarity."
+  },
+  {
+    "id": "case_ae8b465c",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built with React for managing tasks.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for data persistence.",
+    "solution": "Implemented a functional React app with task creation, deletion, and completion features.",
+    "result": "success",
+    "lessons_learned": "Use state management effectively with hooks to keep the UI responsive and maintainable."
+  },
+  {
+    "id": "case_93b6c597",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built with React for managing tasks.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for data persistence.",
+    "solution": "Created a functional React app with task creation, deletion, and completion features.",
+    "result": "success",
+    "lessons_learned": "Use state management effectively with hooks to keep the UI responsive and maintainable."
+  },
+  {
+    "id": "case_640410c3",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built using React with basic task management functionality.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for persistence.",
+    "solution": "Created a functional React app with task creation, deletion, and completion features using state management and local storage.",
+    "result": "success",
+    "lessons_learned": "Use functional components and hooks for better state management and scalability."
+  },
+  {
+    "id": "case_269268ea",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built using React with basic task management functionality.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for persistence.",
+    "solution": "Created a functional React app with task creation, deletion, and completion features using state management and local storage.",
+    "result": "success",
+    "lessons_learned": "Use functional components and hooks for better state management and reusability."
+  },
+  {
+    "id": "case_c6681449",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A modern to-do list application built with Tailwind CSS for styling.",
+    "original_prompt": "buat todolist moderen dengan tailwind",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Uses only Tailwind CSS and vanilla JavaScript, no external libraries.",
+    "solution": "Implemented a responsive and visually appealing to-do list with interactive elements using Tailwind utility classes.",
+    "result": "success",
+    "lessons_learned": "Prioritize component modularity and maintainable CSS by leveraging Tailwind's utility-first approach."
+  },
+  {
+    "id": "case_da1987ec",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built using React with basic task management functionality.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for persistence.",
+    "solution": "Created a functional React app with task creation, deletion, and completion features using state management and local storage.",
+    "result": "success",
+    "lessons_learned": "Use functional components and hooks for better state management and reusability."
+  },
+  {
+    "id": "case_2c8a7d2e",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A modern to-do list application built with Tailwind CSS for styling.",
+    "original_prompt": "buat todolist moderen dengan tailwind",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Uses only Tailwind CSS and vanilla JavaScript, no external libraries.",
+    "solution": "Implemented a responsive and visually appealing to-do list with interactive elements using Tailwind utility classes.",
+    "result": "success",
+    "lessons_learned": "Prioritize component modularity and maintainable CSS by leveraging Tailwind's utility-first approach."
+  },
+  {
+    "id": "case_b56b35ea",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built using React with basic functionality for adding, viewing, and deleting tasks.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for persistence.",
+    "solution": "Implemented a functional React app with state management using useState and local storage for data persistence.",
+    "result": "success",
+    "lessons_learned": "Use local storage carefully to avoid performance issues and ensure data is properly serialized."
+  },
+  {
+    "id": "case_b5a0801b",
+    "title": "Todo App React",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do application built using React with basic task management functionality.",
+    "original_prompt": "buat todo app react",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local storage for persistence.",
+    "solution": "Created a functional React app with task creation, deletion, and completion features using state management and local storage.",
+    "result": "success",
+    "lessons_learned": "Use functional components and hooks for better state management and reusability."
+  },
+  {
+    "id": "case_f818acd4",
+    "title": "Hello World App",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A simple application that displays \"Hello World\" to the user.",
+    "original_prompt": "buat hello wolrd",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Developed using only basic HTML, CSS, and JavaScript without any frameworks.",
+    "solution": "Created a single HTML file with embedded CSS and JavaScript to output \"Hello World\" on the page.",
+    "result": "success",
+    "lessons_learned": "Keep it simple for minimal projects, avoiding unnecessary complexity."
+  },
+  {
+    "id": "case_bb452c7d",
+    "title": "Modern Task List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A modern task list application with drag-and-drop functionality and responsive design.",
+    "original_prompt": "buat task list moderen",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Built using React and Tailwind CSS, no external libraries for task management.",
+    "solution": "Implemented a responsive task interface with drag-and-drop reordering and local storage persistence.",
+    "result": "success",
+    "lessons_learned": "Prioritize user experience by focusing on intuitive interactions and clean UI design."
+  },
+  {
+    "id": "case_ed3233dd",
+    "title": "Hello ANJAAAY App",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A simple application that displays the message \"Hello ANJAAAY\" with basic styling.",
+    "original_prompt": "buat hello ANJAAAY",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No external libraries used, minimal design, single-page functionality.",
+    "solution": "Created a static HTML page with embedded CSS and JavaScript to display the message.",
+    "result": "success",
+    "lessons_learned": "Keep it simple for quick prototypes, focus on core functionality before adding complexity."
+  },
+  {
+    "id": "case_4e5391ac",
+    "title": "MarketPce App",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A basic e-commerce application for managing products and transactions.",
+    "original_prompt": "buat aplikasi marketpce",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Developed using React and Firebase, with no backend server required.",
+    "solution": "Built a responsive interface with product listing, cart functionality, and real-time updates via Firebase.",
+    "result": "success",
+    "lessons_learned": "Prioritize modular components for easier maintenance and scalability."
+  },
+  {
+    "id": "case_a5eeb0cf",
+    "title": "Marketplace MVP",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "feature_keywords": [
+      "products",
+      "cart",
+      "checkout",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "A minimal marketplace application with product listing, detail, cart, simulated checkout, and admin product management.",
+    "original_prompt": "Original request:\nbuat aplikasi marketplace\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React + Vite + TypeScript frontend, client-side state with localStorage, no server-side code.",
+    "solution": "Built a single-page React application using Vite and TypeScript with simulated data and local storage for state management.",
+    "result": "success",
+    "lessons_learned": "Prioritize simplicity and modularity to ensure the MVP is maintainable and scalable."
+  },
+  {
+    "id": "case_9a8b5e68",
+    "title": "Marketplace MVP",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "feature_keywords": [
+      "products",
+      "cart",
+      "checkout",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "A minimal marketplace application with product listing, detail view, cart, simulated checkout, and admin product management.",
+    "original_prompt": "Original request:\nbuat aplikasi marketplace\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React + Vite + TypeScript frontend, client-side state with localStorage, no server-side code.",
+    "solution": "Built a single-page React application using Vite and TypeScript with mock data and local storage for state management.",
+    "result": "success",
+    "lessons_learned": "Prioritize simplicity and modularity to ensure the MVP is maintainable and scalable."
+  },
+  {
+    "id": "case_7ad82b90",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_9df0c40d",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A sleek, responsive todo application with dark/light mode, drag-and-drop reordering, and persistent local storage.",
+    "original_prompt": "buat todo list moderen",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure HTML/CSS/JavaScript frontend only, no frameworks or build tools, uses localStorage for persistence.",
+    "solution": "Built with modular vanilla JS (ES6 modules), custom Web Components for reusable UI elements, and CSS-in-JS–style dynamic theming via CSS variables.",
+    "result": "success",
+    "lessons_learned": "Prioritizing semantic HTML and progressive enhancement ensures accessibility and broad browser compatibility without sacrificing modern UX."
+  },
+  {
+    "id": "case_5d65bbbc",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A lightweight, responsive todo application built with React and Vite, styled entirely with Tailwind CSS.",
+    "original_prompt": "buat todo list moderen dengan react vite, style menggunakan tailwind",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Frontend-only implementation with no backend; state persisted in localStorage.",
+    "solution": "Implemented a clean, accessible UI using React hooks (useState, useEffect) and Tailwind for utility-first styling, with features like add/delete/toggle tasks and local persistence.",
+    "result": "success",
+    "lessons_learned": "Using localStorage directly requires careful serialization/deserialization—encapsulating persistence logic in a custom hook improves maintainability and error resilience."
+  },
+  {
+    "id": "case_79b8bbbe",
+    "title": "Marketplace MVP",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "feature_keywords": [
+      "products",
+      "cart",
+      "checkout",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "A minimal, fully client-side React + Vite + TypeScript marketplace application with product browsing, cart management, simulated checkout, and admin CRUD — all running in-browser with no backend.",
+    "original_prompt": "Original request:\nbuat aplikasi marketplace\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses localStorage for persistent cart and mock data, no external dependencies beyond initial package.json, no server-side code.",
+    "solution": "Built with Vite-powered React components, TypeScript interfaces for Product/CartItem, localStorage-backed state management, route-based views (Home, Detail, Cart, Checkout, Admin), and a simple role-aware UI toggle for admin mode.",
+    "result": "success",
+    "lessons_learned": "Centralizing cart and product state in a custom hook (e.g., useMarketplaceStore) improves maintainability and avoids prop drilling while enabling consistent localStorage sync across views."
+  },
+  {
+    "id": "case_df01a0ab",
+    "title": "Marketplace MVP",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "feature_keywords": [
+      "products",
+      "cart",
+      "checkout",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "A minimal, browser-previewable React + Vite + TypeScript frontend marketplace with product browsing, cart, simulated checkout, and admin CRUD — all powered by client-side state and localStorage.",
+    "original_prompt": "Original request:\nbuat aplikasi marketplace Use this confirmed MVP\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation\n\nResolved Design Decisions:\n- roles: Single Admin Role (Recommended for MVP)\n- product_schema: Yes, implement this\n- cart_checkout_scope: Simulated local checkout (Recommended for MVP)\n- payment: Simulated Checkout (Recommended for MVP)\n- database: Browser LocalStorage (Recommended for MVP)\n- admin_panel: Simple Admin Screen (Recommended)\n- crud_scope: Yes, implement this",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses localStorage for persistence, no backend or external dependencies beyond the confirmed package.json.",
+    "solution": "Built with Vite + React + TypeScript using React Router for routing, Zustand (or useState/useReducer) for state management, and localStorage-backed mock data services for products and cart.",
+    "result": "success",
+    "lessons_learned": "Centralizing data operations in a single `dataService` abstraction (e.g., `productService.ts`, `cartService.ts`) improves testability, consistency, and simplifies future backend integration."
+  },
+  {
+    "id": "case_d2108bad",
+    "title": "Note Manager MVP",
+    "domain": "crud",
+    "app_type": "crud_app",
+    "feature_keywords": [
+      "crud",
+      "entities",
+      "database"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "A minimal React + Vite + TypeScript application for managing notes with full CRUD operations, form validation, and localStorage persistence.",
+    "original_prompt": "Original request:\nbuat memek\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses localStorage for client-side persistence, no backend or external dependencies beyond the Vite/TypeScript base.",
+    "solution": "Built a single-page UI at `/` with a `Note` entity (id, title, content, createdAt), using React hooks (`useState`, `useEffect`) and localStorage for state management and persistence.",
+    "result": "success",
+    "lessons_learned": "Centralizing CRUD logic in a custom hook (e.g., `useNotes`) improves testability, reusability, and separation of concerns—even in an MVP."
+  },
+  {
+    "id": "case_4c4864ec",
+    "title": "Marketplace MVP",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "feature_keywords": [
+      "products",
+      "cart",
+      "checkout",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "A minimal, fully client-side React + Vite + TypeScript marketplace application with product browsing, cart management, simulated checkout, and admin CRUD — all running in-browser with no backend.",
+    "original_prompt": "Original request:\nbuat aplikasi marketplace\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses localStorage for persistent mock data and client-side state; no API calls or server-side code.",
+    "solution": "Built with modular React components, TypeScript interfaces for Product and CartItem, localStorage-backed persistence, route-based views (Vite Router), and role-aware UI toggling (admin/buyer) via simple auth state.",
+    "result": "success",
+    "lessons_learned": "Centralizing data operations (CRUD, cart sync) in a single `useMarketplaceStore` custom hook prevents state desync and simplifies testing and future backend migration."
+  },
+  {
+    "id": "case_6cec77cb",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a single-line print statement using standard I/O (e.g., `print(\"Hello, World!\")` in Python or `console.log(\"Hello, World!\");` in JavaScript).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery context upfront—even for trivial prompts—to avoid ambiguity and ensure reproducibility."
+  },
+  {
+    "id": "case_0c81929b",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A sleek, interactive todo application with dark/light mode, drag-and-drop reordering, and persistent local storage.",
+    "original_prompt": "buat todo liss moderen",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure HTML/CSS/JavaScript frontend only, no frameworks or build tools, uses localStorage for persistence.",
+    "solution": "Built with semantic HTML, CSS Flexbox/Grid for responsive layout, vanilla JS for interactivity (add/delete/toggle/filter tasks), and localStorage synchronization.",
+    "result": "success",
+    "lessons_learned": "Prioritize progressive enhancement—start with functional core (CRUD + persistence), then layer in UX polish (animations, themes) without compromising accessibility or performance."
+  },
+  {
+    "id": "case_ecdfed00",
+    "title": "Dark Mode List MVP",
+    "domain": "booking",
+    "app_type": "booking",
+    "feature_keywords": [
+      "calendar",
+      "availability",
+      "booking",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence",
+      "calendar"
+    ],
+    "summary": "A minimal React + Vite + TypeScript app implementing dark mode toggle with persistent local storage, core list and detail views, and simple client-side state.",
+    "original_prompt": "Original request:\nTambahkan fitur dark mode.\n\nUse this confirmed MVP scope:\nTitle: App MVP\n\nFeatures:\n- Core list view\n- Primary detail view\n- Simple local state\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses localStorage for theme persistence, no external dependencies beyond initial package.json.",
+    "solution": "Built with a context-based theme provider, CSS variables for theming, and useEffect + useState to sync and persist dark mode state.",
+    "result": "success",
+    "lessons_learned": "Centralize theme logic in a custom hook or context to avoid prop drilling and ensure consistent state updates across views."
+  },
+  {
+    "id": "case_577d2ae1",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_3ac00e18",
+    "title": "Blue Note Manager",
+    "domain": "crud",
+    "app_type": "crud_app",
+    "feature_keywords": [
+      "crud",
+      "entities",
+      "database"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "A minimal React + Vite + TypeScript CRUD app for managing notes with blue background, local persistence via localStorage, and full list/create/edit/delete flow at the root route.",
+    "original_prompt": "Original request:\nbuat bacgrounya menjadi biru\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses localStorage for persistence, no backend or external dependencies beyond initial Vite + TypeScript setup.",
+    "solution": "Built a single-page note manager with typed interfaces, form validation, localStorage-synced state, and CSS-in-JS (inline style) to enforce the requested blue background.",
+    "result": "success",
+    "lessons_learned": "Enforcing UI requirements like background color early prevents scope creep—apply such styling directly in App.tsx or root layout rather than deferring to theme systems in an MVP."
+  },
+  {
+    "id": "case_8a3687a8",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_db2aef3c",
+    "title": "Purple List MVP",
+    "domain": "booking",
+    "app_type": "booking",
+    "feature_keywords": [
+      "calendar",
+      "availability",
+      "booking",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence",
+      "calendar"
+    ],
+    "summary": "A minimal React + Vite + TypeScript app rendering a list and detail view with a purple background as requested.",
+    "original_prompt": "Original request:\nganti bacgroundnya menjadi ungu\n\nUse this confirmed MVP scope:\nTitle: App MVP\n\nFeatures:\n- Core list view\n- Primary detail view\n- Simple local state\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses client-side state (no backend, no external dependencies beyond Vite defaults).",
+    "solution": "Implemented core list/detail views with mocked data and inline `style={{ backgroundColor: '#8B5CF6' }}` (tailwind-indigo-600 equivalent) applied to the root container.",
+    "result": "success",
+    "lessons_learned": "Direct inline styling or simple CSS classes suffice for MVP-level UI changes—avoid over-engineering theme systems when a single color swap is required."
+  },
+  {
+    "id": "case_d659fe50",
+    "title": "Hello World MVP",
+    "domain": "booking",
+    "app_type": "booking",
+    "feature_keywords": [
+      "calendar",
+      "availability",
+      "booking",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence",
+      "calendar"
+    ],
+    "summary": "A minimal React + Vite + TypeScript app rendering \"HALLO DUNIA\" with \"DUNIA\" styled in green, served at the root route.",
+    "original_prompt": "Original request:\ntambahkan tulisan dibawahnya HALLO DUNIA. dan DUNIA itu warna hijau\n\nUse this confirmed MVP scope:\nTitle: App MVP\n\nFeatures:\n- Core list view\n- Primary detail view\n- Simple local state\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses client-side state (no external dependencies beyond Vite’s default setup), no server code or additional packages.",
+    "solution": "Implemented a single `App` component with inline JSX and CSS-in-JS (via `style` prop) to render the text with targeted green coloring for \"DUNIA\".",
+    "result": "success",
+    "lessons_learned": "For ultra-minimal MVPs, avoid abstractions—direct DOM rendering with semantic HTML and scoped styling delivers fastest working output."
+  },
+  {
+    "id": "case_a854b134",
+    "title": "Pink List MVP",
+    "domain": "booking",
+    "app_type": "booking",
+    "feature_keywords": [
+      "calendar",
+      "availability",
+      "booking",
+      "admin"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence",
+      "calendar"
+    ],
+    "summary": "A minimal React + Vite + TypeScript app rendering a list view and detail view with a pink background, using only client-side state and mock data.",
+    "original_prompt": "Original request:\nganti background menjadi pink\n\nUse this confirmed MVP scope:\nTitle: App MVP\n\nFeatures:\n- Core list view\n- Primary detail view\n- Simple local state\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses local state (no backend, no external dependencies beyond default Vite + React + TS setup).",
+    "solution": "Implemented a root-level `/` route with a pink `background-color` via inline style or CSS variable, core list/detail views driven by simple useState, and static mock data.",
+    "result": "success",
+    "lessons_learned": "Enforcing minimalism early—e.g., avoiding unnecessary abstractions or styling libraries—keeps the MVP truly lightweight and previewable in-browser."
+  },
+  {
+    "id": "case_955ec4bf",
+    "title": "Text Overlay Tool",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A minimal application that displays the phrase \"AKU CINTA PADAMU\" below existing content, likely as a static or dynamically injected text element.",
+    "original_prompt": "tambahkan teks di bawahnya \" AKU CINTA PADAMU \"",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No framework or library specified; assumes plain HTML/CSS/JS with no external dependencies.",
+    "solution": "Implemented using a simple HTML structure with a dedicated <div> or <p> element styled to appear directly beneath target content, optionally triggered via inline script or DOM manipulation.",
+    "result": "success",
+    "lessons_learned": "Always verify text encoding (e.g., UTF-8) and font support for Indonesian characters to ensure proper rendering of accented or native-script phrases."
+  },
+  {
+    "id": "case_f62eb920",
+    "title": "Yellow Hello World",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal HTML page displaying \"Hello World\" text on a solid yellow background.",
+    "original_prompt": "buat hello world dengan background kuning",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure static HTML/CSS only, no external dependencies or frameworks.",
+    "solution": "Created a single HTML file using inline CSS to set `background-color: yellow` on the `<body>` and centered black text with basic styling.",
+    "result": "success",
+    "lessons_learned": "For simple visual requirements, inline styles and semantic HTML suffice—avoid over-engineering with build tools or libraries."
+  },
+  {
+    "id": "case_889b446d",
+    "title": "Hello World Display",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A minimal application that renders the text “hello dunia” with an additional line of text underneath it.",
+    "original_prompt": "tambahkan tulisan di bawahnya hello dunia",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Plain HTML/CSS/JS only, no frameworks or external dependencies.",
+    "solution": "Implemented using a single HTML file with inline CSS to position a second line of text directly below “hello dunia” via semantic markup and basic styling.",
+    "result": "success",
+    "lessons_learned": "Use semantic HTML elements (e.g., `<p>` or `<div>`) with predictable block layout and `margin`/`line-height` control instead of brittle positioning for simple vertical text stacking."
+  },
+  {
+    "id": "case_50dfe971",
+    "title": "Pink Background Toggle",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A minimal web application that changes the page background color to pink upon user request.",
+    "original_prompt": "ganti backgrounya menjadi pink",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure HTML/CSS/JS only, no frameworks or external dependencies.",
+    "solution": "Implemented a single-page solution with an inline style update triggered by a button click or direct script execution.",
+    "result": "success",
+    "lessons_learned": "For simple UI changes like background color, direct DOM manipulation via `document.body.style.backgroundColor` is lightweight and sufficient—avoid over-engineering with state management."
+  },
+  {
+    "id": "case_670254da",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
   }
 ]
-

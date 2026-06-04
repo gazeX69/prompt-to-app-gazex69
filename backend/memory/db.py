@@ -55,8 +55,56 @@ def init_db():
                 FOREIGN KEY (project_id) REFERENCES project_memory(id)
             )
         ''')
+
+        # Reliability Metrics Memory
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS reliability_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                details TEXT
+            )
+        ''')
+
+        # AI Telemetry Log
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ai_telemetry_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                provider_id TEXT,
+                provider_name TEXT,
+                provider_type TEXT,
+                model TEXT,
+                latency_ms INTEGER,
+                prompt_tokens INTEGER,
+                completion_tokens INTEGER,
+                total_tokens INTEGER,
+                cost REAL DEFAULT 0.0,
+                status TEXT,
+                error_message TEXT,
+                system_prompt_preview TEXT,
+                user_prompt_preview TEXT,
+                response_preview TEXT
+            )
+        ''')
+
+        # AI Failover Log
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ai_failover_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                failed_provider_id TEXT,
+                failed_provider_name TEXT,
+                failed_provider_type TEXT,
+                error_message TEXT,
+                next_provider_id TEXT,
+                next_provider_name TEXT,
+                next_provider_type TEXT
+            )
+        ''')
         
         conn.commit()
 
 # Ensure DB is initialized on import
 init_db()
+

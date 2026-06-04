@@ -180,6 +180,36 @@ def decide_preflight(
             matched_cases=matched_cases,
         )
 
+    # Force planning mode for broad/complex prompt keywords (fuzzy matched)
+    from backend.brain.plan_signature import _get_broad_match_type
+    broad_type = _get_broad_match_type(prompt)
+    if broad_type is not None:
+        return _result(
+            decision=BrainDecision.ASK_USER_BEFORE_GENERATE,
+            confidence=0.95,
+            reason=f"Prompt matches broad features ({broad_type}) which require planning and MVP scope definition before proceeding.",
+            signature=signature,
+            scope_analysis=scope_analysis,
+            recommended_mvp=recommended_mvp,
+            matched_cases=matched_cases,
+        )
+
+    # Force planning mode for short / vague prompts
+    prompt_lower = prompt.lower()
+    words = prompt_lower.split()
+    is_simple_known = signature.app_type in ["hello_world", "todo", "counter", "calculator"]
+    if signature.intent == "build_app" and not is_simple_known:
+        if len(words) <= 5 or len(prompt) <= 45:
+            return _result(
+                decision=BrainDecision.ASK_USER_BEFORE_GENERATE,
+                confidence=0.95,
+                reason="Prompt is too short and vague. It needs MVP scope definition and design decisions clarified before generating code.",
+                signature=signature,
+                scope_analysis=scope_analysis,
+                recommended_mvp=recommended_mvp,
+                matched_cases=matched_cases,
+            )
+
     if signature.complexity == ComplexityLevel.LOW and not scope_analysis.is_broad:
         return _result(
             decision=BrainDecision.LOCAL_ONLY,

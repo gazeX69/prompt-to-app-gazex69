@@ -5,7 +5,7 @@ import socketio
 import time
 import subprocess
 
-BACKEND_URL = 'http://127.0.0.1:8000'
+BACKEND_URL = 'http://127.0.0.1:8001'
 PROJECT_ID = f'react-{int(time.time())}'
 events = []
 
@@ -52,13 +52,13 @@ async def test():
     while time.time() < deadline:
         await asyncio.sleep(0.5)
         states = [e for e in events if e[0] == 'agent_state']
-        if states and states[-1][1] in ('success', 'failed'):
+        if states and states[-1][1].upper() in ('SUCCESS', 'FAILED', 'COMPLETED'):
             print(f'\n[TEST] Terminal state: {states[-1][1]}')
             await asyncio.sleep(1)
             print(f'\n=== RESULTS ({len(events)} events) ===')
             for e in events:
                 if e[0] == 'terminal_line':
-                    print(f'  [{e[2]}] {e[1][:200]}')
+                    print(f"  [{e[2]}] {e[1][:200].encode('ascii', errors='replace').decode('ascii')}")
                 elif e[0] == 'agent_state':
                     print(f'  state = {e[1]}')
                 elif e[0] == 'preview_ready':
@@ -66,7 +66,7 @@ async def test():
                 else:
                     print(f'  {e[0]}')
             await sio.disconnect()
-            return states[-1][1] == 'success'
+            return states[-1][1].upper() in ('SUCCESS', 'COMPLETED')
 
     print('[TEST] TIMEOUT')
     await sio.disconnect()
@@ -74,8 +74,8 @@ async def test():
 
 
 if __name__ == '__main__':
-    # Kill leftover vite dev servers
-    subprocess.run(['taskkill', '/F', '/IM', 'node.exe'], capture_output=True)
+    # Kill leftover vite dev servers disabled to preserve active dev stack
+    # subprocess.run(['taskkill', '/F', '/IM', 'node.exe'], capture_output=True)
     time.sleep(2)
     result = asyncio.run(test())
     print(f'\n[TEST] {"PASS" if result else "FAIL"}')

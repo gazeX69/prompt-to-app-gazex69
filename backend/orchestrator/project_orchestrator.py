@@ -5,6 +5,8 @@ import asyncio
 import datetime
 import hashlib
 import re
+import shutil
+from pathlib import Path
 
 _P8_HISTORY_STORE = {}
 import datetime
@@ -25,7 +27,7 @@ from backend.templates.react_vite_contract import (
     restore_canonical_react_vite_contract,
     validate_react_vite_contract,
 )
-from backend.sandbox.executor import stream_command_array_async, run_dev_server_array_async
+from backend.sandbox.executor import _safe_project_path, stream_command_array_async, run_dev_server_array_async
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +41,86 @@ _ECOSYSTEM_LABELS = {
 
 def _ecosystem_label(name: str) -> str:
     return _ECOSYSTEM_LABELS.get(name, name)
+
+
+def _copy_project_tree(source: Path, destination: Path) -> None:
+    source = source.resolve()
+    destination = destination.resolve()
+    workspace_root = Path("workspaces").resolve()
+    source.relative_to(workspace_root)
+    destination.relative_to(workspace_root)
+    if source == destination:
+        return
+
+    def ignore_transient(_dir: str, names: list[str]) -> set[str]:
+        ignored = {".orchestration", "node_modules", "dist", "build", ".vite", "__pycache__"}
+        return {name for name in names if name in ignored}
+
+    if destination.exists():
+        shutil.rmtree(destination)
+    shutil.copytree(source, destination, ignore=ignore_transient)
+
+
+def _active_source_dir(project_id: str) -> Path | None:
+    project_root = _safe_project_path(project_id)
+    try:
+        from backend.core.scanner.run_manifest import get_active_successful_run_id
+
+        active_run_id = get_active_successful_run_id(project_id)
+    except Exception:
+        active_run_id = None
+    candidates: list[Path] = []
+    if active_run_id:
+        candidates.append(_safe_project_path(project_id, active_run_id))
+    candidates.append(_safe_project_path(project_id, "latest"))
+    candidates.extend(
+        sorted(
+            [path for path in project_root.glob("run_*") if path.is_dir()],
+            key=lambda item: item.stat().st_mtime,
+            reverse=True,
+        )
+    )
+    for candidate in candidates:
+        if candidate.exists() and (
+            (candidate / "package.json").exists()
+            or (candidate / "src").exists()
+            or (candidate / "index.html").exists()
+        ):
+            return candidate
+    return None
+
+
+def _initialize_modify_run_from_current_state(project_id: str, run_id: str, project_action: dict | None) -> bool:
+    if not project_action or project_action.get("action") != "modify" or not project_action.get("has_existing_project"):
+        return False
+    source = _active_source_dir(project_id)
+    if not source:
+        return False
+    destination = _safe_project_path(project_id, run_id)
+    _copy_project_tree(source, destination)
+    return True
+
+
+def _sync_run_to_latest(project_id: str, run_id: str) -> bool:
+    source = _safe_project_path(project_id, run_id)
+    if not source.exists():
+        return False
+    destination = _safe_project_path(project_id, "latest")
+    _copy_project_tree(source, destination)
+    return True
+
+def _get_allowed_dependencies(project_path) -> list[str]:
+    import json
+    from pathlib import Path
+    try:
+        pkg_path = Path(project_path) / "package.json"
+        if pkg_path.exists():
+            pkg_data = json.loads(pkg_path.read_text(encoding="utf-8"))
+            deps = pkg_data.get("dependencies", {})
+            return list(deps.keys())
+    except Exception:
+        pass
+    return []
 
 
 def _create_governance_files(project_id: str, run_id: str, prompt: str, ecosystem: str):
@@ -187,7 +269,6 @@ PLACEHOLDER_TEXT_PATTERNS = [
     "vite + react",
     "edit src/app",
     "click on the vite",
-    "learn react",
     "placeholder",
     "coming soon",
     "generated app",
@@ -197,6 +278,53 @@ PLACEHOLDER_TEXT_PATTERNS = [
 
 def _normalize_visible_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", value or "").strip().lower()
+
+
+def _intent_requirements(prompt_text: str) -> tuple[str, list[str], list[str], int]:
+    try:
+        from backend.brain.plan_signature import build_plan_signature
+
+        signature = build_plan_signature(prompt_text)
+        app_type = signature.app_type
+    except Exception:
+        app_type = "app"
+
+    if app_type == "marketplace":
+        return (
+            app_type,
+            ["product", "produk", "catalog", "katalog", "cart", "keranjang", "checkout", "admin"],
+            ["product", "produk", "cart", "keranjang", "checkout"],
+            5,
+        )
+    if app_type == "inventory":
+        return (
+            app_type,
+            ["item", "barang", "stock", "stok", "quantity", "sku", "low stock", "stok rendah"],
+            ["item", "barang", "stock", "stok"],
+            4,
+        )
+    if app_type == "dashboard":
+        return (
+            app_type,
+            ["dashboard", "metric", "analytics", "report", "chart", "summary"],
+            ["dashboard", "metric", "summary"],
+            2,
+        )
+    if app_type == "crud_app":
+        return (
+            app_type,
+            ["crud", "record", "item", "create", "add", "edit", "update", "delete"],
+            ["create", "add", "delete", "edit", "update"],
+            2,
+        )
+    if app_type in {"recruitment", "finance", "booking", "pos", "cms", "lms", "saas", "social media"}:
+        return (
+            app_type,
+            [app_type.replace("_", " "), "dashboard", "admin", "list", "form", "status"],
+            ["dashboard", "admin", "list", "form"],
+            3,
+        )
+    return app_type, [], [], 0
 
 
 def _validate_preview_usability(
@@ -218,6 +346,16 @@ def _validate_preview_usability(
 
     if any(pattern in visible_text for pattern in PLACEHOLDER_TEXT_PATTERNS):
         return False, "Application usability validation failed: rendered output appears to be a placeholder page."
+
+    app_type, expected_terms, required_any_terms, min_interactive = _intent_requirements(prompt_text)
+    if expected_terms:
+        matched_terms = [term for term in expected_terms if term in visible_text]
+        if len(matched_terms) < 2:
+            return False, f"Application usability validation failed: {app_type} prompt did not render enough domain-specific UI."
+        if required_any_terms and not any(term in visible_text for term in required_any_terms):
+            return False, f"Application usability validation failed: {app_type} prompt is missing required core flow terminology."
+        if interactive_count < min_interactive:
+            return False, f"Application usability validation failed: {app_type} UI does not expose enough visible controls."
 
     if "counter" in prompt:
         if "counter" not in visible_text and "count" not in visible_text:
@@ -458,6 +596,125 @@ async def _filter_react_vite_generated_files(files: list, project_id: str) -> li
     return allowed_files
 
 
+def extract_app_tsx_metadata(patch) -> dict:
+    import re
+    metadata = {
+        "imports": [],
+        "routes": [],
+        "states_or_props": []
+    }
+    content = getattr(patch, "content", "")
+    if not content:
+        return metadata
+        
+    # 1. Extract imports
+    import_matches = re.findall(r"import\s+.*?\s+from\s+['\"].*?['\'];?", content)
+    for imp in import_matches:
+        metadata["imports"].append(imp.strip())
+        
+    # 2. Extract routes (Route declarations)
+    route_matches = re.findall(r"^\s*(?:<Route|</Route>)\s*.*", content, flags=re.MULTILINE)
+    for route in route_matches:
+        metadata["routes"].append(route.strip())
+        
+    # 3. Extract states/hooks inside function App
+    state_matches = re.findall(r"(?:const|let)\s+(?:\[.*?\]|\{.*?\}|\w+)\s*=\s*useState\(.*?\)", content, flags=re.DOTALL)
+    for state in state_matches:
+        metadata["states_or_props"].append(state.strip())
+        
+    hook_matches = re.findall(r"(?:const|let)\s+(?:\[.*?\]|\{.*?\}|\w+)\s*=\s*use[A-Za-z0-9_]+\(.*?\)", content, flags=re.DOTALL)
+    for hook in hook_matches:
+        h_strip = hook.strip()
+        if "useState(" not in h_strip and h_strip not in metadata["states_or_props"]:
+            metadata["states_or_props"].append(h_strip)
+        
+    return metadata
+
+
+def consolidate_app_tsx(base_content: str, imports: list, routes: list, states: list) -> str:
+    import re
+    content = base_content.replace("\r\n", "\n")
+    
+    # Add Imports
+    import_lines = re.findall(r"^(?:import|from)\s+.*", content, flags=re.MULTILINE)
+    unique_imports = []
+    for imp in imports:
+        if imp not in content and imp not in unique_imports:
+            unique_imports.append(imp)
+            
+    if unique_imports:
+        import_block = "\n".join(unique_imports)
+        if import_lines:
+            last_import = import_lines[-1]
+            content = content.replace(last_import, last_import + "\n" + import_block, 1)
+        else:
+            content = import_block + "\n\n" + content
+            
+    # Add States/Hooks
+    unique_states = []
+    for st in states:
+        if st not in content and st not in unique_states:
+            unique_states.append(st)
+            
+    if unique_states:
+        state_block = "\n  " + "\n  ".join(unique_states) + "\n"
+        match = re.search(r"(?:export\s+default\s+)?function\s+App\s*\([^\)]*\)\s*\{", content)
+        if match:
+            idx = match.end()
+            content = content[:idx] + state_block + content[idx:]
+            
+    # Add Routes
+    unique_routes = []
+    for r in routes:
+        if r not in content and r not in unique_routes:
+            unique_routes.append(r)
+            
+    if unique_routes:
+        formatted_routes = "\n      " + "\n      ".join(unique_routes)
+        routes_match = re.search(r"<Routes[^>]*>", content)
+        if routes_match:
+            idx = routes_match.end()
+            content = content[:idx] + formatted_routes + content[idx:]
+            
+    return content
+
+
+def _background_values(content: str) -> list[str]:
+    return [
+        match.group(1).strip().lower()
+        for match in re.finditer(r"(?i)\bbackground(?:-color)?\s*:\s*([^;}{]+)", content or "")
+    ]
+
+
+def _preservation_violations(target: str, old_content: str, new_content: str, change_scope: dict | None) -> list[str]:
+    if not change_scope or change_scope.get("scope_size") != "small":
+        return []
+    facts = (change_scope.get("preserved_source_facts") or {}).get("relevant_preservation_facts") or []
+    violations: list[str] = []
+    for fact in facts:
+        if not str(fact).startswith(f"{target}:"):
+            continue
+        if " = " in str(fact):
+            expected = str(fact).split(" = ", 1)[1].strip()
+            if expected and expected.lower() in (old_content or "").lower() and expected.lower() not in (new_content or "").lower():
+                violations.append(f"Removed preserved source fact from {target}: {fact}")
+        elif "visible text '" in str(fact):
+            expected = str(fact).split("visible text '", 1)[1].split("'", 1)[0]
+            if expected and expected in (old_content or "") and expected not in (new_content or ""):
+                violations.append(f"Removed preserved visible text from {target}: {expected}")
+
+    if change_scope.get("change_type") == "content_addition":
+        old_backgrounds = set(_background_values(old_content))
+        new_backgrounds = set(_background_values(new_content))
+        introduced_backgrounds = new_backgrounds - old_backgrounds
+        if introduced_backgrounds:
+            violations.append(
+                "Content addition introduced background styling that was not requested: "
+                + ", ".join(sorted(introduced_backgrounds))
+            )
+    return violations
+
+
 async def generate_project_async(req: GenerateRequest, generation_id: str | None = None) -> GenerateResponse:
     import random, string
     shortid = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
@@ -489,7 +746,43 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     logger.info("[Router] skill=%s activated=%s", skill_name, route.activated_names)
 
     from backend.memory.project_memory import ProjectMemory
+    from backend.memory.workspace_awareness import WorkspaceAwareness
+    from backend.reflection.reflection_engine import ReflectionEngine
     ProjectMemory.initialize_project(req.project_id, skill_name)
+    project_action = ProjectMemory.classify_action(req.project_id, req.prompt)
+    project_state = ProjectMemory.get_project_state(req.project_id)
+    project_state_context = ProjectMemory.build_state_context(req.project_id, req.prompt)
+    initialized_from_current_state = _initialize_modify_run_from_current_state(req.project_id, run_id, project_action)
+    if initialized_from_current_state:
+        await emit_terminal_line(
+            "[StatePreservation] MODIFY run initialized from active/latest project state.",
+            "info",
+            req.project_id,
+        )
+    workspace_awareness = WorkspaceAwareness.scan(req.project_id, run_id=run_id, prompt=req.prompt)
+    ReflectionEngine.predictive_reflection(req.project_id, req.prompt, workspace_awareness)
+    workspace_awareness_context = WorkspaceAwareness.build_context(req.project_id, run_id=run_id, prompt=req.prompt)
+    change_scope = None
+    change_scope_context = ""
+    try:
+        from backend.brain.change_scope import ChangeScopeAnalyzer
+
+        change_scope = ChangeScopeAnalyzer.analyze(
+            req.project_id,
+            req.prompt,
+            project_state=project_state,
+            project_action=project_action,
+            workspace_awareness=workspace_awareness,
+        )
+        change_scope_context = ChangeScopeAnalyzer.build_context(req.project_id, req.prompt, change_scope)
+        await emit_terminal_line(
+            f"[ChangeScope] mode={change_scope.get('mode')} scope={change_scope.get('scope_size')} type={change_scope.get('change_type')} confidence={float(change_scope.get('confidence') or 0):.2f}",
+            "info",
+            req.project_id,
+        )
+    except Exception as e:
+        logger.exception("Failed to analyze change scope for project=%s", req.project_id)
+        await emit_terminal_line(f"[ChangeScope] Analysis skipped: {e}", "warning", req.project_id)
 
     if not skill:
         await emit_agent_state("failed", req.project_id)
@@ -499,6 +792,35 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     hints = skill.get_generation_hints()
     cmd_strategy = skill.get_command_strategy()
     system_prompt = skill.get_system_prompt()
+
+    # ── Scaffold Template (early initialization before Project Mapping & Planning) ──
+    from backend.agent.tools import create_project, write_file
+    if not initialized_from_current_state:
+        create_project(req.project_id, run_id)
+    create_project(req.project_id, "latest")
+    if hints.get("requires_template", False):
+        template_name = hints.get("template_name", "")
+        if template_name and not initialized_from_current_state:
+            await emit_terminal_line(f"[Template] Scaffolding {template_name}...", "info", req.project_id)
+            try:
+                scaffold_template(req.project_id, template_name, run_id)
+                scaffold_template(req.project_id, template_name, "latest")
+                # Ensure src/vite-env.d.ts is present for Vite + TS client types
+                if skill_name == "react-vite":
+                    write_file(req.project_id, "src/vite-env.d.ts", '/// <reference types="vite/client" />\n', run_id)
+                    write_file(req.project_id, "src/vite-env.d.ts", '/// <reference types="vite/client" />\n', "latest")
+            except Exception as e:
+                await emit_agent_state("failed", req.project_id)
+                await emit_terminal_line(f"[Template] Failed early scaffolding: {e}", "stderr", req.project_id)
+                return GenerateResponse(success=False, project_id=req.project_id, error=str(e))
+        elif initialized_from_current_state:
+            await emit_terminal_line(
+                "[Template] Skipping template scaffold for MODIFY; preserving copied current project files.",
+                "info",
+                req.project_id,
+            )
+    else:
+        await emit_terminal_line(f"[Template] No template needed for {skill_name}, creating empty workspace", "info", req.project_id)
 
     from backend.orchestrator.project_mapper import ProjectMapper
     from backend.orchestrator.planning_engine import PlanningEngine
@@ -512,8 +834,74 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     project_map = await mapper.map_project(skill_name)
     await emit_terminal_line(f"[ProjectMapper] Detected ecosystem: {skill_name}, entrypoints: {len(project_map.entrypoints)}", "info", req.project_id)
     
+    is_medium_or_broad = False
+    cbr_context = ""
+    generation_signature = None
+    generation_scope = None
+    generation_matches = []
+    try:
+        from backend.brain.plan_signature import build_plan_signature
+        from backend.brain.case_retriever import retrieve_matching_cases
+        from backend.brain.cbr_engine import build_case_context
+        from backend.brain.decision_engine import decide_preflight
+        from backend.brain.dss_engine import get_dss_recommendations
+        from backend.brain.scope_analyzer import analyze_scope
+        from backend.brain.schemas import ComplexityLevel, RiskLevel
+
+        generation_signature = build_plan_signature(req.prompt)
+        if (
+            project_action.get("action") == "modify"
+            and project_action.get("has_existing_project")
+            and project_state
+        ):
+            existing_type = project_state.get("project_type")
+            existing_features = project_state.get("features") or []
+            if existing_type and existing_type != "unknown":
+                generation_signature.domain = existing_type
+                generation_signature.app_type = existing_type
+            generation_signature.complexity = ComplexityLevel.LOW
+            generation_signature.feature_keywords = list(existing_features)
+            if change_scope and change_scope.get("change_type"):
+                generation_signature.required_capabilities = [change_scope["change_type"]]
+            else:
+                text_lower = req.prompt.lower()
+                if any(term in text_lower for term in ["background", "warna", "biru", "style", "css"]):
+                    generation_signature.required_capabilities = ["style_update"]
+                else:
+                    generation_signature.required_capabilities = ["targeted_project_modification"]
+        generation_scope = analyze_scope(req.prompt, generation_signature)
+        if project_action.get("action") == "modify" and project_action.get("has_existing_project"):
+            if change_scope and change_scope.get("scope_size") in {"medium", "large", "unclear"}:
+                generation_scope.is_broad = True
+                generation_scope.risk_level = RiskLevel.HIGH if change_scope.get("scope_size") == "large" else RiskLevel.MEDIUM
+            else:
+                generation_scope.is_broad = False
+                generation_scope.risk_level = RiskLevel.LOW
+                generation_scope.missing_decisions = []
+        generation_matches = retrieve_matching_cases(generation_signature, prompt=req.prompt, limit=3)
+        preflight_decision = decide_preflight(req.prompt, generation_signature, generation_scope, generation_matches)
+        dss_recommendations = get_dss_recommendations(generation_scope.missing_decisions)
+        cbr_context = build_case_context(
+            prompt=req.prompt,
+            signature=generation_signature,
+            matched_cases=generation_matches,
+            dss_recommendations=dss_recommendations,
+            confidence=preflight_decision.confidence,
+        )
+        cbr_context = f"{project_state_context}\n\n{workspace_awareness_context}\n\n{change_scope_context}\n\n{cbr_context}"
+        is_medium_or_broad = generation_scope.is_broad or generation_signature.complexity in {ComplexityLevel.MEDIUM, ComplexityLevel.HIGH}
+        await emit_terminal_line(
+            f"[CBR] signature={generation_signature.app_type}, matches={len(generation_matches)}, confidence={preflight_decision.confidence:.2f}",
+            "info",
+            req.project_id,
+        )
+    except Exception as e:
+        logger.exception("Failed to check if prompt is medium or broad: %s", e)
+        cbr_context = f"{project_state_context}\n\n{workspace_awareness_context}\n\n{change_scope_context}"
+
     await emit_terminal_line(f"[Governance] Operation 'Planning' classified as MEDIUM cost", "info", req.project_id)
-    task_graph = await PlanningEngine.create_plan(req.prompt, _ecosystem_label(skill_name), project_map)
+    planner_prompt = f"{req.prompt}\n\n{cbr_context}" if cbr_context else req.prompt
+    task_graph = await PlanningEngine.create_plan(planner_prompt, _ecosystem_label(skill_name), project_map)
     await emit_terminal_line(f"[TaskGraph] Generated {len(task_graph.tasks)} strictly sequenced tasks.", "info", req.project_id)
     
     # Initialize OrchestrationSession
@@ -530,13 +918,32 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     msg_sess = f"[SessionPersistence] Orchestration session snapshot created: {session_id}"
     print(msg_sess)
     await emit_terminal_line(msg_sess, "info", req.project_id)
+
+    # Check for fallback planning task (LLM JSON parsing error)
+    is_fallback = "fallback_task" in task_graph.tasks
+    task_success = False
+
+    from backend.orchestrator.artifact_registry import ArtifactRegistry
+    registry = ArtifactRegistry(session_id)
+    written = []
+
+    if is_fallback:
+        await emit_terminal_line("[TaskGraph] Planning failed (LLM returned invalid JSON). Skipping sequential execution...", "warning", req.project_id)
+        if is_medium_or_broad:
+            await emit_agent_state("failed", req.project_id)
+            fallback_task = task_graph.get_task("fallback_task")
+            error_reason = fallback_task.description if fallback_task else "Planner failed to generate valid JSON."
+            error_msg = f"TaskGraph planning failed for a medium/broad prompt. Monolithic fallback is blocked for high complexity/broad scope. Reason: {error_reason}"
+            await emit_terminal_line(f"[TaskExecutor] Error: {error_msg}", "stderr", req.project_id)
+            await _log_error_async(req.project_id, run_id, error_msg)
+            return GenerateResponse(success=False, project_id=req.project_id, error=error_msg)
     
     # ── P8.4A: Scoped Patch Synthesis (Dry-Run) ──────────────────────────────
     import os
     import json
     from backend.sandbox.executor import _safe_project_path
     
-    base_path = _safe_project_path(req.project_id, "latest")
+    base_path = _safe_project_path(req.project_id, run_id if initialized_from_current_state else "latest")
     p8_patches_dir = base_path / ".orchestration" / "p8" / "patches"
     p8_patches_dir.mkdir(parents=True, exist_ok=True)
     
@@ -596,7 +1003,7 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     from backend.orchestrator.context_hydrator import ContextHydrator
     from backend.sandbox.executor import _safe_project_path
     
-    base_path = _safe_project_path(req.project_id, "latest")
+    base_path = _safe_project_path(req.project_id, run_id if initialized_from_current_state else "latest")
     hydrator = ContextHydrator(project_root=str(base_path), session_id=session_id, task_graph=task_graph)
     
     # Dummy execution callback for SHADOW MODE
@@ -625,44 +1032,71 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
         for name, content in bundle.related_proposed_files.items():
             ctx_str += f"\n--- RELATED PROPOSED FILE: {name} ---\n{content}\n"
             
+        allowed_deps = _get_allowed_dependencies(base_path)
+        deps_constraint = ""
+        if allowed_deps:
+            deps_constraint = f"ALLOWED IMPORTS: You can ONLY import external packages listed here: {', '.join(allowed_deps)}. Do NOT import any other packages (such as 'react-toastify', 'axios', etc.). If you need icons or UI components, use browser alerts/custom code or already declared imports.\n"
+
         scoped_system_prompt = (
             f"You are a strictly bounded execution agent. Your task is to safely execute modifications within the specific boundaries.\n"
+            f"{cbr_context}\n"
             f"Allowed write paths: {task.allowed_write_paths}\n"
             f"Forbidden paths: {task.forbidden_paths}\n"
+            f"{deps_constraint}"
             f"You MUST return a JSON array of structured PatchOperations.\n"
-            f"Each operation must be a JSON object with: 'operation', 'target', 'content', and optionally 'find', 'before', 'after', 'key_path'.\n"
-            f"Allowed operations: create_file, append_to_file, insert_import, replace_block, modify_json_key, inject_component, append_php_include.\n"
-            f"Do NOT return raw file blobs or ===FILE=== delimiters. Return ONLY a valid JSON array.\n"
+            f"Allowed operations and their required fields:\n"
+            f"- create_file: target, content\n"
+            f"- append_to_file: target, content\n"
+            f"- insert_import: target, content\n"
+            f"- replace_block: target, content, find (where 'find' is the EXACT code block to find and replace)\n"
+            f"- inject_component: target, content, and either 'before' or 'after' (specifying the exact anchor block)\n"
+            f"- modify_json_key: target, content, key_path\n"
+            f"- append_php_include: target, content\n"
+            f"Do NOT return raw file blobs or ===FILE=== delimiters. Return ONLY a valid JSON array of objects containing these fields.\n"
             f"{ctx_str}"
         )
         scoped_user_prompt = f"Task: {task.title}\nDescription: {task.description}\nExecute the task within the boundaries by providing a JSON array of patch operations."
         
-        task.add_log("[TaskExecutor] [SHADOW] Running scoped dry-run generation via LLM...")
-        try:
-            raw_response = await asyncio.to_thread(complete, scoped_system_prompt, scoped_user_prompt)
-            # Find JSON array in the response
-            import re
-            json_match = re.search(r'\[\s*\{.*\}\s*\]', raw_response, flags=re.DOTALL)
-            if not json_match:
-                task.add_log(f"[TaskExecutor] [SHADOW] Failed to parse JSON array from LLM response.")
-                task.status = TaskStatus.FAILED
-                task.error_msg = "Invalid JSON structure from LLM"
-                return False
+        patches = getattr(task, "concrete_patches", None)
+        if patches is not None:
+            task.add_log(f"[TaskExecutor] [SHADOW] Reusing {len(patches)} concrete/repaired patches.")
+            from backend.orchestrator.patch_engine import PatchSafetyEngine, PatchSimulator
+        else:
+            task.add_log("[TaskExecutor] [SHADOW] Running scoped dry-run generation via LLM...")
+            try:
+                raw_response = await asyncio.to_thread(complete, scoped_system_prompt, scoped_user_prompt)
+                # Find JSON array in the response
+                import re
+                json_match = re.search(r'\[\s*\{.*\}\s*\]', raw_response, flags=re.DOTALL)
+                if not json_match:
+                    json_match = re.search(r'\[.*\]', raw_response, flags=re.DOTALL)
+                    if not json_match:
+                        task.add_log(f"[TaskExecutor] [SHADOW] Failed to parse JSON array from LLM response.")
+                        task.add_log(f"[TaskExecutor] [SHADOW] Raw Response: {raw_response}")
+                        task.status = TaskStatus.FAILED
+                        task.error_msg = "Invalid JSON structure from LLM"
+                        return False
+                    
+                operations_data = json.loads(json_match.group(0))
                 
-            operations_data = json.loads(json_match.group(0))
+                from backend.orchestrator.patch_engine import PatchOperation, PatchSafetyEngine, PatchSimulator
+                patches = [PatchOperation.from_dict(d) for d in operations_data]
+                task.concrete_patches = patches  # Save concrete patches for real execution!
+                task.add_log(f"[TaskExecutor] [SHADOW] Scoped generation yielded {len(patches)} patch operations.")
+            except Exception as e:
+                task.add_log(f"[TaskExecutor] [SHADOW] Dry-run generation crashed: {e}")
+                return False
             
-            from backend.orchestrator.patch_engine import PatchOperation, PatchSafetyEngine, PatchSimulator
-            patches = [PatchOperation.from_dict(d) for d in operations_data]
-            
-            task.add_log(f"[TaskExecutor] [SHADOW] Scoped generation yielded {len(patches)} patch operations.")
-            
+        try:
             # Setup simulation
-            engine = PatchSafetyEngine(allowed_paths=task.allowed_write_paths, forbidden_paths=task.forbidden_paths)
+            allowed_paths = list(set((task.allowed_write_paths or []) + (task.affected_files or [])))
+            engine = PatchSafetyEngine(allowed_paths=allowed_paths, forbidden_paths=task.forbidden_paths)
             simulator = PatchSimulator(workspace_root=str(base_path), session_id=session_id, task_id=task.id)
             
-            # Use bundle.readable_files and bundle.dependency_outputs as starting point
+            # Use bundle.readable_files, bundle.dependency_outputs, and bundle.related_proposed_files as starting point
             current_files = bundle.readable_files.copy()
             current_files.update(bundle.dependency_outputs)
+            current_files.update(bundle.related_proposed_files)
             
             reports = simulator.simulate(patches, current_files, engine)
             
@@ -675,7 +1109,30 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                 elif not r.success:
                     task.add_log(f"[TaskExecutor] [SHADOW] Patch failed on {r.operation.target}: {r.error}")
                     failed_patches += 1
+                else:
+                    simulated_path = os.path.join(simulator.sim_dir, r.operation.target.replace("/", os.sep))
+                    try:
+                        with open(simulated_path, "r", encoding="utf-8") as f:
+                            simulated_content = f.read()
+                    except Exception:
+                        simulated_content = ""
+                    old_content = current_files.get(r.operation.target, "")
+                    preservation_errors = _preservation_violations(
+                        r.operation.target,
+                        old_content,
+                        simulated_content,
+                        change_scope,
+                    )
+                    if preservation_errors:
+                        for error in preservation_errors:
+                            task.add_log(f"[TaskExecutor] [SHADOW] PRESERVATION VIOLATION: {error}")
+                        failed_patches += 1
             
+            if failed_patches > 0:
+                task.status = TaskStatus.FAILED
+                task.error_msg = f"{failed_patches} patch operations failed simulation or violated scope during shadow run."
+                return False
+                
             task.add_log(f"[TaskExecutor] [SHADOW] Patch simulation completed. {len([r for r in reports if r.success])}/{len(reports)} succeeded.")
             
             # (Optional) we could map proposed files back to task.proposed_artifacts for downstream tasks
@@ -716,13 +1173,275 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
         
     await executor.execute_all(shadow_execution_callback)
     
-    # Check if anything failed in shadow mode (shouldn't, since it's hardcoded True)
+    # ── Collision Recovery / Aggregation / Repair Pass ───────────────────────
+    is_dry_run_failed = task_graph.has_failed_tasks()
+    has_collisions = len(collisions_detected) > 0
+    
+    if is_dry_run_failed or has_collisions:
+        await emit_terminal_line("[CollisionRecovery] Failure or collision detected in initial dry-run. Initiating Collision Repair Pass...", "warning", req.project_id)
+        
+        # Print failed task logs for diagnostic visibility
+        for t_id, task in task_graph.tasks.items():
+            if task.status == TaskStatus.FAILED:
+                print(f"[CollisionRecovery Diagnostics] Failed task {t_id}: {task.error_msg}")
+                for log in task.logs:
+                    print(f"  [CollisionRecovery Log] {log}")
+        
+        # Step A: Find the primary owner of src/App.tsx
+        primary_app_owner = None
+        for t_id, task in task_graph.tasks.items():
+            if "src/App.tsx" in task.allowed_write_paths:
+                primary_app_owner = t_id
+                break
+        if not primary_app_owner:
+            for t_id, task in task_graph.tasks.items():
+                if "src/App.tsx" in task.affected_files:
+                    primary_app_owner = t_id
+                    break
+        if not primary_app_owner:
+            if "task-1" in task_graph.tasks:
+                primary_app_owner = "task-1"
+            elif task_graph.tasks:
+                primary_app_owner = list(task_graph.tasks.keys())[0]
+                
+        if primary_app_owner:
+            session_planned_imports = []
+            session_planned_routes = []
+            session_planned_states = []
+            other_app_patches = []
+            
+            # Step B: Gather all patch intents from other tasks
+            for t_id, task in task_graph.tasks.items():
+                if t_id == primary_app_owner:
+                    continue
+                    
+                concrete_patches = getattr(task, "concrete_patches", None)
+                if concrete_patches is None:
+                    continue
+                    
+                remaining_patches = []
+                for p in concrete_patches:
+                    if p.target == "src/App.tsx":
+                        # Record raw patch for sequential application
+                        other_app_patches.append(p)
+                        # Extract route, import, state metadata
+                        meta = extract_app_tsx_metadata(p)
+                        session_planned_imports.extend(meta["imports"])
+                        session_planned_routes.extend(meta["routes"])
+                        session_planned_states.extend(meta["states_or_props"])
+                    else:
+                        remaining_patches.append(p)
+                task.concrete_patches = remaining_patches
+                
+            # Step C: Consolidate patches into the primary owner's App.tsx patch
+            owner_task = task_graph.get_task(primary_app_owner)
+            app_patch = None
+            if hasattr(owner_task, "concrete_patches") and owner_task.concrete_patches:
+                for p in owner_task.concrete_patches:
+                    if p.target == "src/App.tsx" and p.operation == "create_file":
+                        app_patch = p
+                        break
+                    
+            if app_patch:
+                base_content = app_patch.content
+                for p in other_app_patches:
+                    try:
+                        from backend.orchestrator.patch_engine import apply_patch
+                        base_content = apply_patch(p, base_content)
+                        await emit_terminal_line(f"[CollisionRecovery] Successfully applied patch {p.operation} from secondary task to base App.tsx content.", "info", req.project_id)
+                    except Exception as e:
+                        await emit_terminal_line(f"[CollisionRecovery] Could not apply patch {p.operation} sequentially: {e}. Falling back to metadata extraction.", "warning", req.project_id)
+
+                app_patch.content = consolidate_app_tsx(
+                    base_content,
+                    session_planned_imports,
+                    session_planned_routes,
+                    session_planned_states
+                )
+                await emit_terminal_line(
+                    f"[CollisionRecovery] Consolidated {len(session_planned_imports)} imports, "
+                    f"{len(session_planned_routes)} routes, and {len(session_planned_states)} states "
+                    f"into primary App.tsx owner task ({primary_app_owner}) create_file patch.",
+                    "info",
+                    req.project_id
+                )
+            else:
+                # Fallback: Read current simulated/workspace App.tsx content and append new consolidated patch
+                existing_content = ""
+                sim_path = os.path.join(str(base_path), ".orchestration", "patch_simulations", session_id, primary_app_owner, "src", "App.tsx")
+                if os.path.exists(sim_path):
+                    with open(sim_path, "r", encoding="utf-8") as f:
+                        existing_content = f.read()
+                if not existing_content:
+                    workspace_path = base_path / "src" / "App.tsx"
+                    if workspace_path.exists():
+                        existing_content = workspace_path.read_text(encoding="utf-8")
+                        
+                # Default React App.tsx skeleton if file is empty or missing
+                if not existing_content:
+                    existing_content = """import React from 'react';
+import { Routes, Route } from 'react-router-dom';
+
+export default function App() {
+  return (
+    <div className="app">
+      <Routes>
+      </Routes>
+    </div>
+  );
+}
+"""
+                for p in other_app_patches:
+                    try:
+                        from backend.orchestrator.patch_engine import apply_patch
+                        existing_content = apply_patch(p, existing_content)
+                        await emit_terminal_line(f"[CollisionRecovery] Successfully applied patch {p.operation} to fallback App.tsx content.", "info", req.project_id)
+                    except Exception as e:
+                        await emit_terminal_line(f"[CollisionRecovery] Could not apply patch {p.operation} sequentially: {e}. Falling back to metadata extraction.", "warning", req.project_id)
+
+                consolidated_content = consolidate_app_tsx(
+                    existing_content,
+                    session_planned_imports,
+                    session_planned_routes,
+                    session_planned_states
+                )
+                from backend.orchestrator.patch_engine import PatchOperation
+                new_p = PatchOperation(
+                    operation="create_file",
+                    target="src/App.tsx",
+                    content=consolidated_content
+                )
+                if not hasattr(owner_task, "concrete_patches") or owner_task.concrete_patches is None:
+                    owner_task.concrete_patches = []
+                owner_task.concrete_patches = [p for p in owner_task.concrete_patches if p.target != "src/App.tsx"]
+                owner_task.concrete_patches.append(new_p)
+                await emit_terminal_line(
+                    f"[CollisionRecovery] Created new consolidated App.tsx patch for primary owner task ({primary_app_owner})",
+                    "info",
+                    req.project_id
+                )
+            
+            # Step D: Process collisions on other files
+            file_patches = {}
+            for t_id, task in task_graph.tasks.items():
+                concrete_patches = getattr(task, "concrete_patches", []) or []
+                for p in concrete_patches:
+                    if p.target == "src/App.tsx":
+                        continue
+                    if p.target not in file_patches:
+                        file_patches[p.target] = []
+                    file_patches[p.target].append((t_id, p))
+
+            for target_file, p_list in file_patches.items():
+                distinct_tasks = set(t_id for t_id, _ in p_list)
+                if len(distinct_tasks) <= 1:
+                    continue
+                    
+                await emit_terminal_line(
+                    f"[CollisionRecovery] Collision detected on {target_file} from tasks: {list(distinct_tasks)}",
+                    "warning",
+                    req.project_id
+                )
+                
+                sorted_tasks = sorted(list(distinct_tasks), key=lambda x: int(x.split('-')[-1]) if '-' in x and x.split('-')[-1].isdigit() else 999)
+                earliest_task_id = sorted_tasks[0]
+                earliest_task = task_graph.get_task(earliest_task_id)
+                
+                merged_patches = []
+                seen_create = False
+                
+                for t_id in sorted_tasks:
+                    task_ops = [p for tid, p in p_list if tid == t_id]
+                    for p in task_ops:
+                        if p.operation == "create_file":
+                            if not seen_create:
+                                merged_patches.append(p)
+                                seen_create = True
+                            else:
+                                first_create = next(op for op in merged_patches if op.operation == "create_file")
+                                if first_create.content.strip() == p.content.strip():
+                                    await emit_terminal_line(f"[CollisionRecovery] Merged duplicate create_file for {target_file}", "info", req.project_id)
+                                else:
+                                    await emit_terminal_line(f"[CollisionRecovery] Conflict: Duplicate create_file with different contents for {target_file}. Keeping earliest task's content.", "warning", req.project_id)
+                        elif p.operation in ["append_to_file", "append_php_include"]:
+                            existing_append = next((op for op in merged_patches if op.operation == p.operation), None)
+                            if existing_append:
+                                existing_append.content += "\n" + p.content
+                                await emit_terminal_line(f"[CollisionRecovery] Merged append_to_file for {target_file}", "info", req.project_id)
+                            else:
+                                merged_patches.append(p)
+                        elif p.operation == "insert_import":
+                            existing_import = next((op for op in merged_patches if op.operation == "insert_import"), None)
+                            if existing_import:
+                                existing_lines = [line.strip() for line in existing_import.content.split('\n') if line.strip()]
+                                new_lines = [line.strip() for line in p.content.split('\n') if line.strip()]
+                                for line in new_lines:
+                                    if line not in existing_lines:
+                                        existing_lines.append(line)
+                                existing_import.content = "\n".join(existing_lines)
+                            else:
+                                merged_patches.append(p)
+                        elif p.operation == "modify_json_key":
+                            duplicate_key = next((op for op in merged_patches if op.operation == "modify_json_key" and op.key_path == p.key_path), None)
+                            if duplicate_key:
+                                if duplicate_key.content.strip() != p.content.strip():
+                                    await emit_terminal_line(f"[CollisionRecovery] Conflict: Different value for json key '{p.key_path}' in {target_file}. Keeping earliest.", "warning", req.project_id)
+                            else:
+                                merged_patches.append(p)
+                        elif p.operation == "replace_block":
+                            duplicate_replace = next((op for op in merged_patches if op.operation == "replace_block" and op.find == p.find), None)
+                            if duplicate_replace:
+                                if duplicate_replace.content.strip() != p.content.strip():
+                                    await emit_terminal_line(f"[CollisionRecovery] Conflict: Different replace block for '{p.find}' in {target_file}. Keeping earliest.", "warning", req.project_id)
+                            else:
+                                merged_patches.append(p)
+                        elif p.operation == "inject_component":
+                            duplicate_inject = next((op for op in merged_patches if op.operation == "inject_component" and op.after == p.after and op.before == p.before), None)
+                            if duplicate_inject:
+                                duplicate_inject.content += "\n" + p.content
+                            else:
+                                merged_patches.append(p)
+                        else:
+                            merged_patches.append(p)
+
+                if hasattr(earliest_task, "concrete_patches") and earliest_task.concrete_patches is not None:
+                    earliest_task.concrete_patches = [p for p in earliest_task.concrete_patches if p.target != target_file]
+                    earliest_task.concrete_patches.extend(merged_patches)
+                    
+                for t_id in distinct_tasks:
+                    if t_id == earliest_task_id:
+                        continue
+                    other_task = task_graph.get_task(t_id)
+                    if hasattr(other_task, "concrete_patches") and other_task.concrete_patches is not None:
+                        other_task.concrete_patches = [p for p in other_task.concrete_patches if p.target != target_file]
+
+            # Step E: Reset task graph task statuses for re-running dry-run
+            from backend.orchestrator.task_graph import TaskStatus
+            for task in task_graph.tasks.values():
+                task.status = TaskStatus.PENDING
+                task.error_msg = None
+                task.started_at = None
+                task.completed_at = None
+                task.logs = []
+                task.validation_artifacts = {}
+                
+            # Step F: Re-run dry-run with consolidated/repaired patches
+            await emit_terminal_line("[CollisionRecovery] Re-running dry-run with consolidated/repaired patches...", "info", req.project_id)
+            await executor.execute_all(shadow_execution_callback)
+            
+            if task_graph.has_failed_tasks():
+                await emit_terminal_line("[CollisionRecovery] Dry-run still failed after repair attempt.", "stderr", req.project_id)
+            else:
+                await emit_terminal_line("[CollisionRecovery] Dry-run repaired successfully!", "success", req.project_id)
+
+    # Check if anything failed in shadow mode
     if task_graph.has_failed_tasks():
         orchestration_session.status = "failed"
         SessionPersistence.save_snapshot(orchestration_session)
-        msg6 = "[TaskExecutor] [SHADOW] Execution graph failed."
+        msg6 = "[TaskExecutor] [SHADOW] Execution graph failed. Aborting real execution."
         print(msg6)
         await emit_terminal_line(msg6, "warning", req.project_id)
+        return GenerateResponse(success=False, project_id=req.project_id, error="TaskGraph shadow/dry-run execution failed. Patch simulation reported failures.")
     else:
         orchestration_session.status = "completed"
         SessionPersistence.save_snapshot(orchestration_session)
@@ -732,23 +1451,7 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     # ── END SHADOW MODE ───────────────────────────────────────────────────────
 
     await emit_agent_state("scaffolding", req.project_id)
-
-    # ── Step 1: Scaffold Template (if needed) ─────────────────────────────────
-    from backend.agent.tools import create_project
-    create_project(req.project_id, run_id)
-
-    if hints.get("requires_template", False):
-        template_name = hints.get("template_name", "")
-        if template_name:
-            await emit_terminal_line(f"[Template] Scaffolding {template_name}...", "info", req.project_id)
-            try:
-                scaffold_template(req.project_id, template_name, run_id)
-            except Exception as e:
-                await emit_agent_state("failed", req.project_id)
-                await emit_terminal_line(f"[Template] Failed: {e}", "stderr", req.project_id)
-                return GenerateResponse(success=False, project_id=req.project_id, error=str(e))
-    else:
-        await emit_terminal_line(f"[Template] No template needed for {skill_name}, creating empty workspace", "info", req.project_id)
+    await emit_terminal_line("[Template] Project workspace is scaffolded and ready.", "info", req.project_id)
 
     await emit_terminal_line("[Governance] Creating workspace governance files...", "info", req.project_id)
     await asyncio.to_thread(_create_governance_files, req.project_id, run_id, req.prompt, skill_name)
@@ -756,87 +1459,302 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
 
     # ── Step 2: Generate Features ─────────────────────────────────────────────
     await emit_agent_state("generating", req.project_id)
-    await emit_terminal_line(f"[AI] Generating {_ecosystem_label(skill_name)} project...", "info", req.project_id)
+    await emit_terminal_line(f"[AI] Starting sequential developer generation via TaskGraph...", "info", req.project_id)
 
-    from backend.context.context_compressor import ContextCompressor
-    project_context = ContextCompressor.get_full_context(req.project_id, run_id)
-    
-    # --- P8.2: Build GenerationBlueprint ---
-    blueprint = "=== REQUIRED TOPOLOGY (DO NOT IGNORE) ===\n"
-    blueprint += "You MUST separate concerns. Do NOT place all logic in a single file (like App.tsx).\n"
-    if project_map.entrypoints:
-        blueprint += f"Root Entrypoints: {', '.join(project_map.entrypoints)}\n"
-    blueprint += "Planned Components & Responsibilities:\n"
-    for t_id, task in task_graph.tasks.items():
-        targets = task.allowed_write_paths if task.allowed_write_paths else task.affected_files
-        target_str = ", ".join(targets) if targets else "Core structural logic"
-        blueprint += f"- {target_str}: {task.description}\n"
-    blueprint += "\nSTRICT ANTI-MONOLITH RULES:\n"
-    blueprint += "- Separate UI components, state management, and root wiring into separate files.\n"
-    blueprint += "- Keep App.tsx small (composition only).\n"
-    blueprint += "- Follow the planned component responsibilities above.\n"
-    blueprint += "=========================================\n"
-    
-    user_prompt = (
-        f"Generate a {_ecosystem_label(skill_name)} project based on this request:\n\n"
-        f"{req.prompt}\n\n"
-        f"--- CURRENT PROJECT KNOWLEDGE ---\n"
-        f"{project_context}\n"
-        f"----------------------------------\n\n"
-        f"{blueprint}\n\n"
-        f"Return files using the ===FILE:relative/path.ext=== ... ===END=== delimiter format."
-    )
-
-    try:
-        await emit_terminal_line(f"[Governance] Operation 'Full Generation' classified as HIGH cost", "info", req.project_id)
-        await emit_terminal_line(f"[AI] Calling LLM with {skill_name}-specific system prompt", "info", req.project_id)
-        t_start = time.time()
-        raw = await asyncio.to_thread(complete, system_prompt, user_prompt)
-        gen_duration = time.time() - t_start
-    except Exception as e:
-        await emit_agent_state("failed", req.project_id)
-        await emit_terminal_line(f"[AI] API error: {e}", "stderr", req.project_id)
-        await _log_error_async(req.project_id, run_id, f"AI generation error: {e}")
-        return GenerateResponse(success=False, project_id=req.project_id, error=str(e))
-
-    # ── Step 3: Parse ─────────────────────────────────────────────────────────
-    await emit_terminal_line("[Parser] Validating AI output...", "info", req.project_id)
-    try:
-        files = parse_ai_response(raw)
-        await emit_terminal_line(f"[Parser] Parsed {len(files)} files", "info", req.project_id)
-    except ParseError as e:
-        await emit_agent_state("failed", req.project_id)
-        await emit_terminal_line(f"[Parser] Error: {e}", "stderr", req.project_id)
-        await _log_error_async(req.project_id, run_id, f"Parse error: {e}\n\nRAW:\n{raw}")
-        return GenerateResponse(success=False, project_id=req.project_id, error=str(e))
-
-    # ── Step 4: Validate against ecosystem ────────────────────────────────────
-    valid_extensions = skill.get_file_patterns()
-    for f in files:
-        ext_ok = any(f.path.endswith(pat.replace("*", "")) for pat in valid_extensions) if valid_extensions != ["*"] else True
-        if not ext_ok:
-            await emit_terminal_line(f"[Validation] WARNING: {f.path} may not match {skill_name} ecosystem (pattern: {valid_extensions})", "stderr", req.project_id)
-
-    if skill_name == "react-vite":
-        files = await _filter_react_vite_generated_files(files, req.project_id)
-
-    # ── Step 5: Write & Capture Artifacts ─────────────────────────────────────
-    await emit_agent_state("writing", req.project_id)
-    
     from backend.orchestrator.artifact_registry import ArtifactRegistry
     registry = ArtifactRegistry(session_id)
-    
     written = []
-    for f in files:
-        registry.add_actual_file(f.path, f.content)
+    
+    real_base_path = _safe_project_path(req.project_id, run_id)
+    real_hydrator = ContextHydrator(project_root=str(real_base_path), session_id=session_id, task_graph=task_graph)
+    
+    async def real_execution_callback_inner(task):
+        msg = f"[TaskExecutor] Running task: {task.id} - {task.title}"
+        print(msg)
+        task.add_log(msg)
+        await emit_terminal_line(msg, "info", req.project_id)
+        
+        # Context hydration
+        bundle = real_hydrator.hydrate_context(task)
+        
+        ctx_str = "\n\n=== RELEVANT CONTEXT (Read-Only) ===\n"
+        for name, content in bundle.readable_files.items():
+            ctx_str += f"\n--- EXISTING FILE: {name} ---\n{content}\n"
+        for name, content in bundle.dependency_outputs.items():
+            ctx_str += f"\n--- DEPENDENCY OUTPUT: {name} ---\n{content}\n"
+        for name, content in bundle.related_proposed_files.items():
+            ctx_str += f"\n--- RELATED PROPOSED FILE: {name} ---\n{content}\n"
+            
+        allowed_deps = _get_allowed_dependencies(real_base_path)
+        deps_constraint = ""
+        if allowed_deps:
+            deps_constraint = f"ALLOWED IMPORTS: You can ONLY import external packages listed here: {', '.join(allowed_deps)}. Do NOT import any other packages (such as 'react-toastify', 'axios', etc.). If you need icons or UI components, use browser alerts/custom code or already declared imports.\n"
+
+        scoped_system_prompt = (
+            f"You are a professional developer AI Agent. Your task is to safely execute modifications within the specific boundaries.\n"
+            f"{cbr_context}\n"
+            f"Allowed write paths: {task.allowed_write_paths}\n"
+            f"Forbidden paths: {task.forbidden_paths}\n"
+            f"{deps_constraint}"
+            f"You MUST return a JSON array of structured PatchOperations.\n"
+            f"Allowed operations and their required fields:\n"
+            f"- create_file: target, content\n"
+            f"- append_to_file: target, content\n"
+            f"- insert_import: target, content\n"
+            f"- replace_block: target, content, find (where 'find' is the EXACT code block to find and replace)\n"
+            f"- inject_component: target, content, and either 'before' or 'after' (specifying the exact anchor block)\n"
+            f"- modify_json_key: target, content, key_path\n"
+            f"- append_php_include: target, content\n"
+            f"Do NOT return raw file blobs or ===FILE=== delimiters. Return ONLY a valid JSON array of objects containing these fields.\n"
+            f"{ctx_str}"
+        )
+        scoped_user_prompt = f"Task: {task.title}\nDescription: {task.description}\nExecute the task within the boundaries by providing a JSON array of patch operations."
+        
+        patches = getattr(task, "concrete_patches", None)
+        if patches is not None:
+            task.add_log(f"[TaskExecutor] Reusing {len(patches)} concrete patches generated during shadow/dry-run phase.")
+            await emit_terminal_line(f"[TaskExecutor] Reusing {len(patches)} concrete patches generated during shadow/dry-run phase.", "info", req.project_id)
+        else:
+            task.add_log("[TaskExecutor] Running scoped generation via LLM...")
+            try:
+                raw_response = await asyncio.to_thread(complete, scoped_system_prompt, scoped_user_prompt)
+                import re
+                json_match = re.search(r'\[\s*\{.*\}\s*\]', raw_response, flags=re.DOTALL)
+                if not json_match:
+                    json_match = re.search(r'\[.*\]', raw_response, flags=re.DOTALL)
+                    if not json_match:
+                        task.add_log(f"[TaskExecutor] Failed to parse JSON array from LLM response.")
+                        task.status = TaskStatus.FAILED
+                        task.error_msg = "Invalid JSON structure from LLM"
+                        return False
+                    
+                operations_data = json.loads(json_match.group(0))
+                
+                from backend.orchestrator.patch_engine import PatchOperation
+                patches = [PatchOperation.from_dict(d) for d in operations_data]
+                task.add_log(f"[TaskExecutor] Scoped generation yielded {len(patches)} patch operations.")
+            except Exception as e:
+                task.add_log(f"[TaskExecutor] Scoped generation crashed: {e}")
+                task.status = TaskStatus.FAILED
+                task.error_msg = str(e)
+                return False
+
+        from backend.orchestrator.patch_engine import PatchSafetyEngine, PatchSimulator
         try:
-            path = await asyncio.to_thread(write_file, req.project_id, f.path, f.content, run_id)
-            written.append(path)
-            await emit_terminal_line(f"[Writer] Writing {f.path}", "info", req.project_id)
-            await _log_work_async(req.project_id, run_id, f"Created {f.path}")
-        except ValueError as e:
-            await emit_terminal_line(f"[Writer] Skipping {f.path}: {e}", "stderr", req.project_id)
-            await _log_error_async(req.project_id, run_id, f"Skipped {f.path}: {e}")
+            allowed_paths = list(set((task.allowed_write_paths or []) + (task.affected_files or [])))
+            engine = PatchSafetyEngine(allowed_paths=allowed_paths, forbidden_paths=task.forbidden_paths)
+            simulator = PatchSimulator(workspace_root=str(real_base_path), session_id=session_id, task_id=task.id)
+            
+            current_files = bundle.readable_files.copy()
+            current_files.update(bundle.dependency_outputs)
+            current_files.update(bundle.related_proposed_files)
+            
+            reports = simulator.simulate(patches, current_files, engine)
+            
+            failed_patches = 0
+            for r in reports:
+                if r.classification == "forbidden":
+                    task.add_log(f"[TaskExecutor] SCOPE VIOLATION (Skipped): {r.operation.target} is forbidden.")
+                    failed_patches += 1
+                elif not r.success:
+                    task.add_log(f"[TaskExecutor] Patch failed on {r.operation.target}: {r.error}")
+                    failed_patches += 1
+            
+            if failed_patches > 0:
+                task.status = TaskStatus.FAILED
+                task.error_msg = f"{failed_patches} patch operations failed or violated scope."
+                return False
+                
+            task.add_log(f"[TaskExecutor] Patch simulation completed. {len(reports)}/{len(reports)} succeeded.")
+            
+            # Map proposed files back to task.proposed_artifacts for downstream tasks
+            # using the simulation directory
+            import os
+            for fpath in set(p.target for p in patches):
+                task.proposed_artifacts[fpath] = os.path.join(simulator.sim_dir, fpath.replace("/", os.sep))
+            
+            # Apply patches to ACTUAL workspace!
+            for patch in patches:
+                target_path = real_base_path / patch.target
+                
+                # Apply the specific operation to target file
+                file_content = ""
+                if target_path.exists():
+                    file_content = target_path.read_text(encoding="utf-8")
+                
+                try:
+                    from backend.orchestrator.patch_engine import apply_patch
+                    new_content = apply_patch(patch, file_content)
+                except Exception as e:
+                    task.add_log(f"Patch execution failed on {patch.target}: {e}")
+                    return False
+
+                preservation_errors = _preservation_violations(patch.target, file_content, new_content, change_scope)
+                if preservation_errors:
+                    for error in preservation_errors:
+                        task.add_log(f"[TaskExecutor] PRESERVATION VIOLATION: {error}")
+                        await emit_terminal_line(f"[StatePreservation] {error}", "stderr", req.project_id)
+                    return False
+                
+                # Write back to workspace
+                path = await asyncio.to_thread(write_file, req.project_id, patch.target, new_content, run_id)
+                registry.add_actual_file(patch.target, new_content)
+                if path not in written:
+                    written.append(path)
+                task.add_log(f"[TaskExecutor] Applied patch to {patch.target}")
+                await emit_terminal_line(f"[TaskExecutor] Applied patch to {patch.target}", "info", req.project_id)
+                
+            return True
+            
+        except Exception as e:
+            task.add_log(f"[TaskExecutor] Execution crashed: {e}")
+            return False
+
+    async def real_execution_callback(task):
+        try:
+            success = await real_execution_callback_inner(task)
+            import time
+            task.completed_at = time.time()
+            task.status = TaskStatus.COMPLETED if success else TaskStatus.FAILED
+            return success
+        except Exception as e:
+            import time
+            task.completed_at = time.time()
+            task.status = TaskStatus.FAILED
+            task.error_msg = str(e)
+            task.add_log(f"CRASH: {e}")
+            return False
+        finally:
+            SessionPersistence.save_snapshot(orchestration_session)
+
+    user_prompt = ""
+    blueprint = ""
+    project_context = ""
+    gen_duration = 0.0
+    task_success = False
+
+    if not is_fallback:
+        # Reset task graph task statuses and properties before the real execution run
+        from backend.orchestrator.task_graph import TaskStatus
+        for task in task_graph.tasks.values():
+            task.status = TaskStatus.PENDING
+            task.error_msg = None
+            task.started_at = None
+            task.completed_at = None
+            task.logs = []
+            task.validation_artifacts = {}
+            task.proposed_artifacts = {}
+
+        # Run sequential task execution!
+        real_executor = TaskExecutor(task_graph)
+        t_start = time.time()
+        if len(task_graph.tasks) > 0:
+            task_success = await real_executor.execute_all(real_execution_callback)
+            # Update orchestration session status on completion/failure
+            orchestration_session.status = "completed" if task_success else "failed"
+            SessionPersistence.save_snapshot(orchestration_session)
+            gen_duration = time.time() - t_start
+    
+    if not task_success:
+        if is_medium_or_broad:
+            await emit_agent_state("failed", req.project_id)
+            error_msg = "TaskGraph execution failed or was empty for a medium/broad prompt. Monolithic fallback is blocked for high complexity/broad scope."
+            await emit_terminal_line(f"[TaskExecutor] Error: {error_msg}", "stderr", req.project_id)
+            await _log_error_async(req.project_id, run_id, error_msg)
+            return GenerateResponse(success=False, project_id=req.project_id, error=error_msg)
+            
+        await emit_terminal_line("[TaskExecutor] Sequential TaskGraph execution failed or was empty. Falling back to single-shot monolithic generation...", "warning", req.project_id)
+        
+        # ── Step 2: Generate Features (Fallback) ─────────────────────────────────────────────
+        from backend.context.context_compressor import ContextCompressor
+        project_context = ContextCompressor.get_full_context(req.project_id, run_id)
+        
+        # --- P8.2: Build GenerationBlueprint ---
+        allowed_deps = _get_allowed_dependencies(real_base_path)
+        deps_constraint = ""
+        if allowed_deps:
+            deps_constraint = f"ALLOWED IMPORTS: You can ONLY import external packages listed here: {', '.join(allowed_deps)}. Do NOT import any other packages (such as 'react-toastify', 'axios', etc.). If you need icons or UI components, use browser alerts/custom code or already declared imports.\n"
+
+        blueprint = "=== REQUIRED TOPOLOGY (DO NOT IGNORE) ===\n"
+        blueprint += "You MUST separate concerns. Do NOT place all logic in a single file (like App.tsx).\n"
+        if project_map.entrypoints:
+            blueprint += f"Root Entrypoints: {', '.join(project_map.entrypoints)}\n"
+        blueprint += "Planned Components & Responsibilities:\n"
+        for t_id, task in task_graph.tasks.items():
+            targets = task.allowed_write_paths if task.allowed_write_paths else task.affected_files
+            target_str = ", ".join(targets) if targets else "Core structural logic"
+            blueprint += f"- {target_str}: {task.description}\n"
+        blueprint += f"\n{deps_constraint}\n"
+        blueprint += "STRICT ANTI-MONOLITH RULES:\n"
+        blueprint += "- Separate UI components, state management, and root wiring into separate files.\n"
+        blueprint += "- Keep App.tsx small (composition only).\n"
+        blueprint += "- Follow the planned component responsibilities above.\n"
+        blueprint += "=========================================\n"
+        
+        # Clean prompt of Task list and Implementation plan to prevent LLM confusion during monolithic fallback
+        clean_prompt = req.prompt
+        if "Task list:" in clean_prompt:
+            clean_prompt = clean_prompt.split("Task list:")[0].strip()
+        if "Implementation plan:" in clean_prompt:
+            clean_prompt = clean_prompt.split("Implementation plan:")[0].strip()
+
+        user_prompt = (
+            f"Generate a {_ecosystem_label(skill_name)} project based on this request:\n\n"
+            f"{clean_prompt}\n\n"
+            f"{cbr_context}\n\n"
+            f"--- CURRENT PROJECT KNOWLEDGE ---\n"
+            f"{project_context}\n"
+            f"----------------------------------\n\n"
+            f"{blueprint}\n\n"
+            f"Return files using the ===FILE:relative/path.ext=== ... ===END=== delimiter format."
+        )
+
+        try:
+            await emit_terminal_line(f"[Governance] Operation 'Full Generation' classified as HIGH cost", "info", req.project_id)
+            await emit_terminal_line(f"[AI] Calling LLM with {skill_name}-specific system prompt", "info", req.project_id)
+            t_start = time.time()
+            raw = await asyncio.to_thread(complete, system_prompt, user_prompt)
+            gen_duration = time.time() - t_start
+        except Exception as e:
+            await emit_agent_state("failed", req.project_id)
+            await emit_terminal_line(f"[AI] API error: {e}", "stderr", req.project_id)
+            await _log_error_async(req.project_id, run_id, f"AI generation error: {e}")
+            return GenerateResponse(success=False, project_id=req.project_id, error=str(e))
+
+        # ── Step 3: Parse ─────────────────────────────────────────────────────────
+        await emit_terminal_line("[Parser] Validating AI output...", "info", req.project_id)
+        try:
+            files = parse_ai_response(raw)
+            await emit_terminal_line(f"[Parser] Parsed {len(files)} files", "info", req.project_id)
+        except ParseError as e:
+            await emit_agent_state("failed", req.project_id)
+            await emit_terminal_line(f"[Parser] Error: {e}", "stderr", req.project_id)
+            await _log_error_async(req.project_id, run_id, f"Parse error: {e}\n\nRAW:\n{raw}")
+            return GenerateResponse(success=False, project_id=req.project_id, error=str(e))
+
+        # ── Step 4: Validate against ecosystem ────────────────────────────────────
+        valid_extensions = skill.get_file_patterns()
+        for f in files:
+            ext_ok = any(f.path.endswith(pat.replace("*", "")) for pat in valid_extensions) if valid_extensions != ["*"] else True
+            if not ext_ok:
+                await emit_terminal_line(f"[Validation] WARNING: {f.path} may not match {skill_name} ecosystem (pattern: {valid_extensions})", "stderr", req.project_id)
+
+        if skill_name == "react-vite":
+            files = await _filter_react_vite_generated_files(files, req.project_id)
+
+        # ── Step 5: Write & Capture Artifacts ─────────────────────────────────────
+        await emit_agent_state("writing", req.project_id)
+        
+        for f in files:
+            registry.add_actual_file(f.path, f.content)
+            try:
+                path = await asyncio.to_thread(write_file, req.project_id, f.path, f.content, run_id)
+                written.append(path)
+                await emit_terminal_line(f"[Writer] Writing {f.path}", "info", req.project_id)
+                await _log_work_async(req.project_id, run_id, f"Created {f.path}")
+            except ValueError as e:
+                await emit_terminal_line(f"[Writer] Skipping {f.path}: {e}", "stderr", req.project_id)
+                await _log_error_async(req.project_id, run_id, f"Skipped {f.path}: {e}")
 
     await emit_terminal_line(f"[Governance] Operation 'Topology Evaluation' classified as LOW cost", "info", req.project_id)
 
@@ -872,7 +1790,7 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
             return GenerateResponse(success=False, project_id=req.project_id, files_written=written, error=err)
 
     # Compare planned vs actual artifacts
-    registry.compare_with_plan(task_graph)
+    registry.compare_with_plan(task_graph, str(real_base_path))
     
     # Save Artifact Registry
     SessionPersistence.save_artifacts(req.project_id, registry)
@@ -910,9 +1828,16 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     monolithic_collapse_detected = monolith_risk_score > 0.8
         
     if monolithic_collapse_detected:
-        msg = "[P8.3A] monolithic collapse detected (generator failed to separate concerns)"
-        print(msg)
-        await emit_terminal_line(msg, "warning", req.project_id)
+        msg = "Generation failed quality gate: component separation collapsed (monolithic collapse detected)."
+        await emit_agent_state("failed", req.project_id)
+        await emit_terminal_line(f"[Governance] {msg}", "stderr", req.project_id)
+        await _log_error_async(req.project_id, run_id, msg)
+        return GenerateResponse(
+            success=False,
+            project_id=req.project_id,
+            files_written=written,
+            error=msg
+        )
         
     # --- P8.3A: Duplicate Reasoning Detection ---
     prompt_hash = hashlib.sha256(req.prompt.encode('utf-8')).hexdigest()
@@ -1006,6 +1931,7 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
         await emit_terminal_line(f"[Executor] Building: {' '.join(build_cmd)}", "info", req.project_id)
 
         build_res = await stream_command_array_async(req.project_id, "build", build_cmd, run_id=run_id)
+        ReflectionEngine.record_validation(req.project_id, run_id, "build", build_res, command=" ".join(build_cmd))
         build_duration = time.time() - build_start
         metrics["cost"]["build_duration_sec"] = build_duration
         with open(p8_dir / "cost_metrics.json", "w") as f:
@@ -1041,6 +1967,7 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                 await emit_agent_state("building", req.project_id)
                 await emit_terminal_line("[Executor] Rebuilding after deterministic contract repair...", "info", req.project_id)
                 build_res = await stream_command_array_async(req.project_id, "build", build_cmd, run_id=run_id)
+                ReflectionEngine.record_revalidation(req.project_id, run_id, build_res, stage="deterministic_contract_revalidation")
 
                 if not build_res.success and failure_type in {RuntimeErrorCode.E_TS_REFERENCE_INVALID.value, RuntimeErrorCode.E_VITE_CONFIG.value}:
                     await emit_agent_state("failed", req.project_id)
@@ -1054,7 +1981,7 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
             
             while not build_res.success and repair_attempts < max_repairs:
                 repair_attempts += 1
-                patched = await attempt_repair(
+                patched, pkg_json_modified = await attempt_repair(
                     project_id=req.project_id,
                     original_prompt=req.prompt,
                     ecosystem_label=_ecosystem_label(skill_name),
@@ -1062,15 +1989,24 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
                     stderr=build_res.stderr or "",
                     attempt=repair_attempts,
                     max_repairs=max_repairs,
-                    written_files=written
+                    written_files=written,
+                    run_id=run_id
                 )
                 
                 if not patched:
                     break # Give up if we couldn't even generate a patch
                     
+                if pkg_json_modified and cmd_strategy.has_install():
+                    await emit_agent_state("installing", req.project_id)
+                    await emit_terminal_line("[Executor] Package.json modified by repair. Re-installing dependencies...", "info", req.project_id)
+                    install_res = await stream_command_array_async(req.project_id, "install", cmd_strategy.install, run_id=run_id)
+                    if not install_res.success:
+                        await emit_terminal_line("[Executor] Dependency re-installation failed.", "warning", req.project_id)
+
                 await emit_agent_state("building", req.project_id)
                 await emit_terminal_line(f"[Executor] Rebuilding after patch...", "info", req.project_id)
                 build_res = await stream_command_array_async(req.project_id, "build", build_cmd, run_id=run_id)
+                ReflectionEngine.record_revalidation(req.project_id, run_id, build_res, stage="llm_patch_revalidation")
             
             if not build_res.success:
                 await emit_agent_state("failed", req.project_id)
@@ -1128,16 +2064,33 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
             try:
                 app_tsx = await asyncio.to_thread(read_file, req.project_id, "src/App.tsx", run_id)
                 app_lower = app_tsx.lower()
-                prompt_lower = req.prompt.lower()
+                prompt_clean = req.prompt
+                if "Use this confirmed MVP scope:" in prompt_clean:
+                    prompt_clean = prompt_clean.split("Use this confirmed MVP scope:")[0]
+                if "Task list:" in prompt_clean:
+                    prompt_clean = prompt_clean.split("Task list:")[0]
+                if "Implementation plan:" in prompt_clean:
+                    prompt_clean = prompt_clean.split("Implementation plan:")[0]
+                
+                prompt_lower = prompt_clean.strip().lower()
                 
                 valid = True
                 reason = ""
-                if "login" in prompt_lower or "auth" in prompt_lower:
+                app_type, expected_terms, required_any_terms, min_interactive = _intent_requirements(prompt_clean)
+                if expected_terms:
+                    matched_terms = [term for term in expected_terms if term in app_lower]
+                    if len(matched_terms) < 2:
+                        valid = False
+                        reason = f"Failed heuristic: Expected {app_type} domain terminology."
+                    elif required_any_terms and not any(t in app_lower for t in required_any_terms):
+                        valid = False
+                        reason = f"Failed heuristic: Expected {app_type} core flow terminology."
+                elif "login" in prompt_lower or "auth" in prompt_lower:
                     if not any(t in app_lower for t in ["login", "username", "password", "form", "auth", "submit"]):
                         valid = False
                         reason = "Failed heuristic: Expected login terminology."
-                elif "task" in prompt_lower or "todo" in prompt_lower or "list" in prompt_lower:
-                    if not any(t in app_lower for t in ["task", "todo", "list", "add", "delete", "complete", "checkbox"]):
+                elif any(term in prompt_lower for term in ["task", "todo", "task list", "todo list", "todolist", "daftar tugas", "tugas"]):
+                    if not any(t in app_lower for t in ["task", "todo", "list", "add", "delete", "complete", "checkbox", "tugas", "daftar"]):
                         valid = False
                         reason = "Failed heuristic: Expected task list terminology."
                 elif "calculator" in prompt_lower:
@@ -1360,5 +2313,30 @@ async def generate_project_async(req: GenerateRequest, generation_id: str | None
     await emit_agent_state("success", req.project_id)
     await emit_terminal_line("[Orchestrator] Generation complete. System is stable.", "info", req.project_id)
     await _log_work_async(req.project_id, run_id, "Generation completed successfully.")
+    try:
+        ProjectMemory.update_after_generation(
+            req.project_id,
+            req.prompt,
+            signature=generation_signature,
+            ecosystem=skill_name,
+            success=True,
+        )
+        if _sync_run_to_latest(req.project_id, run_id):
+            await emit_terminal_line("[StatePreservation] Synced successful run to latest project state.", "info", req.project_id)
+        WorkspaceAwareness.scan(req.project_id, run_id=run_id, prompt=req.prompt)
+        if change_scope:
+            from backend.brain.change_scope import ChangeScopeAnalyzer
+
+            completed_scope = {
+                **change_scope,
+                "status": "completed",
+                "completed_run_id": run_id,
+                "post_generation_note": "Project State and Workspace Awareness were updated after this scoped change.",
+            }
+            ChangeScopeAnalyzer.save(req.project_id, completed_scope)
+        await emit_terminal_line("[ProjectState] Updated .ai-agent/project_state.json", "info", req.project_id)
+    except Exception as e:
+        logger.exception("Failed to update project state for project=%s", req.project_id)
+        await emit_terminal_line(f"[ProjectState] Update skipped: {e}", "warning", req.project_id)
 
     return GenerateResponse(success=True, project_id=req.project_id, files_written=written)

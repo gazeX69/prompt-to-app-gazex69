@@ -227,45 +227,49 @@ export default function WorkspaceLayout() {
 
   return (
     <div className="h-screen w-screen bg-background text-foreground flex flex-col overflow-hidden font-sans selection:bg-blue-500/30">
-      <header className="h-16 shrink-0 border-b border-border bg-[#151518] px-4 flex items-center gap-4">
+      <header className="h-16 shrink-0 border-b border-[#1a1a22] bg-[#0A0A0C]/80 backdrop-blur-md px-5 flex items-center gap-4 z-30 shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
         <button
           onClick={handleCloseWorkspace}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-gray-300 transition hover:bg-white/5"
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3.5 text-xs font-semibold text-gray-300 hover:text-white transition hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-95 duration-150"
         >
-          <ArrowLeft className="h-4 w-4" />
+          <ArrowLeft className="h-3.5 w-3.5" />
           Back to Projects
         </button>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 pl-2">
           <div className="flex items-center gap-3 min-w-0">
-            <h1 className="truncate text-base font-semibold text-gray-100">
+            <h1 className="truncate text-base font-bold text-gray-100 tracking-wide">
               {activeWorkspace?.name || activeWorkspaceId}
             </h1>
             <StatusBadge label={activeWorkspace?.status || "ready"} tone={statusTone(activeWorkspace?.status)} />
           </div>
-          <div className="mt-0.5 truncate text-xs text-gray-500">
+          <div className="mt-1 truncate text-xs text-gray-500 font-medium">
             {activeWorkspace?.pathLabel || activeWorkspace?.path || activeWorkspaceId}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <StatusBadge label={`Runtime: ${runtimeStatus?.status || runtimeState || "unknown"}`} tone={statusTone(runtimeStatus?.status || runtimeState)} />
-          <StatusBadge label={`Generation: ${generationStatus?.status || readableAgentState(agentState)}`} tone={statusTone(generationStatus?.status || agentState)} />
-          <RuntimeControls
-            isRunning={runtimeIsRunning}
-            isBusy={runtimeIsBusy || actionPending}
-            action={runtimeAction}
-            onRun={() => runRuntime(false)}
-            onStop={stopRuntime}
-            onRestart={() => runRuntime(true)}
-          />
-          <button
-            onClick={() => activeWorkspaceId && loadWorkspaceData(activeWorkspaceId)}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border text-gray-400 transition hover:bg-white/5 hover:text-gray-200"
-            title="Refresh project"
-          >
-            <RefreshCw className="h-4 w-4" />
-          </button>
+        <div className="flex shrink-0 items-center gap-3">
+          <div className="flex items-center gap-2 border-r border-[#1a1a22] pr-3">
+            <StatusBadge label={`Runtime: ${runtimeStatus?.status || runtimeState || "unknown"}`} tone={statusTone(runtimeStatus?.status || runtimeState)} />
+            <StatusBadge label={`Agent: ${generationStatus?.status || readableAgentState(agentState)}`} tone={statusTone(generationStatus?.status || agentState)} />
+          </div>
+          <div className="flex items-center gap-2">
+            <RuntimeControls
+              isRunning={runtimeIsRunning}
+              isBusy={runtimeIsBusy || actionPending}
+              action={runtimeAction}
+              onRun={() => runRuntime(false)}
+              onStop={stopRuntime}
+              onRestart={() => runRuntime(true)}
+            />
+            <button
+              onClick={() => activeWorkspaceId && loadWorkspaceData(activeWorkspaceId)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.06] bg-white/[0.02] text-gray-400 hover:text-gray-100 transition hover:bg-white/[0.06] hover:border-white/[0.12] active:scale-95 duration-150"
+              title="Refresh project"
+            >
+              <RefreshCw className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </header>
       {runtimeActionError && (
@@ -340,17 +344,17 @@ function RuntimeControls({
         <button
           onClick={onStop}
           disabled={isBusy}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-red-500/20 bg-red-500/5 px-3 text-xs font-semibold text-red-300 transition hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 duration-150"
         >
-          {action === "stop" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Square className="h-4 w-4" />}
+          {action === "stop" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Square className="h-3.5 w-3.5 fill-red-300/30" />}
           Stop
         </button>
         <button
           onClick={onRestart}
           disabled={isBusy}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-gray-300 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 text-xs font-semibold text-gray-300 transition hover:bg-white/[0.06] disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 duration-150"
         >
-          {action === "restart" ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+          {action === "restart" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RotateCw className="h-3.5 w-3.5" />}
           Restart
         </button>
       </>
@@ -361,9 +365,9 @@ function RuntimeControls({
     <button
       onClick={onRun}
       disabled={isBusy}
-      className="inline-flex h-9 items-center gap-2 rounded-md border border-green-400/30 bg-green-500/10 px-3 text-sm text-green-200 transition hover:bg-green-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-9 items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/10 px-4.5 text-xs font-semibold text-green-300 transition hover:bg-green-500/15 disabled:cursor-not-allowed disabled:opacity-50 active:scale-95 duration-150 shadow-[0_0_12px_-3px_rgba(34,197,94,0.2)]"
     >
-      {action === "run" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+      {action === "run" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5 fill-green-300/25" />}
       Run
     </button>
   )
@@ -415,14 +419,22 @@ function readableApiError(message: string) {
 
 function StatusBadge({ label, tone }: { label: string; tone: "neutral" | "good" | "warn" | "bad" | "active" }) {
   const colors = {
-    neutral: "border-gray-500/30 bg-gray-500/10 text-gray-300",
-    good: "border-green-400/30 bg-green-500/10 text-green-300",
-    warn: "border-yellow-400/30 bg-yellow-500/10 text-yellow-300",
-    bad: "border-red-400/30 bg-red-500/10 text-red-300",
-    active: "border-blue-400/30 bg-blue-500/10 text-blue-300",
+    neutral: "border-gray-500/20 bg-gray-500/5 text-gray-400",
+    good: "border-green-500/25 bg-green-500/5 text-green-400 shadow-[0_0_12px_-4px_rgba(34,197,94,0.1)]",
+    warn: "border-yellow-500/25 bg-yellow-500/5 text-yellow-400 shadow-[0_0_12px_-4px_rgba(234,179,8,0.1)]",
+    bad: "border-red-500/25 bg-red-500/5 text-red-400 shadow-[0_0_12px_-4px_rgba(239,68,68,0.1)]",
+    active: "border-blue-500/25 bg-blue-500/5 text-blue-400 shadow-[0_0_12px_-4px_rgba(59,130,246,0.1)]",
+  }
+  const dots = {
+    neutral: "bg-gray-500",
+    good: "bg-green-500",
+    warn: "bg-yellow-500",
+    bad: "bg-red-500",
+    active: "bg-blue-500 animate-pulse",
   }
   return (
-    <span className={`inline-flex h-6 items-center rounded-full border px-2.5 text-[11px] font-medium ${colors[tone]}`}>
+    <span className={`inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-[10px] font-bold uppercase tracking-wider ${colors[tone]}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dots[tone]}`} />
       {label}
     </span>
   )

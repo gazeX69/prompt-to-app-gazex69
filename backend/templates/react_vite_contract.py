@@ -19,6 +19,7 @@ PROTECTED_CONTRACT_FILES = {
     "vite.config.ts",
     "index.html",
     "src/main.tsx",
+    "src/vite-env.d.ts",
 }
 
 ENTRYPOINT_FILES = set()

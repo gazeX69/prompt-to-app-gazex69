@@ -19,6 +19,7 @@ BROAD_APP_TYPES = {
     "crud_app",
     "auth_app",
     "data_app",
+    "saas",
 }
 
 
@@ -209,10 +210,29 @@ def analyze_scope(prompt: str, signature: PlanSignature) -> ScopeAnalysis:
     missing_decisions: list[MissingDecision] = []
 
     if is_broad:
+        from backend.brain.dss_engine import DSS_OPTIONS
+        from backend.brain.schemas import DecisionOption
+        
         keys = APP_DECISION_KEYS.get(signature.app_type, ["authentication", "database", "roles", "crud_scope"])
         for key in keys:
             if key in DECISION_LIBRARY and not _prompt_mentions_decision(prompt, key):
-                missing_decisions.append(DECISION_LIBRARY[key])
+                dec = DECISION_LIBRARY[key]
+                options_list = []
+                raw_options = DSS_OPTIONS.get(key, ["Yes, implement this", "No, skip this", "Simulate/Mock this"])
+                for opt in raw_options:
+                    is_rec = "Recommended" in opt or "localStorage" in opt or "Mock" in opt or "Placeholder" in opt
+                    options_list.append(DecisionOption(
+                        text=opt,
+                        score=9.0 if is_rec else 5.0,
+                        is_recommended=is_rec
+                    ))
+                missing_decisions.append(MissingDecision(
+                    key=dec.key,
+                    question=dec.question,
+                    default_recommendation=dec.default_recommendation,
+                    risk=dec.risk,
+                    options=options_list
+                ))
 
     if not is_broad:
         risk_level = RiskLevel.LOW

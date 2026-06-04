@@ -92,6 +92,11 @@ export interface BrainDecisionResult {
       question: string
       default_recommendation: string
       risk: BrainRiskLevel
+      options?: Array<{
+        text: string
+        score: number
+        is_recommended: boolean
+      }>
     }>
   }
   recommended_mvp: {
@@ -101,12 +106,48 @@ export interface BrainDecisionResult {
   implementation_plan?: string[]
   task_list?: string[]
   matched_cases: unknown[]
+  project_state?: Record<string, unknown> | null
+  project_action?: Record<string, unknown> | null
+  workspace_awareness?: Record<string, unknown> | null
+  workspace_impact?: Record<string, unknown> | null
+  change_scope?: {
+    mode?: string
+    project_type?: string
+    change_type?: string
+    scope_size?: "small" | "medium" | "large" | "unclear" | string
+    impact_reason?: string
+    changed_intent?: string
+    affected_areas?: string[]
+    target_files?: string[]
+    estimated_affected_files?: number
+    preserve_features?: string[]
+    required_validation?: string[]
+    clarifying_questions?: string[]
+    should_ask_clarification?: boolean
+    safe_to_patch_locally?: boolean
+    confidence?: number
+    [key: string]: unknown
+  } | null
+  subdomains?: Array<{
+    name: string
+    description: string
+    entities?: Array<{
+      name: string
+      fields?: Array<{ name: string; type: string }>
+    }>
+  }>
+  vertical_slices?: Array<{
+    name: string
+    description: string
+    target_components?: string[]
+    dependencies?: string[]
+  }>
 }
 
-export async function runBrainPreflight(prompt: string): Promise<BrainDecisionResult> {
+export async function runBrainPreflight(prompt: string, projectId?: string | null): Promise<BrainDecisionResult> {
   return requestWorkspace<BrainDecisionResult>("/brain/preflight", {
     method: "POST",
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, project_id: projectId ?? null }),
   })
 }
 

@@ -10,9 +10,10 @@ interface FileInspectorProps {
   file: RepositoryFileNode
   onSymbolClick: (filePath: string) => void
   onViewChange: (view: WorkspaceMode) => void
+  metadataOnly?: boolean
 }
 
-export default function FileInspector({ file, onSymbolClick, onViewChange }: FileInspectorProps) {
+export default function FileInspector({ file, onSymbolClick, onViewChange, metadataOnly = false }: FileInspectorProps) {
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
   const openFileInEditor = useWorkspaceStore(s => s.openFileInEditor)
@@ -155,6 +156,179 @@ export default function FileInspector({ file, onSymbolClick, onViewChange }: Fil
     pathId,
   ])
   
+  if (metadataOnly) {
+    return (
+      <div className="w-full h-full flex flex-col bg-[#181818] overflow-y-auto border-l border-[#2d2d2d] font-mono text-gray-300">
+        <div className="p-4 border-b border-[#2d2d2d]">
+          <div className="flex items-center space-x-2.5 mb-4">
+            <FileCode className="w-4 h-4 text-blue-400 shrink-0" />
+            <div className="truncate">
+              <h4 className="text-xs font-semibold text-gray-200 truncate">{fileName}</h4>
+              <p className="text-[10px] text-gray-500 truncate">{filePath}</p>
+            </div>
+          </div>
+          
+          <div className="space-y-2 border-t border-[#2d2d2d] pt-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400">Ownership</span>
+              <span className="text-purple-400">{references ? (ownershipChain.length > 0 ? ownershipChain.join(" ") : 'None') : (file.ownershipLabel || 'None')}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400">Blast Radius</span>
+              <span className={`${
+                  references?.blast_radius_score === 'critical' ? 'text-red-500 font-bold' :
+                  references?.blast_radius_score === 'shared' ? 'text-yellow-500' :
+                  references?.blast_radius_score === 'local' ? 'text-blue-500' :
+                  'text-gray-500'
+                }`}>
+                {references?.blast_radius_score?.toUpperCase() || 'UNKNOWN'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400">Dep Depth</span>
+              <span className="text-blue-400">{references?.dependency_depth ?? '-'}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-gray-400">Imported By</span>
+              <span className="text-blue-400">{importedBy.length} files</span>
+            </div>
+          </div>
+        </div>
+        
+        {references && importedBy.length > 0 && (
+          <div className="p-4 border-b border-[#2d2d2d]">
+            <div className="text-[10px] uppercase text-gray-500 mb-2 flex items-center"><GitMerge className="w-3 h-3 mr-1" /> Imported By</div>
+            <div className="space-y-1">
+              {importedBy.map((path: string, i: number) => (
+                <div key={i} className="text-xs text-blue-300 truncate cursor-pointer hover:text-blue-100 hover:underline flex items-center" onClick={() => onSymbolClick(path)} title={path}>
+                  <ArrowRight className="w-3.5 h-3.5 mr-1 opacity-50 shrink-0" /> <span className="truncate">{path}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {safeRegions.length > 0 && (
+          <div className="p-4 border-b border-[#2d2d2d]">
+            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Detected Regions</h3>
+            <div className="space-y-2">
+              {safeRegions.map((r, i) => (
+                <div key={i} className="flex items-center justify-between text-xs">
+                  <div className="flex items-center text-gray-300">
+                    <Layout className="w-3.5 h-3.5 mr-1.5 text-gray-500" />
+                    <span className="capitalize">{String(r.type || 'unknown').replace('_', ' ')}</span>
+                    {r.name && <span className="ml-1 text-gray-500">({r.name})</span>}
+                  </div>
+                  <span className="text-gray-500 font-mono">L{r.start_line}-L{r.end_line}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {safePatches.length > 0 && (
+          <div className="p-4 border-b border-[#2d2d2d]">
+            <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Pending Patches (Dry Run)</h3>
+            <div className="space-y-3">
+              {safePatches.map((p, i) => (
+                <div key={i} className="border border-green-500/20 bg-green-500/5 rounded p-2 text-xs">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-green-400 font-bold">{p.patch_type}</span>
+                    <span className={p.confidence_score > 0.8 ? 'text-green-300' : 'text-yellow-400'}>
+                      {(p.confidence_score * 100).toFixed(0)}% Conf
+                    </span>
+                  </div>
+                  <div className="text-gray-400">Target: L{p.target_region?.start_line ?? '-'}-L{p.target_region?.end_line ?? '-'}</div>
+                  {p.target_symbol && <div className="text-gray-500 mt-1">Symbol: {p.target_symbol}</div>}
+                  
+                  {p.replay && (
+                    <div className={`mt-2 p-2 rounded text-xs flex flex-col space-y-1 ${
+                      p.replay.replay_safety === 'unsafe' ? 'bg-red-500/10 border border-red-500/20' :
+                      p.replay.replay_safety === 'degraded' ? 'bg-yellow-500/10 border border-yellow-500/20' :
+                      'bg-blue-500/10 border border-blue-500/20'
+                    }`}>
+                      <div className="flex items-center justify-between font-bold">
+                        <span className="flex items-center">
+                          {p.replay.stale_warning && <AlertTriangle className="w-3.5 h-3.5 mr-1 text-red-400" />}
+                          Replay Safety: {p.replay.replay_safety.toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-gray-400">
+                        <span>Drift: {p.replay.drift_state}</span>
+                        <span>Stability: {(p.replay.stability_score * 100).toFixed(0)}%</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 flex-1">
+          <h3 className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Symbols</h3>
+          <div className="space-y-4">
+            {components.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase text-gray-500 mb-1.5 flex items-center"><Box className="w-3 h-3 mr-1" /> Components</div>
+                <div className="space-y-1">
+                  {components.map((s: SymbolMetadata, i: number) => (
+                    <div key={i} className="text-xs text-blue-300 truncate cursor-pointer hover:text-blue-100 hover:underline flex items-center" onClick={() => onSymbolClick(s.filePath)}>
+                      <ArrowRight className="w-3.5 h-3.5 mr-1 opacity-50 shrink-0" /> <span className="truncate">{s.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {exports.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase text-gray-500 mb-1.5 flex items-center"><Tag className="w-3 h-3 mr-1" /> Exports</div>
+                <div className="space-y-1">
+                  {exports.map((s: SymbolMetadata, i: number) => (
+                    <div key={i} className="text-xs text-yellow-300 truncate cursor-pointer hover:text-yellow-100 hover:underline flex items-center" onClick={() => onSymbolClick(s.filePath)}>
+                      <ArrowRight className="w-3.5 h-3.5 mr-1 opacity-50 shrink-0" /> <span className="truncate">{s.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {functions.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase text-gray-500 mb-1.5 flex items-center"><Code className="w-3 h-3 mr-1" /> Functions</div>
+                <div className="space-y-1">
+                  {functions.map((s: SymbolMetadata, i: number) => (
+                    <div key={i} className="text-xs text-green-300 truncate cursor-pointer hover:text-green-100 hover:underline flex items-center" onClick={() => onSymbolClick(s.filePath)}>
+                      <ArrowRight className="w-3.5 h-3.5 mr-1 opacity-50 shrink-0" /> <span className="truncate">{s.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {imports.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase text-gray-500 mb-1.5 flex items-center"><Hash className="w-3 h-3 mr-1" /> Imports</div>
+                <div className="space-y-1">
+                  {imports.map((s: SymbolMetadata, i: number) => (
+                    <div key={i} className="text-[11px] text-gray-400 truncate" title={s.name}>
+                      {s.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {safeSymbols.length === 0 && (
+              <div className="text-xs text-gray-600 italic">No symbols detected.</div>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-full bg-[#1e1e1e] text-gray-300 font-mono">
       {/* Main Content Area */}

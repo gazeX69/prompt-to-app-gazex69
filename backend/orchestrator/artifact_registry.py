@@ -52,7 +52,7 @@ class ArtifactRegistry:
             size_bytes=len(content_bytes)
         )
         
-    def compare_with_plan(self, task_graph):
+    def compare_with_plan(self, task_graph, project_path: Optional[str] = None):
         """
         Compare actual generated files against expected_files/affected_files from TaskGraph.
         Assign status and task IDs.
@@ -79,6 +79,19 @@ class ArtifactRegistry:
         missing_planned = []
         for planned_file, tasks in planned_files.items():
             if planned_file not in self.artifacts:
+                if project_path:
+                    import os
+                    clean_path = planned_file.lstrip("/\\")
+                    full_path = os.path.join(project_path, clean_path)
+                    if os.path.isfile(full_path):
+                        # The file already exists physically on the disk, it's not missing!
+                        self.artifacts[planned_file] = GeneratedArtifact(
+                            file_path=planned_file,
+                            artifact_type='file',
+                            status='matched',
+                            producing_task_id=tasks[-1]
+                        )
+                        continue
                 missing_planned.append((planned_file, tasks))
 
         # Pass 2: Semantic Matching for orphans

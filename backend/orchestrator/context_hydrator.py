@@ -69,9 +69,12 @@ class ContextHydrator:
                         except:
                             pass
                             
-        # 3. Read existing workspace files for allowed paths
+        # 3. Read existing workspace files for allowed paths (only if not already modified in this session)
         for path in task.allowed_write_paths:
-            full_path = os.path.join(self.project_root, path)
+            if path in bundle.dependency_outputs or path in bundle.related_proposed_files:
+                continue
+            clean_path = path.lstrip("/\\")
+            full_path = os.path.join(self.project_root, clean_path)
             if os.path.isfile(full_path):
                 try:
                     with open(full_path, 'r', encoding='utf-8') as f:

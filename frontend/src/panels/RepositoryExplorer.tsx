@@ -11,9 +11,12 @@ import type { WorkspaceMode } from "../stores/workspace.store"
 interface RepositoryExplorerProps {
   showInternalFiles?: boolean
   onViewChange: (view: WorkspaceMode) => void
+  sidebar?: boolean
 }
 
-export default function RepositoryExplorer({ showInternalFiles = true, onViewChange }: RepositoryExplorerProps) {
+export default function RepositoryExplorer({ showInternalFiles: showInternalFilesProp, onViewChange, sidebar = false }: RepositoryExplorerProps) {
+  const [localShowInternalFiles, setLocalShowInternalFiles] = useState(false)
+  const showInternalFiles = showInternalFilesProp !== undefined ? showInternalFilesProp : localShowInternalFiles
   const activeWorkspaceId = useWorkspaceStore(s => s.activeWorkspaceId)
   const repositorySnapshot = useWorkspaceStore(s => s.repositorySnapshot)
   const activeRunId = useWorkspaceStore(s => s.activeRunId)
@@ -261,6 +264,15 @@ export default function RepositoryExplorer({ showInternalFiles = true, onViewCha
   }, [clearExplorerSelection, repositoryTree, selectedExplorerNode, selectionMatchesTree])
 
   if (!repositorySnapshot || repositoryTree.length === 0) {
+    if (sidebar) {
+      return (
+        <div className="flex h-full flex-col bg-[#181818] overflow-hidden text-gray-500 text-xs p-4 justify-center items-center">
+          <FileCode className="mx-auto mb-3 h-8 w-8 text-gray-600 opacity-40" />
+          <p className="text-center font-semibold text-gray-300">No project files</p>
+          <p className="text-center mt-1 text-[11px] text-gray-500">Generate or promote a run first.</p>
+        </div>
+      )
+    }
     const isLoading = workspaceHydrationStatus === 'loading'
     const title = isLoading
       ? "Loading files..."
@@ -282,6 +294,87 @@ export default function RepositoryExplorer({ showInternalFiles = true, onViewCha
         description={description}
         detail={!isLoading && failureMessage ? failureMessage : null}
       />
+    )
+  }
+
+  if (sidebar) {
+    return (
+      <div className="flex flex-col h-full bg-[#181818] overflow-hidden text-gray-300 font-mono">
+        {/* Header */}
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-[#2d2d2d] px-3">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400">
+            Explorer
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <button
+              type="button"
+              onClick={() => handleCreateEntry("file")}
+              disabled={operationBusy}
+              title="New File"
+              className="inline-flex h-6 w-6 items-center justify-center rounded border border-[#2d2d2d] hover:border-blue-400/40 text-gray-400 hover:text-blue-300 transition disabled:opacity-40"
+            >
+              <FilePlus className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handleCreateEntry("directory")}
+              disabled={operationBusy}
+              title="New Folder"
+              className="inline-flex h-6 w-6 items-center justify-center rounded border border-[#2d2d2d] hover:border-blue-400/40 text-gray-400 hover:text-blue-300 transition disabled:opacity-40"
+            >
+              <FolderPlus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Support Files Checkbox */}
+        <div className="flex items-center justify-between px-3 py-1.5 border-b border-[#2d2d2d] bg-[#151515] text-[10px] text-gray-400">
+          <span>Support Files</span>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input
+              type="checkbox"
+              className="rounded border-[#2d2d2d] bg-[#1e1e1e] text-blue-500 focus:ring-0 w-3 h-3"
+              checked={showInternalFiles}
+              onChange={(e) => setLocalShowInternalFiles(e.target.checked)}
+            />
+            Show
+          </label>
+        </div>
+
+        {/* Tree Container */}
+        <div className="min-h-0 flex-1 overflow-auto py-2">
+          {operationError && (
+            <div className="mx-3 mb-2 rounded border border-red-500/30 bg-red-500/10 px-2 py-1 text-[11px] text-red-300">
+              {operationError}
+            </div>
+          )}
+          <div className="space-y-0.5 px-1.5">
+            {repositoryTree.map((node, i) => (
+              <FileTreeNode
+                key={i}
+                node={node}
+                onCreate={handleCreateEntry}
+                onDelete={handleDeleteEntry}
+                onMove={handleMoveEntry}
+                onRename={handleRenameEntry}
+                onOpenFile={handleOpenFile}
+                onSelect={(n) => {
+                  if (n.type === "file") {
+                    handleOpenFile(n);
+                  } else {
+                    handleSelectNode(n);
+                  }
+                }}
+                onToggleFolder={handleToggleFolder}
+                collapsedFolderPaths={collapsedFolderPaths}
+                operationBusy={operationBusy}
+                selectedPath={selectedFile?.path}
+                activePathId={selectedEditorFile?.pathId}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -325,7 +418,7 @@ export default function RepositoryExplorer({ showInternalFiles = true, onViewCha
 
       <div className="flex flex-1 min-h-0">
         {/* Left: File Tree */}
-        <div className="w-1/2 border-r border-[#333] p-4 overflow-y-auto bg-[#252526]">
+        <div className="w-80 shrink-0 border-r border-[#333] p-4 overflow-y-auto bg-[#252526]">
           <div className="text-xs uppercase tracking-widest text-gray-500 font-bold mb-4">
             {showInternalFiles ? 'Project Files' : 'App Files'}
           </div>
@@ -530,7 +623,7 @@ function FileTreeNode({
           onSelect(node)
         }}
       >
-        <div className="flex items-center space-x-2 truncate">
+        <div className="flex items-center space-x-2 min-w-0">
           {node.type === 'directory' ? (
             <>
               {expanded ? <ChevronDown className="w-4 h-4 shrink-0 text-gray-400" /> : <ChevronRight className="w-4 h-4 shrink-0 text-gray-400" />}

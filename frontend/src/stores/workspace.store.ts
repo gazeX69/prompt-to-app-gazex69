@@ -87,7 +87,8 @@ export interface EditorFileMetadata {
   language?: string
 }
 
-export type WorkspaceMode = "generate" | "explore" | "edit" | "preview"
+export type WorkspaceMode = "generate" | "explore" | "edit" | "preview" | "overview" | "artifacts" | "history" | "terminal" | "skills" | "debug" | "settings"
+
 
 export interface ExplorerSelectionMetadata {
   name: string

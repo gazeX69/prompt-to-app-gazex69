@@ -24,12 +24,35 @@ def parse_ai_response(raw: str) -> list[GeneratedFile]:
     current_content = []
     in_file = False
     
+    import re
+    
     for i, line in enumerate(lines):
-        if line.startswith("===FILE:") and line.endswith("==="):
+        # Strip common comment markers to support cases where LLM comments out the delimiter
+        stripped = line.strip()
+        clean = re.sub(r'^(?://|/\*|#|--)\s*', '', stripped).strip()
+        clean = re.sub(r'\s*\*/$', '', clean).strip()
+        
+        if clean.startswith("===FILE:") and clean.endswith("==="):
             if in_file:
-                raise ParseError(f"Malformed delimiter at line {i+1}: Started a new file before closing the previous one (===END=== missing).")
+                # Resilient fallback: auto-close the previous file
+                if current_content:
+                    while current_content and not current_content[0].strip():
+                        current_content.pop(0)
+                    if current_content and current_content[0].strip().startswith("```"):
+                        current_content.pop(0)
+                    while current_content and not current_content[-1].strip():
+                        current_content.pop()
+                    if current_content and current_content[-1].strip() == "```":
+                        current_content.pop()
+                    while current_content and not current_content[0].strip():
+                        current_content.pop(0)
+                    while current_content and not current_content[-1].strip():
+                        current_content.pop()
+                    content_str = "\n".join(current_content)
+                    files.append(GeneratedFile(path=current_file_path, content=content_str))
+                in_file = False
                 
-            path_str = line[8:-3].strip()
+            path_str = clean[8:-3].strip()
             
             if not path_str:
                 raise ParseError(f"Malformed delimiter at line {i+1}: Missing file path.")
@@ -42,11 +65,26 @@ def parse_ai_response(raw: str) -> list[GeneratedFile]:
             current_content = []
             in_file = True
             
-        elif line.strip() == "===END===":
+        elif clean == "===END===":
             if not in_file:
                 # ignore dangling END blocks or log them
                 continue
                 
+            # Strip markdown code block markers (like ```tsx ... ```)
+            if current_content:
+                while current_content and not current_content[0].strip():
+                    current_content.pop(0)
+                if current_content and current_content[0].strip().startswith("```"):
+                    current_content.pop(0)
+                while current_content and not current_content[-1].strip():
+                    current_content.pop()
+                if current_content and current_content[-1].strip() == "```":
+                    current_content.pop()
+                while current_content and not current_content[0].strip():
+                    current_content.pop(0)
+                while current_content and not current_content[-1].strip():
+                    current_content.pop()
+
             content_str = "\n".join(current_content)
             files.append(GeneratedFile(path=current_file_path, content=content_str))
             
@@ -59,8 +97,47 @@ def parse_ai_response(raw: str) -> list[GeneratedFile]:
                 current_content.append(line)
                 
     if in_file:
-        raise ParseError(f"Malformed delimiter: Reached end of output but ===END=== was missing for {current_file_path!r}")
+        # Resilient fallback: auto-close the file at the end of input
+        if current_content:
+            while current_content and not current_content[0].strip():
+                current_content.pop(0)
+            if current_content and current_content[0].strip().startswith("```"):
+                current_content.pop(0)
+            while current_content and not current_content[-1].strip():
+                current_content.pop()
+            if current_content and current_content[-1].strip() == "```":
+                current_content.pop()
+            while current_content and not current_content[0].strip():
+                current_content.pop(0)
+            while current_content and not current_content[-1].strip():
+                current_content.pop()
+            content_str = "\n".join(current_content)
+            files.append(GeneratedFile(path=current_file_path, content=content_str))
+        in_file = False
          
+    if not files:
+        # Fallback: Parse markdown code blocks if delimiter protocol failed
+        blocks = re.findall(r'(?:(?:^|\n)(?:###?|####?)\s*([a-zA-Z0-9_\-\./\\]+)\s*\n)?\s*```[a-zA-Z0-9_\-]*\n(.*?)\n```', raw, re.DOTALL)
+        for header, content in blocks:
+            path_str = header.strip() if header else ""
+            if not path_str:
+                # Try to extract from the first line of content if it's a comment
+                content_lines = content.splitlines()
+                first_line = content_lines[0].strip() if content_lines else ""
+                match = re.match(r'^(?://|#|/\*|--)\s*([a-zA-Z0-9_\-\./\\]+\.[a-zA-Z0-9]+)\s*(?:\*/)?$', first_line)
+                if match:
+                    path_str = match.group(1).strip()
+            
+            if path_str and ("." in path_str):
+                # Clean path and exclude absolute or traversal paths
+                path_str = path_str.replace("src/", "src/").strip()
+                if not (path_str.startswith("/") or path_str.startswith("\\") or ".." in path_str):
+                    content_lines = content.splitlines()
+                    if not header and content_lines:
+                        content_lines.pop(0)
+                    content_str = "\n".join(content_lines)
+                    files.append(GeneratedFile(path=path_str, content=content_str))
+                    
     if not files:
         raise ParseError("No valid delimiter blocks found in AI response.")
         
