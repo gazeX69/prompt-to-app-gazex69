@@ -33,7 +33,7 @@ class LaravelSkill(BaseSkill):
         return CommandStrategy(
             install=["composer", "install"],
             build=None,
-            dev=["php", "artisan", "serve", "--port=3000"],
+            dev=["php", "artisan", "serve", "--host=127.0.0.1", "--port={port}"],
             lint=None,
             test=["./vendor/bin/phpunit"],
         )

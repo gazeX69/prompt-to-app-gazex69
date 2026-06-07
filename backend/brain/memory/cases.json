@@ -906,5 +906,369 @@
     "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
     "result": "success",
     "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_95822b9b",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A sleek, responsive todo application with dark mode, drag-and-drop reordering, and persistent local storage.",
+    "original_prompt": "buat todo list moderen",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure HTML/CSS/JavaScript only—no frameworks or external libraries; uses localStorage for persistence.",
+    "solution": "Built with modular vanilla JS (ES6 modules), CSS custom properties for theme switching, and native Drag & Drop API for reordering.",
+    "result": "success",
+    "lessons_learned": "Prioritizing semantic HTML and progressive enhancement ensures accessibility and broad browser compatibility without sacrificing modern UX."
+  },
+  {
+    "id": "case_b7fb6bb6",
+    "title": "Hello World Page",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal static HTML page displaying \"Hello World\" in plain text with no styling or interactivity.",
+    "original_prompt": "buat halaman hello world sederhana",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure HTML only, no CSS or JavaScript, served as a single file.",
+    "solution": "Created a valid HTML5 document with a <body> containing an <h1> tag showing \"Hello World\".",
+    "result": "success",
+    "lessons_learned": "Even the simplest web page benefits from semantic HTML structure and proper DOCTYPE declaration for consistency and compatibility."
+  },
+  {
+    "id": "case_317c0798",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_7c9e82c7",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_36819b94",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" application was generated to demonstrate basic program execution.",
+    "original_prompt": "Buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific technical stack or environment specified—solution assumes simplest possible implementation (e.g., plain HTML/JS or CLI output).",
+    "solution": "Implemented as a single-file HTML page with embedded JavaScript that displays “Hello, World!” in the browser DOM.",
+    "result": "success",
+    "lessons_learned": "Always clarify target platform (web, CLI, mobile) early—even for trivial prompts—to avoid ambiguity and ensure alignment with user intent."
+  },
+  {
+    "id": "case_7bbab10d",
+    "title": "Contact Manager MVP",
+    "domain": "crud",
+    "app_type": "crud_app",
+    "feature_keywords": [
+      "crud",
+      "entities",
+      "database"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "A minimal React + Vite + TypeScript frontend app that implements full CRUD operations for a `Contact` entity with name, email, and phone fields, using localStorage for persistence and rendering all functionality at the root route.",
+    "original_prompt": "Original request:\nbuat CRUD\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "React frontend only, uses localStorage for client-side persistence, no backend or external dependencies beyond the Vite + TypeScript scaffold.",
+    "solution": "Built a single-page UI with a contact list view, modal-based create/edit forms, inline delete confirmation, and localStorage-synchronized state managed via React hooks (`useState` and `useEffect`).",
+    "result": "success",
+    "lessons_learned": "Centralizing data operations (save/load/delete) in a dedicated `useContacts` custom hook improves testability, reduces duplication, and ensures consistent localStorage serialization/deserialization."
+  },
+  {
+    "id": "case_f2f04a8a",
+    "title": "Hello World React",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal, bootstrapped React application using Vite as the build tool.",
+    "original_prompt": "hello world react vite",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No external dependencies beyond Vite’s default React template; uses only client-side rendering.",
+    "solution": "Initialized with `npm create vite@latest`, selected React + TypeScript template, and ran dev server with `npm run dev`.",
+    "result": "success",
+    "lessons_learned": "Always verify Node.js version compatibility with Vite before scaffolding, and leverage Vite’s fast HMR for rapid iteration on basic components."
+  },
+  {
+    "id": "case_7b3b4f33",
+    "title": "Modern Counter",
+    "domain": "utility",
+    "app_type": "counter",
+    "feature_keywords": [
+      "counter"
+    ],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A sleek, interactive counter application with increment, decrement, reset, and theme toggle functionality.",
+    "original_prompt": "buat counter moderen",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure HTML/CSS/JavaScript only, no external libraries or frameworks, responsive design required.",
+    "solution": "Built with semantic HTML, CSS Flexbox for layout, CSS variables for theming, and vanilla JavaScript for state management and event handling.",
+    "result": "success",
+    "lessons_learned": "Using CSS custom properties with JavaScript enables smooth, maintainable theme switching without re-rendering or heavy dependencies."
+  },
+  {
+    "id": "case_cf0198d3",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_e3098eb2",
+    "title": "Hello World Starter",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A minimal \"Hello, World!\" program was generated in a default language (likely Python or JavaScript) to fulfill the basic output requirement.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No specific language or platform specified; assumed single-file, console-based execution.",
+    "solution": "Implemented as a simple script printing the string “Hello, World!” using the most idiomatic syntax for the inferred context (e.g., `print(\"Hello, World!\")` in Python).",
+    "result": "success",
+    "lessons_learned": "Always clarify language, runtime, and delivery format upfront—even for trivial prompts—to avoid ambiguity and ensure alignment with expectations."
+  },
+  {
+    "id": "case_d14fb898",
+    "title": "Modern Counter",
+    "domain": "utility",
+    "app_type": "counter",
+    "feature_keywords": [
+      "counter"
+    ],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "A sleek, interactive counter application with animated increments, theme toggle, and persistent state.",
+    "original_prompt": "buat counter modern",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Pure HTML/CSS/JS only, no external libraries or frameworks, uses localStorage for persistence.",
+    "solution": "Built with semantic HTML, CSS Flexbox/Grid for layout, smooth CSS transitions, and vanilla JavaScript for state management and event handling.",
+    "result": "success",
+    "lessons_learned": "Prioritize accessibility (e.g., ARIA labels, keyboard support) early—adding it post-implementation requires significant refactoring."
+  },
+  {
+    "id": "case_ec4d6045",
+    "title": "Todo List App",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do list application with add, delete, and mark as complete functionality.",
+    "original_prompt": "buat todo list",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Built using only HTML, CSS, and JavaScript without any external libraries.",
+    "solution": "Implemented a basic UI with local storage to persist tasks across page reloads.",
+    "result": "success",
+    "lessons_learned": "Use local storage carefully to avoid data loss and ensure user experience remains smooth."
+  },
+  {
+    "id": "case_15581ac8",
+    "title": "Priority To-Do List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple to-do list application that allows users to add tasks with high, medium, and low priority.",
+    "original_prompt": "buat todo list dengan prioritas tinggi sedang rendah",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Uses only HTML, CSS, and JavaScript without any external libraries.",
+    "solution": "Implemented a task management system with priority categorization using local storage for data persistence.",
+    "result": "success",
+    "lessons_learned": "Organizing tasks by priority improves user focus and task management efficiency."
+  },
+  {
+    "id": "case_d4a2b30d",
+    "title": "Hello World App",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "feature_keywords": [
+      "hello_world"
+    ],
+    "required_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "A simple application that displays \"Hello, World!\" on the screen.",
+    "original_prompt": "buat hello world",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "No external libraries used, basic HTML, CSS, and JavaScript only.",
+    "solution": "Created a single-page application using plain HTML, CSS, and JavaScript to render the \"Hello, World!\" message.",
+    "result": "success",
+    "lessons_learned": "Start with minimal dependencies to ensure clarity and simplicity in small projects."
+  },
+  {
+    "id": "case_dfa8dcef",
+    "title": "Todo List App",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A simple todo list application with add, delete, and mark as complete functionality.",
+    "original_prompt": "buat todo list",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Built using only HTML, CSS, and JavaScript without any external libraries.",
+    "solution": "Implemented a basic UI with local storage to persist tasks across sessions.",
+    "result": "success",
+    "lessons_learned": "Use local storage carefully to avoid data loss and ensure user experience remains smooth."
+  },
+  {
+    "id": "case_7fd13f5b",
+    "title": "Task Editor Pro",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "Added an edit feature to allow users to modify task details in real-time.",
+    "original_prompt": "tambahkan fitur edit",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Implemented using React and local storage, no backend integration.",
+    "solution": "Introduced inline editing with form handling and state management for task updates.",
+    "result": "success",
+    "lessons_learned": "Use controlled components for input fields to ensure consistent state updates."
+  },
+  {
+    "id": "case_5bb29629",
+    "title": "Modern Todo List",
+    "domain": "utility",
+    "app_type": "todo",
+    "feature_keywords": [
+      "tasks"
+    ],
+    "required_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "A modern to-do list application with clean UI and interactive features.",
+    "original_prompt": "buat todo list moderen",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Built using React and Tailwind CSS, no backend required.",
+    "solution": "Implemented a responsive interface with local storage for task persistence and dynamic filtering.",
+    "result": "success",
+    "lessons_learned": "Prioritize user experience by focusing on intuitive interactions and visual feedback."
+  },
+  {
+    "id": "case_d43179a6",
+    "title": "Task Editor Pro",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "Added an edit feature to allow users to modify task details in real-time.",
+    "original_prompt": "tambahkan fitur edit",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Implemented using React and local storage, no backend integration.",
+    "solution": "Introduced inline editing with form handling and state management for task updates.",
+    "result": "success",
+    "lessons_learned": "Use controlled components for input fields to ensure consistent state updates."
+  },
+  {
+    "id": "case_2cc05b96",
+    "title": "Action Button Panel",
+    "domain": "general",
+    "app_type": "app",
+    "feature_keywords": [],
+    "required_capabilities": [
+      "state_management"
+    ],
+    "summary": "Added interactive buttons with hover effects for navigation and execution actions like add, edit, and other actions.",
+    "original_prompt": "tambahkan tombol dan hover untuk navigasi dan eksekusi, seperti tombol tambah, edit, dan bagian aksi lainnya",
+    "context": "React + Vite (TypeScript), FastAPI (Python), Node.js Sandbox",
+    "constraints": "Implemented using HTML, CSS, and JavaScript without external libraries.",
+    "solution": "Created styled buttons with hover animations and event listeners for navigation and action execution.",
+    "result": "success",
+    "lessons_learned": "Use CSS pseudo-classes for hover effects to keep styling consistent and maintainable."
   }
 ]

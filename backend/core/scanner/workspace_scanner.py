@@ -196,6 +196,18 @@ def get_run_dir(workspace_path: Path, run_id: Optional[str] = None) -> Optional[
         if active_path.exists() and active_path.is_dir() and _looks_like_source_root(active_path):
             return active_path
 
+    # Fallback to the latest run_ directory
+    try:
+        run_dirs = [d for d in workspace_path.iterdir() if d.is_dir() and d.name.startswith("run_")]
+        if run_dirs:
+            run_dirs.sort(key=lambda x: x.name, reverse=True)
+            for r in run_dirs:
+                if _looks_like_source_root(r):
+                    return r
+            return run_dirs[0]
+    except Exception:
+        pass
+
     return None
 
 def _looks_like_source_root(path: Path) -> bool:
@@ -217,6 +229,14 @@ def get_latest_run_id(workspace_id: str) -> Optional[str]:
     active_run_id = get_active_successful_run_id(workspace_id)
     if active_run_id and (workspace_path / active_run_id).is_dir():
         return active_run_id
+
+    try:
+        run_dirs = [d for d in workspace_path.iterdir() if d.is_dir() and d.name.startswith("run_")]
+        if run_dirs:
+            run_dirs.sort(key=lambda x: x.name, reverse=True)
+            return run_dirs[0].name
+    except Exception:
+        pass
 
     return None
 

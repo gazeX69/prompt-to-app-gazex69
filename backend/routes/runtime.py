@@ -21,12 +21,18 @@ from backend.sandbox.executor import (
     resolve_node_runtime_entrypoint,
     run_dev_server_array_async,
     stop_runtime,
+    validate_node_runtime_contract,
 )
 from backend.sockets.manager import emit_agent_state, emit_runtime_error, emit_terminal_line
 
 from typing import Optional
 
 router = APIRouter()
+
+
+def _runtime_status_is(status: str | None, *expected: str) -> bool:
+    normalized = str(status or "").upper()
+    return normalized in {item.upper() for item in expected}
 
 
 class RuntimeStartRequest(BaseModel):
@@ -51,7 +57,7 @@ async def runtime_status(project_id: str) -> dict:
 async def start_project_runtime(project_id: str, req: RuntimeStartRequest | None = None) -> dict:
     body = req or RuntimeStartRequest()
     current_status = get_runtime_status(project_id)
-    if current_status.get("status") == "running" and not body.restart:
+    if _runtime_status_is(current_status.get("status"), "RUNNING") and not body.restart:
         return current_status
 
     requested_run_id = body.run_id or get_latest_run_id(project_id)
@@ -154,11 +160,11 @@ def _resolve_runtime_run_id(project_id: str, requested_run_id: str | None = None
     active_run_id = get_active_successful_run_id(project_id)
 
     if requested_run_id:
-        if requested_run_id != active_run_id:
-            raise ValueError("Runtime can only start for the active successful run.")
         requested_path = _safe_project_path(project_id, requested_run_id)
         if _has_supported_runtime_entrypoint(requested_path):
             return requested_run_id
+        if requested_run_id != active_run_id:
+            raise ValueError("Requested run is not runnable.")
 
     if active_run_id:
         active_path = _safe_project_path(project_id, active_run_id)
@@ -171,6 +177,9 @@ def _infer_runtime_command(project_id: str, run_id: str) -> tuple[list[str], str
     run_path = _safe_project_path(project_id, run_id)
     if not run_path.exists() or not run_path.is_dir():
         raise FileNotFoundError("Generated run folder not found.")
+
+    if (run_path / "artisan").is_file():
+        return ["php", "artisan", "serve", "--host=127.0.0.1", "--port={port}"], r"http://(?:localhost|127\.0\.0\.1):(\d+)|started|Development Server|Listening"
 
     package_json = run_path / "package.json"
     if package_json.exists():
@@ -186,6 +195,9 @@ def _infer_runtime_command(project_id: str, run_id: str) -> tuple[list[str], str
             return ["npm", "run", "dev", "--", "--host", "127.0.0.1", "--port", "{port}"], r"http://(?:localhost|127\.0\.0\.1):(\d+)"
         node_entrypoint = resolve_node_runtime_entrypoint(run_path)
         if node_entrypoint.get("ok"):
+            contract_error = validate_node_runtime_contract(project_id, run_id)
+            if contract_error:
+                raise ValueError(contract_error)
             command = node_entrypoint.get("command")
             if isinstance(command, list) and command:
                 return [str(part) for part in command], r"http://(?:localhost|127\.0\.0\.1):(\d+)|listening|started"
@@ -193,6 +205,9 @@ def _infer_runtime_command(project_id: str, run_id: str) -> tuple[list[str], str
 
     node_entrypoint = resolve_node_runtime_entrypoint(run_path)
     if node_entrypoint.get("ok"):
+        contract_error = validate_node_runtime_contract(project_id, run_id)
+        if contract_error:
+            raise ValueError(contract_error)
         command = node_entrypoint.get("command")
         if isinstance(command, list) and command:
             return [str(part) for part in command], r"http://(?:localhost|127\.0\.0\.1):(\d+)|listening|started"

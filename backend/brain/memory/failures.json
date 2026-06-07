@@ -356,5 +356,382 @@
       "data_persistence"
     ],
     "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_480d58d2",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "Preview verification failed: Application usability validation failed: rendered output appears to be a placeholder page."
+  },
+  {
+    "id": "fail_27ef0a31",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "Preview verification failed: Application usability validation failed: todo prompt did not render todo/task/list UI."
+  },
+  {
+    "id": "fail_5a0b3f4e",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "Preview verification failed: Application usability validation failed: rendered output appears to be a placeholder page."
+  },
+  {
+    "id": "fail_d35e5a15",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_984b670a",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_80e2473a",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected marketplace domain terminology."
+  },
+  {
+    "id": "fail_0fb80056",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "Preview verification failed: Application usability validation failed: todo prompt did not render todo/task/list UI."
+  },
+  {
+    "id": "fail_9ba7836e",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation",
+      "data_persistence"
+    ],
+    "summary": "Preview verification failed: Application usability validation failed: todo prompt did not render todo/task/list UI."
+  },
+  {
+    "id": "fail_7b01d37a",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
+    "summary": "Preview verification failed: Application usability validation failed: marketplace prompt did not render enough domain-specific UI."
+  },
+  {
+    "id": "fail_9c9553bb",
+    "domain": "crud",
+    "app_type": "crud_app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "Preview verification failed: Rendered preview is blank despite HTTP 200"
+  },
+  {
+    "id": "fail_2bd737d4",
+    "domain": "crud",
+    "app_type": "crud_app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_7cc4da2c",
+    "domain": "crud",
+    "app_type": "crud_app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "E_DEPENDENCY_MISSING:uuid:src/lib/data.ts"
+  },
+  {
+    "id": "fail_21ea8712",
+    "domain": "utility",
+    "app_type": "counter",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "Preview verification failed: Preview DOM verification failed before mount checks: Page.goto: Timeout 15000ms exceeded.\nCall log:\n  - navigating to \"http://127.0.0.1:3001/\", waiting until \"domcontentlo"
+  },
+  {
+    "id": "fail_8cfd3366",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_d2f93a9c",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed. Patch simulation reported failures."
+  },
+  {
+    "id": "fail_f1845637",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "Preview verification failed: DOM run_id mismatch. Expected run_20260606_122320_71v1q6, got run_20260606_122104_lprobz"
+  },
+  {
+    "id": "fail_6bacbc08",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "Preview verification failed: DOM run_id mismatch. Expected run_20260606_122614_6sg3de, got run_20260606_122104_lprobz"
+  },
+  {
+    "id": "fail_aa226ebc",
+    "domain": "utility",
+    "app_type": "hello_world",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "static_rendering"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed pre_runtime. Collision/stale-anchor patch simulation reported failures."
+  },
+  {
+    "id": "fail_b14658c9",
+    "domain": "general",
+    "app_type": "app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed pre_runtime. Collision/stale-anchor patch simulation reported failures."
+  },
+  {
+    "id": "fail_3e89b8bb",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "expected string or bytes-like object, got 'dict'"
+  },
+  {
+    "id": "fail_3542bf7d",
+    "domain": "utility",
+    "app_type": "todo",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed pre_runtime. Collision/stale-anchor patch simulation reported failures."
+  },
+  {
+    "id": "fail_84af8e7a",
+    "domain": "general",
+    "app_type": "crud_app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management",
+      "crud",
+      "data_persistence"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_c20b0887",
+    "domain": "general",
+    "app_type": "crud_app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "state_management",
+      "crud",
+      "data_persistence"
+    ],
+    "summary": "Preview verification failed: Application usability validation failed: crud_app prompt did not render enough domain-specific UI."
+  },
+  {
+    "id": "fail_0fa4bd64",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed pre_runtime. Collision/stale-anchor patch simulation reported failures."
+  },
+  {
+    "id": "fail_dd80ca25",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_e545f713",
+    "domain": "inventory",
+    "app_type": "inventory",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence",
+      "reporting"
+    ],
+    "summary": "Build failed after repairs"
+  },
+  {
+    "id": "fail_4111178d",
+    "domain": "crud",
+    "app_type": "crud_app",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "data_persistence"
+    ],
+    "summary": "Output Validation Failed: Generated code does not match intent. Failed heuristic: Expected crud_app domain terminology."
+  },
+  {
+    "id": "fail_b50f7d45",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed pre_runtime. Collision/stale-anchor patch simulation reported failures."
+  },
+  {
+    "id": "fail_ed7fa4f2",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed pre_runtime. Collision/stale-anchor patch simulation reported failures."
+  },
+  {
+    "id": "fail_4d3a45aa",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
+    "summary": "TaskGraph shadow/dry-run execution failed pre_runtime. Collision/stale-anchor patch simulation reported failures."
+  },
+  {
+    "id": "fail_bc8e5c60",
+    "domain": "marketplace",
+    "app_type": "marketplace",
+    "failure_type": "generation_error",
+    "avoided_capabilities": [
+      "crud",
+      "state_management",
+      "product_catalog",
+      "cart",
+      "checkout_simulation"
+    ],
+    "summary": "Build failed after repairs"
   }
 ]

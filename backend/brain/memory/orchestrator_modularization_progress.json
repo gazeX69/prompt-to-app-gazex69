@@ -1,0 +1,92 @@
+{
+  "phase": "orchestrator_modularization",
+  "status": "stage_1_2_partial_complete",
+  "scope": "Mechanical extraction from backend/orchestrator/project_orchestrator.py",
+  "rules_followed": [
+    "no_git_commands",
+    "no_api_schema_changes",
+    "no_frontend_changes",
+    "no_planner_redesign",
+    "no_runtime_behavior_redesign",
+    "no_dependency_resolver_behavior_change"
+  ],
+  "created": [
+    "backend/orchestrator/generation/__init__.py",
+    "backend/orchestrator/generation/context.py",
+    "backend/orchestrator/generation/lifecycle.py",
+    "backend/orchestrator/generation/project_state_phase.py",
+    "backend/orchestrator/generation/scaffold_phase.py",
+    "backend/orchestrator/generation/validation_phase.py",
+    "backend/orchestrator/generation/collision_recovery_phase.py",
+    "backend/orchestrator/generation/orchestrator.py",
+    "backend/brain/memory/orchestrator_modularization_progress.json"
+  ],
+  "modified": [
+    "backend/orchestrator/project_orchestrator.py"
+  ],
+  "moved_without_behavior_change": [
+    "_ecosystem_label",
+    "_copy_project_tree",
+    "_active_source_dir",
+    "_initialize_modify_run_from_current_state",
+    "_sync_run_to_latest",
+    "_get_allowed_dependencies",
+    "_log_work_async",
+    "_log_error_async",
+    "_create_governance_files",
+    "_inject_truth_markers",
+    "_extract_served_run_marker",
+    "_validate_preview_usability and preview helper functions",
+    "verify_rendered_dom_truth",
+    "_validate_dependency_resolution_environment",
+    "_validate_react_vite_environment",
+    "_first_error_code",
+    "_filter_react_vite_generated_files",
+    "extract_app_tsx_metadata",
+    "consolidate_app_tsx",
+    "_background_values",
+    "_preservation_violations"
+  ],
+  "phase_extractions": [
+    "load_project_state_phase",
+    "scaffold_generation_workspace"
+  ],
+  "compatibility": {
+    "public_api": "from backend.orchestrator.project_orchestrator import generate_project_async remains valid",
+    "legacy_helper_imports": "selected test-used helpers remain importable from project_orchestrator"
+  },
+  "line_count": {
+    "project_orchestrator_before": 2511,
+    "project_orchestrator_after": 69,
+    "generation_orchestrator_internal": 1691
+  },
+  "validation": [
+    {
+      "command": "python -m compileall backend/orchestrator backend/core backend/routes",
+      "result": "passed"
+    },
+    {
+      "command": "python -m unittest backend.tests.test_project_state backend.tests.test_debug_observatory",
+      "result": "passed",
+      "tests": 10
+    },
+    {
+      "command": "public import smoke for generate_project_async and legacy helpers",
+      "result": "passed"
+    },
+    {
+      "command": "backend.routes.generate import smoke",
+      "result": "passed"
+    },
+    {
+      "command": "direct Python invocation of backend.tests.test_dependency_resolution test functions",
+      "result": "passed"
+    }
+  ],
+  "next_safe_steps": [
+    "extract planning phase around ProjectMapper, CBR, PlanningEngine, and orchestration session",
+    "extract shadow execution callback phase",
+    "extract build/install phase after another compile checkpoint",
+    "extract runtime launch and preview verification after build phase is isolated"
+  ]
+}

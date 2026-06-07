@@ -237,6 +237,32 @@ class TestProjectState(unittest.TestCase):
         self.assertGreater(len(result.scope_analysis.missing_decisions), 0)
         self.assertNotEqual(result.decision, BrainDecision.LOCAL_ONLY)
 
+    def test_existing_todo_state_does_not_override_new_marketplace_prompt(self):
+        ProjectMemory.initialize_project(self.project_id, "react-vite")
+        todo_sig = build_plan_signature("buat todo")
+        ProjectMemory.update_after_generation(
+            self.project_id,
+            "buat todo",
+            signature=todo_sig,
+            ecosystem="react-vite",
+            success=True,
+        )
+
+        action = ProjectMemory.classify_action(self.project_id, "buat marketplace")
+        marketplace_sig = build_plan_signature(action["clean_prompt"])
+        updated = ProjectMemory.update_after_generation(
+            self.project_id,
+            "buat marketplace",
+            signature=marketplace_sig,
+            ecosystem="react-vite",
+            success=True,
+        )
+
+        self.assertEqual(action["action"], "create")
+        self.assertEqual(action["state_inheritance"], "reset")
+        self.assertEqual(marketplace_sig.app_type, "marketplace")
+        self.assertEqual(updated["project_type"], "marketplace")
+
 
 if __name__ == "__main__":
     unittest.main()

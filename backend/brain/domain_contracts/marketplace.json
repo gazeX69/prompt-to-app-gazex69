@@ -1,0 +1,158 @@
+{
+  "contract_version": "v1",
+  "app_type": "marketplace",
+  "domain": "marketplace",
+  "complexity_default": "HIGH",
+  "keywords": [
+    "marketplace",
+    "toko online",
+    "online shop",
+    "olshop",
+    "marketpce",
+    "marketplac",
+    "marketpleis",
+    "ecommerce",
+    "e-commerce",
+    "e-comerce",
+    "ecomerce"
+  ],
+  "features": ["produk", "keranjang", "pembayaran", "katalog", "admin"],
+  "feature_keywords": ["products", "cart", "checkout", "admin"],
+  "capabilities": [
+    "crud",
+    "state_management",
+    "product_catalog",
+    "cart",
+    "checkout_simulation"
+  ],
+  "required_capabilities": [
+    "crud",
+    "state_management",
+    "product_catalog",
+    "cart",
+    "checkout_simulation"
+  ],
+  "decisions": [
+    "roles",
+    "product_schema",
+    "cart_checkout_scope",
+    "payment",
+    "database",
+    "admin_panel",
+    "crud_scope"
+  ],
+  "decision_keys": [
+    "roles",
+    "product_schema",
+    "cart_checkout_scope",
+    "payment",
+    "database",
+    "admin_panel",
+    "crud_scope"
+  ],
+  "decision_hints": {
+    "product_schema": [
+      "produk",
+      "product",
+      "price",
+      "harga",
+      "stock",
+      "stok",
+      "description",
+      "deskripsi"
+    ],
+    "cart_checkout_scope": [
+      "cart",
+      "keranjang",
+      "checkout",
+      "order",
+      "pesanan",
+      "payment",
+      "pembayaran",
+      "simulasi"
+    ]
+  },
+  "mvp_features": [
+    "Product listing",
+    "Product detail",
+    "Cart",
+    "Simulated checkout",
+    "Simple admin product CRUD"
+  ],
+  "recommended_mvp_features": [
+    "Product listing",
+    "Product detail",
+    "Cart",
+    "Simulated checkout",
+    "Simple admin product CRUD"
+  ],
+  "implementation_plan": [
+    "Confirm product schema and buyer/admin scope",
+    "Build product listing and detail views",
+    "Add cart and simulated checkout flow",
+    "Add simple admin product management",
+    "Validate generated project contract"
+  ],
+  "validation_rules": {
+    "expected_terms": [
+      "product",
+      "produk",
+      "catalog",
+      "katalog",
+      "cart",
+      "keranjang",
+      "checkout",
+      "admin"
+    ],
+    "required_any_terms": ["product", "produk", "cart", "keranjang", "checkout"],
+    "min_interactive": 5
+  },
+  "task_templates": [
+    {
+      "id": "types_and_seed_data",
+      "title": "Define marketplace data model",
+      "description": "Create Product, CartItem, Order, and checkout-related TypeScript types plus seeded products.",
+      "affected_files": ["src/types.ts", "src/data/seedProducts.ts"],
+      "dependencies": [],
+      "produces_artifacts": ["Product", "CartItem", "Order"],
+      "success_criteria": ["Product type exists", "seed products exist"]
+    },
+    {
+      "id": "marketplace_store",
+      "title": "Create marketplace state store",
+      "description": "Implement localStorage-backed product, cart, quantity, checkout, and admin CRUD state helpers.",
+      "affected_files": ["src/hooks/useMarketplaceStore.ts"],
+      "dependencies": ["types_and_seed_data"],
+      "requires_artifacts": ["Product", "CartItem", "Order"],
+      "produces_artifacts": ["useMarketplaceStore"],
+      "success_criteria": ["cart state exists", "localStorage persistence exists"]
+    },
+    {
+      "id": "marketplace_components",
+      "title": "Build marketplace UI components",
+      "description": "Create product browsing, cart, checkout simulation, and admin product management components.",
+      "affected_files": [
+        "src/components/ProductCatalog.tsx",
+        "src/components/CartPanel.tsx",
+        "src/components/AdminPanel.tsx"
+      ],
+      "dependencies": ["marketplace_store"],
+      "requires_artifacts": ["useMarketplaceStore", "Product"],
+      "produces_artifacts": ["MarketplacePage"],
+      "success_criteria": [
+        "product list renders",
+        "cart controls render",
+        "admin CRUD renders"
+      ]
+    },
+    {
+      "id": "compose_marketplace_app",
+      "title": "Compose marketplace app shell",
+      "description": "Wire the marketplace components into src/App.tsx with responsive navigation and visible MVP flows.",
+      "affected_files": ["src/App.tsx"],
+      "dependencies": ["marketplace_components"],
+      "requires_artifacts": ["MarketplacePage"],
+      "success_criteria": ["marketplace app renders"]
+    }
+  ]
+}

@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from backend.memory.project_memory import ProjectMemory
 
+logger = logging.getLogger(__name__)
 
 CHANGE_SCOPE_SCHEMA_VERSION = "p11.change_scope.v1"
 CHANGE_SCOPE_RELATIVE_PATH = ".ai-agent/change_scope_analysis.json"
@@ -265,9 +267,11 @@ class ChangeScopeAnalyzer:
         project_action: dict[str, Any] | None = None,
         workspace_awareness: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        state = project_state if project_state is not None else ProjectMemory.get_project_state(project_id)
+        state = project_state if project_state is not None else ProjectMemory.load_for(project_id, "scope analysis")
+        logger.info("[ProjectState] Loaded for scope analysis")
         action = project_action if project_action is not None else ProjectMemory.classify_action(project_id, prompt)
         project_type = (state or {}).get("project_type") or "unknown"
+        domain = (state or {}).get("domain") or "unknown"
         preserve_features = list((state or {}).get("features") or [])
         change_type, affected_areas = _classify_change_type(prompt)
         target_files = _select_target_files(change_type, workspace_awareness)
@@ -294,6 +298,7 @@ class ChangeScopeAnalyzer:
             "request": prompt,
             "mode": (action or {}).get("action") or "unknown",
             "project_type": project_type,
+            "domain": domain,
             "change_type": change_type,
             "scope_size": size,
             "impact_reason": impact_reason,

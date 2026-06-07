@@ -128,6 +128,7 @@ export interface BrainDecisionResult {
     confidence?: number
     [key: string]: unknown
   } | null
+  discovery_session?: DiscoveryTurn | null
   subdomains?: Array<{
     name: string
     description: string
@@ -144,11 +145,112 @@ export interface BrainDecisionResult {
   }>
 }
 
-export async function runBrainPreflight(prompt: string, projectId?: string | null): Promise<BrainDecisionResult> {
+export interface DiscoveryTurn {
+  session_id: string
+  current_node?: string | null
+  question?: string | null
+  field?: string | null
+  answers: Record<string, unknown>
+  draft_state: Record<string, unknown>
+  complete: boolean
+}
+
+export async function runBrainPreflight(
+  prompt: string,
+  projectId?: string | null,
+  discoverySessionId?: string | null
+): Promise<BrainDecisionResult> {
   return requestWorkspace<BrainDecisionResult>("/brain/preflight", {
     method: "POST",
-    body: JSON.stringify({ prompt, project_id: projectId ?? null }),
+    body: JSON.stringify({ prompt, project_id: projectId ?? null, discovery_session_id: discoverySessionId ?? null }),
   })
+}
+
+export async function answerDiscoverySession(
+  sessionId: string,
+  answer: string,
+  projectId?: string | null
+): Promise<DiscoveryTurn> {
+  return requestWorkspace<DiscoveryTurn>("/brain/discovery/answer", {
+    method: "POST",
+    body: JSON.stringify({ session_id: sessionId, answer, project_id: projectId ?? null }),
+  })
+}
+
+export interface ObservatorySnapshot {
+  workspace_id: string
+  observatory_enabled: boolean
+  discovery_state: {
+    session_id?: string | null
+    current_node?: string | null
+    completed: boolean
+    answers: Record<string, unknown>
+    draft_state: Record<string, unknown>
+  }
+  project_state: {
+    project_type?: string | null
+    domain?: string | null
+    database?: string | null
+    supplier?: boolean | null
+    source?: string | null
+    last_updated?: string | null
+  }
+  state_flow: Array<{
+    stage: string
+    status: "loaded" | "missing" | "unknown" | "failed" | string
+    detail?: string | null
+  }>
+  generator_context: {
+    final_prompt?: string | null
+    loaded_contract?: {
+      app_type?: string | null
+      contract_version?: string | null
+      features?: string[]
+    } | null
+    project_state_used: Record<string, unknown>
+    generation_mode?: string | null
+  }
+  dependency_health: {
+    status?: string
+    detected_imports: Array<{
+      package: string
+      import: string
+      file: string
+    }>
+    declared_dependencies: string[]
+    missing_dependencies: Array<{
+      package: string
+      classification: string
+      file?: string
+      declared?: boolean
+    }>
+    framework_dependencies: Array<Record<string, unknown>>
+    feature_dependencies: Array<Record<string, unknown>>
+    invalid_dependencies: Array<Record<string, unknown>>
+    repair_strategy: Array<Record<string, unknown>>
+    repair_result?: string
+    repair_changed_files?: string[]
+  }
+  error_center: Array<{
+    source: string
+    stage: string
+    message: string
+    code?: string | null
+  }>
+  state_files: Record<string, {
+    path: string
+    exists: boolean
+    last_modified?: number | null
+  }>
+  workspace_awareness?: Record<string, unknown> | null
+  change_scope?: Record<string, unknown> | null
+  reflection_state?: Record<string, unknown> | null
+  runtime_state?: Record<string, unknown> | null
+  ai_root?: string
+}
+
+export async function fetchDebugObservatory(workspaceId: string): Promise<ObservatorySnapshot> {
+  return requestWorkspace<ObservatorySnapshot>(`/workspaces/${workspaceId}/debug-observatory`)
 }
 
 export type PreflightHistoryAction =

@@ -1,0 +1,17 @@
+{
+  "id": "crud_inventory",
+  "project_type": "crud",
+  "question": "Database apa?",
+  "field": "database",
+  "children": ["crud_inventory_supplier"],
+  "answer_aliases": {
+    "postgres": "postgres",
+    "postgresql": "postgres",
+    "postgre": "postgres",
+    "mysql": "mysql",
+    "sqlite": "sqlite",
+    "localstorage": "localStorage",
+    "local storage": "localStorage"
+  },
+  "default_next": "crud_inventory_supplier"
+}

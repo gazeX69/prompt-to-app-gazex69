@@ -33,12 +33,13 @@ export function selectActiveRunId(runs: RunLike[]): string | null {
 export function selectHydrationRunId(runs: RunLike[], currentActiveRunId?: string | null): string | null {
   if (currentActiveRunId) {
     const currentRun = runs.find((run) => (run.run_id || run.id) === currentActiveRunId)
-    if (!currentRun || isSuccessfulRunStatus(currentRun.status)) {
+    const hasSuccessfulRun = runs.some((run) => isSuccessfulRunStatus(run.status))
+    if (!currentRun || isSuccessfulRunStatus(currentRun.status) || !hasSuccessfulRun) {
       return currentActiveRunId
     }
   }
 
-  return selectActiveRunId(runs)
+  return selectActiveRunId(runs) || runs.find((run) => run.run_id || run.id)?.run_id || runs.find((run) => run.run_id || run.id)?.id || null
 }
 
 export function shouldAdoptRuntimeForActiveRun(activeRunId: string | null, payloadRunId?: string | null): boolean {
@@ -69,7 +70,7 @@ export function getPostGenerationRefreshAction(status: GenerationStatusLike | nu
   const normalized = String(status?.status || "").toLowerCase()
 
   if (["succeeded", "success", "completed"].includes(normalized)) return "reload_workspace_data"
-  if (["failed", "failure", "runtime_failed"].includes(normalized)) return "reload_runs_only"
+  if (["failed", "failure", "runtime_failed"].includes(normalized)) return "reload_workspace_data"
   return "ignore"
 }
 

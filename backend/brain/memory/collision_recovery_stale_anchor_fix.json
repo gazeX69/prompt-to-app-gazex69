@@ -1,0 +1,65 @@
+{
+  "phase": "collision_recovery_stale_anchor_fix",
+  "status": "implemented",
+  "scope": "Minimal CollisionRecovery stale-anchor handling and dry-run patch folding",
+  "rules_followed": [
+    "no_git_commands",
+    "no_planner_changes",
+    "no_frontend_changes",
+    "no_runtime_changes",
+    "no_dependency_resolver_changes",
+    "focused_on_collision_recovery_and_dry_run_patch_handling"
+  ],
+  "changed_files": [
+    "backend/orchestrator/generation/collision_recovery_phase.py",
+    "backend/orchestrator/generation/orchestrator.py",
+    "backend/tests/test_collision_recovery.py",
+    "backend/brain/memory/collision_recovery_stale_anchor_fix.json"
+  ],
+  "functions_changed": [
+    "compose_conflicting_file_patches",
+    "_looks_like_full_file_replacement",
+    "generate_project_async collision recovery block",
+    "patch locality scoring taxonomy",
+    "pre_runtime dry-run failure manifest recording"
+  ],
+  "behavior": {
+    "same_file_collision_with_create_file": "folds patch chain into one final create_file before dry-run retry",
+    "stale_replace_block_anchor": "removed from retry chain; skipped or recovered as full-file replacement if content looks like a full module",
+    "patch_locality_score": "modify_props counts as granular",
+    "dry_run_failure": "records failed manifest with stage=pre_runtime and reason=collision_or_stale_anchor before returning"
+  },
+  "validation": [
+    {
+      "command": "python -m compileall backend/orchestrator backend/core backend/routes backend/tests/test_collision_recovery.py",
+      "result": "passed"
+    },
+    {
+      "command": "python -m unittest backend.tests.test_collision_recovery backend.tests.test_project_state backend.tests.test_debug_observatory",
+      "result": "passed",
+      "tests": 11
+    },
+    {
+      "command": "deterministic generate validation for buat hello world",
+      "result": "success"
+    },
+    {
+      "command": "deterministic generate validation for buat counter modern",
+      "result": "success"
+    },
+    {
+      "command": "deterministic generate validation for buat todo list",
+      "result": "success",
+      "notes": [
+        "Replace target block not found was not observed",
+        "CollisionRecovery folded same-file patch chain",
+        "Runtime started only after dry-run recovered successfully"
+      ]
+    }
+  ],
+  "incidental_fix": {
+    "file": "backend/orchestrator/generation/orchestrator.py",
+    "reason": "deterministic generate validation surfaced a prior modularization regression where ProjectMemory and WorkspaceAwareness were no longer in scope during finalize",
+    "change": "added local imports inside finalize try block"
+  }
+}

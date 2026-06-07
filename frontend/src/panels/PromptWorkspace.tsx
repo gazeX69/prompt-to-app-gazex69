@@ -10,9 +10,11 @@ import { usePreviewStore } from "../stores/preview.store"
 import { useWorkspaceStore } from "../stores/workspace.store"
 import { api } from "../services/api"
 import {
+  answerDiscoverySession,
   runBrainPreflight,
   savePreflightHistory,
   type BrainDecisionResult,
+  type DiscoveryTurn,
   type PreflightHistoryAction,
 } from "../api/workspace.api"
 import { ProgressView } from "./ProgressView"
@@ -343,6 +345,65 @@ export default function PromptWorkspace() {
     )
   }
 
+  const handleContinueDiscovery = async () => {
+    if (!preflightResult?.discovery_session) return
+    const decision = preflightResult.scope_analysis.missing_decisions[0]
+    if (!decision) return
+    const answer = (resolvedDecisions[decision.key] || "").trim()
+    if (!answer) {
+      useTerminalStore.getState().addLine({ text: "[Discovery] Answer is required before continuing.", type: "info" })
+      return
+    }
+
+    try {
+      const turn: DiscoveryTurn = await answerDiscoverySession(
+        preflightResult.discovery_session.session_id,
+        answer,
+        activeWorkspaceId,
+      )
+      setResolvedDecisions({})
+      setPreflightResult(prev => {
+        if (!prev) return prev
+        if (turn.complete || !turn.question) {
+          return {
+            ...prev,
+            reason: "Discovery complete. Draft Project State is ready for preflight.",
+            discovery_session: turn,
+            project_state: turn.draft_state,
+            scope_analysis: {
+              ...prev.scope_analysis,
+              missing_decisions: [],
+            },
+          }
+        }
+        return {
+          ...prev,
+          reason: "Discovery session requires a structured answer before generation.",
+          discovery_session: turn,
+          project_state: turn.draft_state,
+          scope_analysis: {
+            ...prev.scope_analysis,
+            missing_decisions: [
+              {
+                key: `discovery_${turn.field || "answer"}`,
+                question: turn.question,
+                default_recommendation: "Answer this discovery question before generation",
+                risk: "medium",
+                options: [],
+              },
+            ],
+          },
+        }
+      })
+      useTerminalStore.getState().addLine({
+        text: turn.complete ? "[Discovery] Draft Project State is ready." : `[Discovery] Next question: ${turn.question}`,
+        type: "info",
+      })
+    } catch (error) {
+      useTerminalStore.getState().addLine({ text: `[Discovery] ${error instanceof Error ? error.message : "Failed to continue discovery."}`, type: "stderr" })
+    }
+  }
+
   const handleCancelPreflight = () => {
     resetPreflight()
   }
@@ -364,6 +425,7 @@ export default function PromptWorkspace() {
   const implementationPlan = preflightResult?.implementation_plan ?? []
   const taskList = preflightResult?.task_list ?? []
   const rawGenerationBlocked = blocksRawGeneration(preflightResult)
+  const discoveryNeedsAnswer = !!preflightResult?.discovery_session && !preflightResult.discovery_session.complete
 
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 pb-10 md:p-8 md:pb-10">
@@ -489,19 +551,29 @@ export default function PromptWorkspace() {
             )}
 
             <div className="mt-2 flex shrink-0 flex-wrap gap-2 border-t border-white/[0.04] pt-4">
+              {discoveryNeedsAnswer && (
+                <button
+                  type="button"
+                  onClick={handleContinueDiscovery}
+                  disabled={!canStartGeneration}
+                  className="rounded-lg bg-emerald-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-emerald-500 active:scale-95 duration-150 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_4px_12px_rgba(16,185,129,0.22)]"
+                >
+                  Continue Discovery
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleUseRecommendedMvp}
-                disabled={!canStartGeneration}
+                disabled={!canStartGeneration || discoveryNeedsAnswer}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-blue-500 active:scale-95 duration-150 disabled:cursor-not-allowed disabled:opacity-50 shadow-[0_4px_12px_rgba(59,130,246,0.25)]"
               >
                 Use Recommended MVP
               </button>
-              {rawGenerationBlocked ? (
+              {rawGenerationBlocked || discoveryNeedsAnswer ? (
                 <button
                   type="button"
                   disabled
-                  title="Raw generation is disabled for high-risk prompts."
+                  title={discoveryNeedsAnswer ? "Answer discovery questions before generation." : "Raw generation is disabled for high-risk prompts."}
                   className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 text-xs font-bold text-gray-600 cursor-not-allowed opacity-40"
                 >
                   Generate Anyway

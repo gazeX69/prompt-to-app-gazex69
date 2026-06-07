@@ -19,7 +19,7 @@ import RunHistory from "./RunHistory"
 import TerminalPanel from "./TerminalPanel"
 import ArtifactExplorer from "./ArtifactExplorer"
 import SkillsPanel from "./SkillsPanel"
-import RuntimeInspector from "./RuntimeInspector"
+import DebugObservatory from "./DebugObservatory"
 import SettingsPanel from "./SettingsPanel"
 import { ErrorBoundary } from "../components/ErrorBoundary"
 import { useWorkspaceStore } from "../stores/workspace.store"
@@ -95,7 +95,7 @@ export default function MainWorkspace({ activeView, onViewChange }: MainWorkspac
       case 'debug':
         return (
           <ErrorBoundary fallbackName="Debug Inspector">
-            <RuntimeInspector />
+            <DebugObservatory />
           </ErrorBoundary>
         )
       case 'settings':

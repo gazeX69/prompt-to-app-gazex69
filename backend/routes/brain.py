@@ -17,6 +17,8 @@ from backend.brain.schemas import (
     BrainDecisionResult,
     ComplexityLevel,
     DecisionOption,
+    DiscoveryAnswerRequest,
+    DiscoveryStartRequest,
     MissingDecision,
     PreflightHistoryRequest,
     PreflightHistoryResponse,
@@ -43,6 +45,37 @@ def preflight(req: PreflightRequest) -> BrainDecisionResult:
     
     result = decide_preflight(prompt, signature, scope_analysis, matched_cases)
     try:
+        from backend.brain.discovery_tree.discovery_engine import restore_discovery, should_start_discovery, start_discovery
+
+        discovery_turn = None
+        if req.discovery_session_id:
+            discovery_turn = restore_discovery(req.discovery_session_id, req.project_id)
+        elif should_start_discovery(prompt):
+            discovery_turn = start_discovery(prompt, req.project_id)
+
+        if discovery_turn and not discovery_turn.complete and discovery_turn.question:
+            result.decision = BrainDecision.ASK_USER_BEFORE_GENERATE
+            result.planning_required = True
+            result.reason = "Discovery session requires a structured answer before generation."
+            result.discovery_session = jsonable_encoder(discovery_turn)
+            result.scope_analysis.is_broad = True
+            result.scope_analysis.risk_level = RiskLevel.MEDIUM
+            result.scope_analysis.missing_decisions = [
+                MissingDecision(
+                    key=f"discovery_{discovery_turn.field or 'answer'}",
+                    question=discovery_turn.question,
+                    default_recommendation="Answer this discovery question before generation",
+                    risk=RiskLevel.MEDIUM,
+                    options=[],
+                )
+            ]
+            return result
+        if discovery_turn and discovery_turn.complete:
+            result.discovery_session = jsonable_encoder(discovery_turn)
+            result.project_state = discovery_turn.draft_state
+    except Exception:
+        result.discovery_session = None
+    try:
         from backend.brain.dss_engine import get_dss_recommendations
 
         result.dss_recommendations = get_dss_recommendations(scope_analysis.missing_decisions)
@@ -55,7 +88,7 @@ def preflight(req: PreflightRequest) -> BrainDecisionResult:
             from backend.brain.change_scope import ChangeScopeAnalyzer
 
             ProjectMemory.initialize_project(req.project_id, "unknown")
-            result.project_state = ProjectMemory.get_project_state(req.project_id)
+            result.project_state = ProjectMemory.load_for(req.project_id, "preflight")
             result.project_action = ProjectMemory.classify_action(req.project_id, prompt)
             try:
                 from backend.memory.workspace_awareness import WorkspaceAwareness
@@ -171,6 +204,42 @@ def preflight(req: PreflightRequest) -> BrainDecisionResult:
         logging.getLogger(__name__).exception("Failed to calculate DDD domain and slices plan: %s", e)
         
     return result
+
+
+@router.post("/discovery/start")
+def start_discovery_session(req: DiscoveryStartRequest) -> dict:
+    prompt = req.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt must not be empty.")
+    try:
+        from backend.brain.discovery_tree.discovery_engine import start_discovery
+
+        return jsonable_encoder(start_discovery(prompt, req.project_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/discovery/answer")
+def answer_discovery_session(req: DiscoveryAnswerRequest) -> dict:
+    answer = req.answer.strip()
+    if not answer:
+        raise HTTPException(status_code=400, detail="Answer must not be empty.")
+    try:
+        from backend.brain.discovery_tree.discovery_engine import answer_discovery
+
+        return jsonable_encoder(answer_discovery(req.session_id, answer, req.project_id))
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/discovery/session/{session_id}")
+def get_discovery_session(session_id: str, project_id: str | None = None) -> dict:
+    try:
+        from backend.brain.discovery_tree.discovery_engine import restore_discovery
+
+        return jsonable_encoder(restore_discovery(session_id, project_id))
+    except Exception as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.post("/preflight/history", response_model=PreflightHistoryResponse)

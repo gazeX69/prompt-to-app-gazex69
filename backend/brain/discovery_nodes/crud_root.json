@@ -1,0 +1,17 @@
+{
+  "id": "crud_root",
+  "project_type": "crud",
+  "question": "CRUD untuk kasus apa?",
+  "field": "domain",
+  "children": ["crud_inventory"],
+  "answer_aliases": {
+    "inventory": "inventory",
+    "inventori": "inventory",
+    "stok": "inventory",
+    "stock": "inventory",
+    "gudang": "inventory"
+  },
+  "transitions": {
+    "inventory": "crud_inventory"
+  }
+}

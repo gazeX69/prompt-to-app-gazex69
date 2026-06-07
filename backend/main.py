@@ -171,7 +171,10 @@ def _register_builtin_skills():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     from backend.core.reliability import ReliabilityTracker
+    from backend.sandbox.executor import recover_sessions_from_disk
     _register_builtin_skills()
+    recover_sessions_from_disk()
+    logger.info("Runtime sessions recovered from disk")
     runtime_client.set_event_callback(_bridge_runtime_event)
     bg_task = asyncio.create_task(runtime_client.start_event_stream())
     logger.info("Runtime event stream bridge started")

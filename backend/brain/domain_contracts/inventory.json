@@ -1,0 +1,148 @@
+{
+  "contract_version": "v1",
+  "app_type": "inventory",
+  "domain": "inventory",
+  "complexity_default": "HIGH",
+  "keywords": [
+    "inventory",
+    "inventori",
+    "stok",
+    "stock",
+    "gudang"
+  ],
+  "features": ["item", "stok", "crud", "laporan"],
+  "feature_keywords": ["items", "stock", "crud", "reporting"],
+  "capabilities": [
+    "crud",
+    "state_management",
+    "data_persistence",
+    "reporting"
+  ],
+  "required_capabilities": [
+    "crud",
+    "state_management",
+    "data_persistence",
+    "reporting"
+  ],
+  "decisions": [
+    "item_schema",
+    "stock_movement_rules",
+    "storage_type",
+    "database",
+    "roles",
+    "reporting_analytics"
+  ],
+  "decision_keys": [
+    "item_schema",
+    "stock_movement_rules",
+    "storage_type",
+    "database",
+    "roles",
+    "reporting_analytics"
+  ],
+  "decision_hints": {
+    "item_schema": [
+      "item",
+      "barang",
+      "sku",
+      "quantity",
+      "jumlah",
+      "stok",
+      "stock",
+      "category",
+      "kategori"
+    ],
+    "stock_movement_rules": [
+      "masuk",
+      "keluar",
+      "adjustment",
+      "threshold",
+      "low stock",
+      "stok rendah",
+      "restock"
+    ]
+  },
+  "mvp_features": [
+    "Item list",
+    "Add/edit/delete item",
+    "Stock quantity tracking",
+    "Low stock indicator",
+    "Simple local persistence"
+  ],
+  "recommended_mvp_features": [
+    "Item list",
+    "Add/edit/delete item",
+    "Stock quantity tracking",
+    "Low stock indicator",
+    "Simple local persistence"
+  ],
+  "implementation_plan": [
+    "Confirm item schema and stock movement rules",
+    "Build item list and item form",
+    "Add stock adjustment behavior",
+    "Add selected storage or database persistence",
+    "Validate reporting and generated project contract"
+  ],
+  "validation_rules": {
+    "expected_terms": [
+      "item",
+      "barang",
+      "stock",
+      "stok",
+      "quantity",
+      "sku",
+      "low stock",
+      "stok rendah"
+    ],
+    "required_any_terms": ["item", "barang", "stock", "stok"],
+    "min_interactive": 4
+  },
+  "task_templates": [
+    {
+      "id": "inventory_types",
+      "title": "Define inventory model",
+      "description": "Create item and stock movement types plus seed inventory.",
+      "affected_files": ["src/types.ts", "src/data/seedInventory.ts"],
+      "dependencies": [],
+      "produces_artifacts": ["InventoryItem", "StockMovement"],
+      "success_criteria": ["item and movement types exist", "seed inventory exists"]
+    },
+    {
+      "id": "inventory_store",
+      "title": "Create inventory state",
+      "description": "Implement localStorage-backed item CRUD, stock adjustment, and low-stock helpers.",
+      "affected_files": ["src/hooks/useInventoryStore.ts"],
+      "dependencies": ["inventory_types"],
+      "requires_artifacts": ["InventoryItem", "StockMovement"],
+      "produces_artifacts": ["useInventoryStore", "InventoryStore"],
+      "success_criteria": ["inventory store exists", "localStorage persistence exists"]
+    },
+    {
+      "id": "inventory_components",
+      "title": "Build inventory screens",
+      "description": "Create item table, item form, stock summary, and low-stock indicators.",
+      "affected_files": [
+        "src/components/InventoryTable.tsx",
+        "src/components/InventoryForm.tsx",
+        "src/components/InventorySummary.tsx"
+      ],
+      "dependencies": ["inventory_store"],
+      "requires_artifacts": ["InventoryStore"],
+      "produces_artifacts": ["InventoryPage"],
+      "success_criteria": [
+        "item table renders",
+        "item form renders",
+        "summary metrics render"
+      ]
+    },
+    {
+      "id": "compose_inventory_app",
+      "title": "Compose inventory app shell",
+      "description": "Wire inventory screens into src/App.tsx.",
+      "affected_files": ["src/App.tsx"],
+      "dependencies": ["inventory_components"],
+      "requires_artifacts": ["InventoryPage"],
+      "success_criteria": ["inventory app renders"]
+    }
+  ]
+}

@@ -97,7 +97,12 @@ export default function PreviewPanel() {
 
   const ownerRun = runtimeStatus?.run_id || (runId !== 'legacy' ? runId : null)
   const ownerPort = runtimeStatus?.port ?? latestRuntimeLifecycleEvent?.selectedPort ?? latestRuntimeLifecycleEvent?.requestedPort
-  const canStopRuntime = Boolean(runtimeProjectId && runtimeStatus?.status && runtimeStatus.status !== 'stopped' && runtimeStatus.status !== 'failed')
+  const normalizedRuntimeStatus = String(runtimeStatus?.status || "").toLowerCase()
+  const canStopRuntime = Boolean(
+    runtimeProjectId
+      && normalizedRuntimeStatus
+      && !['stopped', 'failed', 'crashed'].includes(normalizedRuntimeStatus)
+  )
   const generationLabel = generationStatus
     ? `${generationStatus.status}${generationStatus.phase ? ` / ${generationStatus.phase}` : ''}`
     : null

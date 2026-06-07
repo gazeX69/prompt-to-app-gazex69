@@ -1,0 +1,22 @@
+{
+  "id": "crud_inventory_supplier",
+  "project_type": "crud",
+  "question": "Perlu supplier?",
+  "field": "supplier",
+  "children": [],
+  "answer_type": "boolean",
+  "answer_aliases": {
+    "ya": true,
+    "iya": true,
+    "yes": true,
+    "y": true,
+    "true": true,
+    "perlu": true,
+    "tidak": false,
+    "no": false,
+    "n": false,
+    "false": false,
+    "tidak perlu": false
+  },
+  "terminal": true
+}

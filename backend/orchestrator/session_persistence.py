@@ -68,6 +68,8 @@ class OrchestrationSession:
                 allowed_write_paths=[p.lstrip("/\\") for p in t_data.get("allowed_write_paths", [])],
                 forbidden_paths=[p.lstrip("/\\") for p in t_data.get("forbidden_paths", [])],
                 dependencies=t_data.get("dependencies", []),
+                produces_artifacts=t_data.get("produces_artifacts", []),
+                requires_artifacts=t_data.get("requires_artifacts", []),
                 status=TaskStatus(t_data.get("status", "pending")),
                 validation_contract=vc,
                 error_msg=t_data.get("error_msg"),

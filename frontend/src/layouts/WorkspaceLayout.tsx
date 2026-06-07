@@ -164,7 +164,7 @@ export default function WorkspaceLayout() {
     try {
       const status = await api.post<RuntimeStatusResponse>(
         `/runtime/${activeWorkspaceId}/start`,
-        { restart },
+        { restart, run_id: activeRunId },
         { timeout: 90000 },
       )
       setRuntimeStatus(status)
@@ -176,7 +176,7 @@ export default function WorkspaceLayout() {
         clearPreview,
         setRuntimeState,
       })
-      if (status.status === "running") {
+      if (String(status.status || "").toLowerCase() === "running") {
         setAgentState("PREVIEW_READY")
         setActiveView("preview")
       }

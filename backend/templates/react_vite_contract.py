@@ -4,8 +4,9 @@ import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from backend.core.dependency_resolution import resolve_dependency_health
 from backend.agent.tools import _safe_project_path
-from backend.runtime_contract import RuntimeErrorCode, classify_dependency_import
+from backend.runtime_contract import RuntimeErrorCode
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -122,16 +123,16 @@ def validate_react_vite_contract(project_id: str, run_id: str | None = None) -> 
         if "<App" not in main_text:
             errors.append(f"{RuntimeErrorCode.E_REACT_ROOT_MISSING.value}:app_render")
 
-    declared_packages = _declared_package_names(package_data or {})
-    for source_path in _source_files(project_path):
-        rel_path = source_path.relative_to(project_path).as_posix()
-        for import_name in _external_imports(source_path):
-            package_name = _package_name(import_name)
-            if not package_name:
-                continue
-            dependency_error = classify_dependency_import(package_name, declared_packages)
-            if dependency_error:
-                errors.append(f"{dependency_error.value}:{package_name}:{rel_path}")
+    dependency_report = resolve_dependency_health(project_id, run_id, persist=True)
+    for item in dependency_report.get("missing_dependencies") or []:
+        package_name = item.get("package")
+        rel_path = item.get("file")
+        if item.get("classification") == "framework":
+            errors.append(f"{RuntimeErrorCode.E_DEPENDENCY_MISSING.value}:{package_name}:{rel_path}")
+        else:
+            warnings.append(f"{RuntimeErrorCode.E_DEPENDENCY_MISSING.value}:{package_name}:{rel_path}")
+    for item in dependency_report.get("invalid_dependencies") or []:
+        warnings.append(f"E_DEPENDENCY_INVALID:{item.get('package')}:{item.get('file')}")
 
     return ContractReport(passed=not errors, errors=errors, warnings=warnings)
 
@@ -188,8 +189,9 @@ def _read_json(path: Path, errors: list[str], error_code: str) -> dict | None:
 
 
 def classify_declared_import(package_name: str, declared_packages: set[str]) -> str | None:
-    code = classify_dependency_import(package_name, declared_packages)
-    return code.value if code else None
+    if package_name not in declared_packages:
+        return RuntimeErrorCode.E_DEPENDENCY_MISSING.value
+    return None
 
 
 IMPORT_PATTERNS = [

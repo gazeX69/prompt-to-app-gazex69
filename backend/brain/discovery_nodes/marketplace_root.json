@@ -1,0 +1,14 @@
+{
+  "id": "marketplace_root",
+  "project_type": "marketplace",
+  "question": "Marketplace untuk model bisnis apa?",
+  "field": "marketplace_model",
+  "children": [],
+  "answer_aliases": {
+    "produk": "product_marketplace",
+    "product": "product_marketplace",
+    "jasa": "service_marketplace",
+    "service": "service_marketplace"
+  },
+  "terminal": true
+}

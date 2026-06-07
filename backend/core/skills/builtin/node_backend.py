@@ -33,7 +33,7 @@ class NodeBackendSkill(BaseSkill):
     def get_preview_strategy(self) -> PreviewStrategy:
         return PreviewStrategy(
             host="127.0.0.1",
-            port=3000,
+            port=0,
             readiness_patterns=[
                 r"http://(?:localhost|127\.0\.0\.1):(\d+)",
                 r"listening",
@@ -50,6 +50,7 @@ class NodeBackendSkill(BaseSkill):
             "- Generate package.json with required dependencies.\n"
             "- Return files using ===FILE:relative/path.ext=== ... ===END===\n"
             "- Include a server entry point (index.js or server.js), or package.json scripts/main pointing to one.\n"
+            "- The HTTP server MUST listen on process.env.PORT, with a local fallback only after reading process.env.PORT.\n"
             "- Do NOT generate React, Vite, or frontend code unless requested."
         )
 

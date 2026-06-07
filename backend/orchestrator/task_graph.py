@@ -46,6 +46,8 @@ class ExecutionTask:
     allowed_write_paths: list[str] = field(default_factory=list)
     forbidden_paths: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
+    produces_artifacts: list[str] = field(default_factory=list)
+    requires_artifacts: list[str] = field(default_factory=list)
     status: TaskStatus = TaskStatus.PENDING
     validation_contract: ValidationContract = field(default_factory=ValidationContract)
     error_msg: Optional[str] = None
@@ -69,6 +71,8 @@ class ExecutionTask:
             "allowed_write_paths": self.allowed_write_paths,
             "forbidden_paths": self.forbidden_paths,
             "dependencies": self.dependencies,
+            "produces_artifacts": self.produces_artifacts,
+            "requires_artifacts": self.requires_artifacts,
             "status": self.status.value,
             "error_msg": self.error_msg,
             "created_at": self.created_at,
@@ -132,8 +136,9 @@ class TaskExecutor:
     """
     Executes the TaskGraph strictly sequentially (Phase 1 constraint).
     """
-    def __init__(self, graph: TaskGraph):
+    def __init__(self, graph: TaskGraph, artifact_registry=None):
         self.graph = graph
+        self.artifact_registry = artifact_registry
 
     async def execute_all(self, execution_callback):
         """
@@ -154,6 +159,16 @@ class TaskExecutor:
                 
             # STRICT SEQUENTIAL EXECUTION: take only the first one
             task = runnable[0]
+            if self.artifact_registry is not None and getattr(task, "requires_artifacts", None):
+                result = self.artifact_registry.validate_requirements(task)
+                if not result.passed:
+                    task.status = TaskStatus.FAILED
+                    task.error_msg = result.message
+                    task.add_log("[ArtifactContract] Missing artifacts:")
+                    for artifact in result.missing_artifacts:
+                        task.add_log(f"- {artifact}")
+                    task.add_log(f"[ArtifactContract] Task {task.id} blocked")
+                    break
             task.status = TaskStatus.RUNNING
             
             import time

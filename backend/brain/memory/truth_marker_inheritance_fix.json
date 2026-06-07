@@ -1,0 +1,45 @@
+{
+  "phase": "truth_marker_inheritance_fix",
+  "status": "implemented",
+  "scope": "React/Vite runtime-truth marker ownership during modify/state preservation flow",
+  "rules_followed": [
+    "no_git_commands",
+    "no_planner_changes",
+    "no_task_graph_changes",
+    "no_collision_recovery_changes",
+    "no_runtime_launcher_changes",
+    "no_playwright_changes",
+    "no_frontend_changes"
+  ],
+  "changed_files": [
+    "backend/orchestrator/generation/scaffold_phase.py",
+    "backend/tests/test_truth_marker_injection.py",
+    "backend/brain/memory/truth_marker_inheritance_fix.json"
+  ],
+  "functions_changed": [
+    "_remove_existing_runtime_truth_markers",
+    "_inject_truth_markers"
+  ],
+  "root_cause": "Modify/state-preservation copied src/main.tsx from latest or active run with an existing runtime-truth div. Truth marker injection only inserted a marker when <App /> existed and did not remove inherited markers first, so the new run could retain the previous run-id.",
+  "behavior": {
+    "before": "Inherited runtime-truth marker could keep data-run-id from the previous run.",
+    "after": "React/Vite truth injection removes any existing runtime-truth div regardless of run-id, then injects a new marker using the current run_id."
+  },
+  "validation": [
+    {
+      "command": "python -m unittest backend.tests.test_truth_marker_injection",
+      "result": "passed",
+      "proof": "run_20260606_123512_maaoj5 replaced inherited run_20260606_123351_23sttp and latest synced to the new run marker"
+    },
+    {
+      "command": "python -m unittest backend.tests.test_project_state backend.tests.test_truth_marker_injection",
+      "result": "passed",
+      "tests": 11
+    },
+    {
+      "command": "python -m compileall backend/orchestrator backend/core backend/routes",
+      "result": "passed"
+    }
+  ],
+  "generate_validation_note": "A deterministic create+modify generate run confirmed the run folder marker changed from run_20260606_124801_8btrd5 to run_20260606_124824_sv3qmq. The end-to-end modify run did not complete due to an unrelated runtime/provider condition, so latest sync was validated with the direct state-preservation marker test."
+}

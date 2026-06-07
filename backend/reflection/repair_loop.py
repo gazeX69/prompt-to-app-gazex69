@@ -25,6 +25,10 @@ class RepairAnalyzer:
         text = (stderr + " " + stdout).lower()
         if "ts2345" in text and ("setstateaction" in text or "stateaction" in text) and "assignable" in text:
             return "ts2345_nullable_state"
+        if ("ts2741" in text or "ts2739" in text or "ts2322" in text) and "missing" in text and "properties" in text:
+            return "schema_drift_missing_properties"
+        if "property" in text and "is missing" in text and "required" in text:
+            return "schema_drift_missing_properties"
         if "tsconfig" in text or "typescript" in text or "ts6" in text:
             return "typescript_config"
         if "npm err!" in text or "enoent" in text:
@@ -140,6 +144,18 @@ async def attempt_repair(
             "    \"ts-node\": \"^10.9.2\"\n"
             "  }\n"
             "```\n"
+        )
+    elif failure_type == "schema_drift_missing_properties":
+        extra_instruction = (
+            "\n[CRITICAL INSTRUCTION FOR SCHEMA DRIFT / MISSING TYPE PROPERTIES]\n"
+            "This error usually means an existing interface/type is correct, but one or more object literals no longer satisfy it.\n"
+            "To fix this, you MUST:\n"
+            "1. Find the existing type/interface definition first (for example Product, InventoryItem, or CrudEntity).\n"
+            "2. Find every object literal or seed array typed as that interface.\n"
+            "3. Add the missing required properties to the object literals using sensible values consistent with existing consumers.\n"
+            "4. Do NOT add random optional fields to the interface just to silence the compiler.\n"
+            "5. Do NOT create a second schema or rename the type.\n"
+            "6. Preserve existing consumers and imports.\n"
         )
 
     repair_prompt = (

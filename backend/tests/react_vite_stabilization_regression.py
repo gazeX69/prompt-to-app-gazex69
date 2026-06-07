@@ -4,13 +4,17 @@ import shutil
 import subprocess
 import uuid
 from pathlib import Path
+from unittest.mock import patch
 
 from backend.models.schemas import GeneratedFile, GenerateRequest
 from backend.runtime_contract import RuntimeErrorCode, can_transition, classify_dependency_import, DEPENDENCY_POLICY, error_payload
 from backend.orchestrator.project_orchestrator import (
     _filter_react_vite_generated_files,
+    _validate_preview_usability,
     generate_project_async,
 )
+from backend.orchestrator.planning_engine import PlanningEngine, PlanningFailure
+from backend.orchestrator.project_mapper import ProjectMap
 from backend.templates.react_vite_contract import (
     classify_react_vite_failure,
     restore_canonical_react_vite_contract,
@@ -60,6 +64,71 @@ def test_llm_output_cannot_overwrite_react_vite_contract_files():
     filtered = asyncio.run(_filter_react_vite_generated_files(files, "test-filter"))
 
     assert [f.path for f in filtered] == ["src/App.tsx"]
+
+
+def test_placeholder_validation_allows_hello_world_when_prompt_intends_it():
+    ok, error = _validate_preview_usability(
+        prompt_text="buat demo react dengan tulisan hello world",
+        body_text="Hello World",
+        root_text="Hello World",
+        root_child_count=1,
+        interactive_count=0,
+    )
+
+    assert ok
+    assert error is None
+
+
+def test_placeholder_validation_allows_welcome_when_prompt_intends_it():
+    ok, error = _validate_preview_usability(
+        prompt_text="buat landing page sederhana yang menampilkan welcome",
+        body_text="Welcome",
+        root_text="Welcome",
+        root_child_count=1,
+        interactive_count=0,
+    )
+
+    assert ok
+    assert error is None
+
+
+def test_placeholder_validation_rejects_welcome_for_marketplace_prompt():
+    ok, error = _validate_preview_usability(
+        prompt_text="buat marketplace lengkap",
+        body_text="Welcome",
+        root_text="Welcome",
+        root_child_count=1,
+        interactive_count=0,
+    )
+
+    assert not ok
+    assert error
+
+
+def test_marketplace_prompt_metadata_does_not_trigger_todo_validation():
+    ok, error = _validate_preview_usability(
+        prompt_text="buat marketplace\n\nDaftar tugas:\n- buat katalog",
+        body_text="Product Catalog Cart Checkout Admin Search Filter Buy",
+        root_text="Product Catalog Cart Checkout Admin Search Filter Buy",
+        root_child_count=1,
+        interactive_count=5,
+    )
+
+    assert ok
+    assert error is None
+
+
+def test_placeholder_validation_allows_existing_text_for_visual_change_prompt():
+    ok, error = _validate_preview_usability(
+        prompt_text="ganti bacground kuning",
+        body_text="Hello World",
+        root_text="Hello World",
+        root_child_count=1,
+        interactive_count=0,
+    )
+
+    assert ok
+    assert error is None
 
 
 def test_ts6310_shaped_config_is_restored_in_one_deterministic_pass():
@@ -192,6 +261,28 @@ def test_dependency_policy_classifies_undeclared_imports_without_installing():
     assert classify_dependency_import("react", declared) is None
     assert classify_dependency_import("lodash", declared) == RuntimeErrorCode.E_DEPENDENCY_MISSING
     assert DEPENDENCY_POLICY["mode"] == "declared_only"
+
+
+def test_invalid_json_planner_for_marketplace_fails_without_fallback_task():
+    pmap = ProjectMap(project_id="planner_marketplace_regression", run_id="run_test", ecosystem="react-vite")
+
+    with patch("backend.orchestrator.planning_engine.complete", return_value="not json at all"), patch.object(PlanningEngine, "_deterministic_plan", return_value=None):
+        try:
+            asyncio.run(PlanningEngine.create_plan("buat marketplace", "React + Vite", pmap))
+        except PlanningFailure as exc:
+            assert "Unsafe monolithic fallback is blocked" in str(exc)
+        else:
+            raise AssertionError("Expected PlanningFailure")
+
+
+def test_hello_world_prompt_allows_simple_planner_fallback():
+    pmap = ProjectMap(project_id="planner_hello_regression", run_id="run_test", ecosystem="react-vite")
+
+    with patch("backend.orchestrator.planning_engine.complete", return_value="not json at all"):
+        graph = asyncio.run(PlanningEngine.create_plan("buat hello world", "React + Vite", pmap))
+
+    assert "hello_world_fallback" in graph.tasks
+    assert "fallback_task" not in graph.tasks
 
 
 def test_runtime_error_payload_is_structured_and_serializable():

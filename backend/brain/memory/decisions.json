@@ -2633,5 +2633,1819 @@
     "id": "4d286355-a8b8-48b1-a9bf-d9a1a69600dc",
     "schema_version": "p8-c3-a.v1",
     "created_at": "2026-06-04T16:36:42Z"
+  },
+  {
+    "original_prompt": "buat todo list moderen",
+    "final_prompt": "buat todo list moderen",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qwqwqw",
+    "id": "e098ee35-c958-474b-bc1a-e0040ad2aff7",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T00:50:17Z"
+  },
+  {
+    "original_prompt": "buat halaman hello world sederhana",
+    "final_prompt": "buat halaman hello world sederhana",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "asadsd",
+    "id": "d47c5582-f03d-446e-8892-4adcb07784c1",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T02:03:02Z"
+  },
+  {
+    "original_prompt": "buat aplikasi hello world react sederhana",
+    "final_prompt": "buat aplikasi hello world react sederhana",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qwer",
+    "id": "25e87b5f-4970-4303-a8ff-feda91d9a180",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T02:49:34Z"
+  },
+  {
+    "original_prompt": "buat marketplace",
+    "final_prompt": "Original request:\nbuat marketplace\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [
+      "roles",
+      "product_schema",
+      "cart_checkout_scope",
+      "payment",
+      "database",
+      "admin_panel",
+      "crud_scope"
+    ],
+    "workspace_id": "q21",
+    "id": "ab712fa2-f79c-4c94-9d6c-f3ece625c796",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T03:21:09Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "asdw-2",
+    "id": "c9d7188d-ddff-43f6-8d9d-3504a2a8c80d",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T03:52:09Z"
+  },
+  {
+    "original_prompt": "ganti bacground kuning",
+    "final_prompt": "ganti bacground kuning",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "hello_world",
+      "intent": "unknown",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "asdw-2",
+    "id": "683e4310-fd9a-4608-b5d8-d7e19c0eb56d",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T03:53:24Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qweqweqwe2",
+    "id": "01d99d93-2d76-40ea-8e99-abfdcbd8b453",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T04:10:35Z"
+  },
+  {
+    "original_prompt": "ganti background jadi hijau",
+    "final_prompt": "ganti background jadi hijau",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "hello_world",
+      "intent": "unknown",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "style_update"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World Modification",
+      "features": [
+        "Targeted styling update",
+        "Preserve existing UI",
+        "Validate preview"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qweqweqwe2",
+    "id": "e0946217-f19c-4224-ade6-34fc94bd0a7c",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T04:12:39Z"
+  },
+  {
+    "original_prompt": "ganti warna bacgound menjadi hijau",
+    "final_prompt": "ganti warna bacgound menjadi hijau",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "hello_world",
+      "intent": "unknown",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "style_update"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World Modification",
+      "features": [
+        "Targeted styling update",
+        "Preserve existing UI",
+        "Validate preview"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "asdw-2",
+    "id": "f700b18e-4327-4bf9-9340-8ff6ffbc5dc7",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T04:13:44Z"
+  },
+  {
+    "original_prompt": "buat aplikasi marketplace dengan tampilan menarik seperti shoppe id",
+    "final_prompt": "Original request:\nbuat aplikasi marketplace dengan tampilan menarik seperti shoppe id\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation\n\nResolved Design Decisions:\n- roles: Single Admin Role (Recommended for MVP)\n- product_schema: Yes, implement this\n- cart_checkout_scope: Simulated local checkout (Recommended for MVP)\n- payment: Simulated Checkout (Recommended for MVP)\n- database: Browser LocalStorage (Recommended for MVP)\n- admin_panel: Simple Admin Screen (Recommended)\n- crud_scope: Yes, implement this",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [
+      "roles",
+      "product_schema",
+      "cart_checkout_scope",
+      "payment",
+      "database",
+      "admin_panel",
+      "crud_scope"
+    ],
+    "workspace_id": "market",
+    "id": "0eaa9b2b-2c96-4c3d-b58a-429bf55284fc",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T06:19:57Z"
+  },
+  {
+    "original_prompt": "buat aplikasi marketplace",
+    "final_prompt": "Original request:\nbuat aplikasi marketplace\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation\n\nResolved Design Decisions:\n- roles: Single Admin Role (Recommended for MVP)\n- product_schema: Yes, implement this\n- cart_checkout_scope: Simulated local checkout (Recommended for MVP)\n- payment: Simulated Checkout (Recommended for MVP)\n- database: Browser LocalStorage (Recommended for MVP)\n- admin_panel: Simple Admin Screen (Recommended)\n- crud_scope: Yes, implement this",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [
+      "roles",
+      "product_schema",
+      "cart_checkout_scope",
+      "payment",
+      "database",
+      "admin_panel",
+      "crud_scope"
+    ],
+    "workspace_id": "qqqqqqqqqqq",
+    "id": "ea155151-f4f2-4e4c-8dbd-38abe03e7674",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T06:25:21Z"
+  },
+  {
+    "original_prompt": "buat marketplace seperti shopee indonesia",
+    "final_prompt": "Original request:\nbuat marketplace seperti shopee indonesia\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation\n\nResolved Design Decisions:\n- roles: Single Admin Role (Recommended for MVP)\n- product_schema: Yes, implement this\n- cart_checkout_scope: Simulated local checkout (Recommended for MVP)\n- payment: Simulated Checkout (Recommended for MVP)\n- database: Browser LocalStorage (Recommended for MVP)\n- admin_panel: Simple Admin Screen (Recommended)\n- crud_scope: Yes, implement this",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [
+      "roles",
+      "product_schema",
+      "cart_checkout_scope",
+      "payment",
+      "database",
+      "admin_panel",
+      "crud_scope"
+    ],
+    "workspace_id": "11",
+    "id": "1a32ead1-f73e-4200-9cfc-f70ae23619ce",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T06:53:18Z"
+  },
+  {
+    "original_prompt": "Buat hello world",
+    "final_prompt": "Buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "12",
+    "id": "20edf28a-db84-4971-a1ae-c0205096fd69",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T09:55:13Z"
+  },
+  {
+    "original_prompt": "buat marketplace",
+    "final_prompt": "buat marketplace",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "hello_world",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "12",
+    "id": "5fa01934-f1a7-484b-86e8-440f68c956b7",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T09:56:13Z"
+  },
+  {
+    "original_prompt": "buat CRUD",
+    "final_prompt": "Original request:\nbuat CRUD\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "high",
+      "feature_keywords": [
+        "crud",
+        "entities",
+        "database"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qweqweq",
+    "id": "ed0fb89e-3a21-4960-a7ae-76e0281502a3",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T15:44:07Z"
+  },
+  {
+    "original_prompt": "buat CRUD",
+    "final_prompt": "Original request:\nbuat CRUD\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "high",
+      "feature_keywords": [
+        "crud",
+        "entities",
+        "database"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "123",
+    "id": "b4269e89-eefc-438e-845a-1a501ce2b576",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T16:04:51Z"
+  },
+  {
+    "original_prompt": "buat CRUD",
+    "final_prompt": "Original request:\nbuat CRUD\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "high",
+      "feature_keywords": [
+        "crud",
+        "entities",
+        "database"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "123",
+    "id": "3545e681-0261-487f-9fe0-374ef598e3d3",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T16:27:35Z"
+  },
+  {
+    "original_prompt": "buat CRUD",
+    "final_prompt": "Original request:\nbuat CRUD\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "high",
+      "feature_keywords": [
+        "crud",
+        "entities",
+        "database"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "1234",
+    "id": "4ac9b6b8-33aa-4baf-adc1-25769bad93d9",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T17:06:36Z"
+  },
+  {
+    "original_prompt": "buat CRUD",
+    "final_prompt": "Original request:\nbuat CRUD\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "high",
+      "feature_keywords": [
+        "crud",
+        "entities",
+        "database"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "12345",
+    "id": "6449523d-5eae-4e17-b560-d6121a0a4987",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-05T17:11:14Z"
+  },
+  {
+    "original_prompt": "hello world react vite",
+    "final_prompt": "hello world react vite",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "unknown",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "cede",
+    "id": "650a9832-d932-47b3-8c1d-ed4cc3c7237e",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T02:15:10Z"
+  },
+  {
+    "original_prompt": "buat aplikaco counter moderen",
+    "final_prompt": "buat aplikaco counter moderen",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "counter",
+      "complexity": "low",
+      "feature_keywords": [
+        "counter"
+      ],
+      "required_capabilities": [
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Counter App",
+      "features": [
+        "Increment",
+        "Decrement",
+        "Reset"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "asdw-2",
+    "id": "4c57bc8f-4c46-44fe-aef5-1ea8b0b32895",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T02:17:22Z"
+  },
+  {
+    "original_prompt": "buat counter moderen",
+    "final_prompt": "buat counter moderen",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "counter",
+      "complexity": "low",
+      "feature_keywords": [
+        "counter"
+      ],
+      "required_capabilities": [
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Counter App",
+      "features": [
+        "Increment",
+        "Decrement",
+        "Reset"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "counter",
+    "id": "6d7e8a26-2e0c-4375-b368-7f2520da419b",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T02:37:56Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "hello",
+    "id": "526fd3a3-8508-4666-9d67-4ba010c5f83b",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T02:47:59Z"
+  },
+  {
+    "original_prompt": "buat todo list",
+    "final_prompt": "buat todo list",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "wwwww",
+    "id": "fcd2e414-5d90-42a1-a66c-b5b6b612b9a7",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T03:43:18Z"
+  },
+  {
+    "original_prompt": "buat todo list",
+    "final_prompt": "buat todo list",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "aaaaw",
+    "id": "99069086-bbb6-40c4-888e-8b5e0e48b9a5",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T04:20:05Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "hello",
+    "id": "2c80bb4f-3ee8-449d-af11-e5ec97d767de",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:07:44Z"
+  },
+  {
+    "original_prompt": "buat counter modern",
+    "final_prompt": "buat counter modern",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "counter",
+      "complexity": "low",
+      "feature_keywords": [
+        "counter"
+      ],
+      "required_capabilities": [
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Counter App",
+      "features": [
+        "Increment",
+        "Decrement",
+        "Reset"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "counter",
+    "id": "f4308c90-6568-4887-a2d2-6ce4905a1ad9",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:11:30Z"
+  },
+  {
+    "original_prompt": "buat todo list",
+    "final_prompt": "buat todo list",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-todo-list",
+    "id": "82bfb728-2993-4d0a-aee5-cdb0443db4bd",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:14:35Z"
+  },
+  {
+    "original_prompt": "buat todo list dengan prioritas tinggi sedang rendah",
+    "final_prompt": "buat todo list dengan prioritas tinggi sedang rendah",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-todo-list-dengan-prioritas-tinggi-sedang-rendah",
+    "id": "f690eb48-81b5-4581-8a70-21eba88e1456",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:21:04Z"
+  },
+  {
+    "original_prompt": "tambahkan fitur edit task",
+    "final_prompt": "tambahkan fitur edit task",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "todo",
+      "intent": "unknown",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks",
+        "crud"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-todo-list-dengan-prioritas-tinggi-sedang-rendah",
+    "id": "9a7af5df-8c84-4c1d-9aca-27b83a46c949",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:23:20Z"
+  },
+  {
+    "original_prompt": "tambahkan fitur edit",
+    "final_prompt": "tambahkan fitur edit",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "todo",
+      "intent": "unknown",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks",
+        "crud"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-todo-list-dengan-prioritas-tinggi-sedang-rendah",
+    "id": "e0a97c33-f71d-472f-b3d6-5990bac330b4",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:26:14Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-hello",
+    "id": "7bc72104-58da-4c03-ba7a-12edd844d94a",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:32:58Z"
+  },
+  {
+    "original_prompt": "buat hello world",
+    "final_prompt": "buat hello world",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "static_rendering"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World App",
+      "features": [
+        "Static greeting",
+        "Simple page layout"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "hello",
+    "id": "8dcf4124-7e0a-45a7-a251-06f652310ee2",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:33:51Z"
+  },
+  {
+    "original_prompt": "ganti backgrounya menjadi hijau",
+    "final_prompt": "ganti backgrounya menjadi hijau",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "hello_world",
+      "intent": "unknown",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "style_update"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World Modification",
+      "features": [
+        "Targeted styling update",
+        "Preserve existing UI",
+        "Validate preview"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "hello",
+    "id": "a70d008b-c340-4a1e-b6a1-df3e05d1a06b",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T05:35:12Z"
+  },
+  {
+    "original_prompt": "buat todo list",
+    "final_prompt": "buat todo list",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "hello_world",
+      "intent": "build_app",
+      "app_type": "hello_world",
+      "complexity": "low",
+      "feature_keywords": [
+        "hello_world"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Hello World Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "hello",
+    "id": "a4de3baa-c50d-46c8-a678-e1f459736ec1",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T06:32:16Z"
+  },
+  {
+    "original_prompt": "buat todo list",
+    "final_prompt": "buat todo list",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "to-do",
+    "id": "672b9786-6671-4df5-8298-2508b2b3e3c3",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T06:33:05Z"
+  },
+  {
+    "original_prompt": "buat todo list",
+    "final_prompt": "buat todo list",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "to-do",
+    "id": "4a6a4a06-7231-4ccb-b3c4-c3a3f2a68e35",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T06:34:31Z"
+  },
+  {
+    "original_prompt": "tambahkan fitur edit",
+    "final_prompt": "tambahkan fitur edit",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "todo",
+      "intent": "unknown",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks",
+        "crud"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "to-do",
+    "id": "3496b2bf-0124-42b1-a33c-ccd92a74fa4b",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T06:37:16Z"
+  },
+  {
+    "original_prompt": "buat todo list moderen",
+    "final_prompt": "buat todo list moderen",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "todo",
+    "id": "e91bc50d-b384-48f6-a366-eb64e29b20d5",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T08:13:55Z"
+  },
+  {
+    "original_prompt": "buat todo list moderen",
+    "final_prompt": "buat todo list moderen",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "utility",
+      "intent": "build_app",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo App",
+      "features": [
+        "Task list",
+        "Add task",
+        "Mark complete",
+        "Delete task"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qw",
+    "id": "18fabe04-3473-465c-a30d-e34e992904cc",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T08:17:16Z"
+  },
+  {
+    "original_prompt": "tambahkan fitur edit",
+    "final_prompt": "tambahkan fitur edit",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "todo",
+      "intent": "unknown",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks",
+        "crud"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qw",
+    "id": "243059c3-a70f-4ad3-ba99-25c5990dff9a",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T08:20:36Z"
+  },
+  {
+    "original_prompt": "tambahkan tombol dan hover untuk navigasi dan eksekusi, seperti tombol tambah, edit, dan bagian aksi lainnya",
+    "final_prompt": "tambahkan tombol dan hover untuk navigasi dan eksekusi, seperti tombol tambah, edit, dan bagian aksi lainnya",
+    "action": "auto_continue",
+    "decision": "local_only",
+    "signature": {
+      "domain": "todo",
+      "intent": "unknown",
+      "app_type": "todo",
+      "complexity": "low",
+      "feature_keywords": [
+        "tasks",
+        "crud"
+      ],
+      "required_capabilities": [
+        "targeted_project_modification"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Todo Modification",
+      "features": [
+        "Targeted project modification",
+        "Preserve existing features",
+        "Validate result"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "qw",
+    "id": "93dbd6f7-8801-4536-878e-13f8558a2f24",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T08:41:07Z"
+  },
+  {
+    "original_prompt": "buat aplikasi market place",
+    "final_prompt": "Original request:\nbuat aplikasi market place\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation\n\nResolved Design Decisions:\n- crud_scope: Yes, implement this\n- entity: Yes, implement this\n- schema_fields: Yes, implement this\n- storage_type: LocalStorage (Recommended)\n- persistence: localStorage persistent (Recommended)\n- backend_api: Mock API local client (Recommended for MVP)",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "general",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "high",
+      "feature_keywords": [
+        "crud",
+        "database"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "as",
+    "id": "d0370792-0e68-48cf-8901-767b7cf469d8",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T09:17:32Z"
+  },
+  {
+    "original_prompt": "buat to do list moderen",
+    "final_prompt": "Original request:\nbuat to do list moderen\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm crud scope\n- Confirm entity\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "general",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "high",
+      "feature_keywords": [
+        "crud",
+        "database"
+      ],
+      "required_capabilities": [
+        "state_management",
+        "crud",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "crud_scope",
+      "entity",
+      "schema_fields",
+      "storage_type",
+      "persistence",
+      "backend_api"
+    ],
+    "workspace_id": "ww",
+    "id": "6d321ee2-168a-4bef-850d-864ce8fb87af",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T09:24:48Z"
+  },
+  {
+    "original_prompt": "buat marketplace modern",
+    "final_prompt": "Original request:\nbuat marketplace modern\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-marketplace-modern",
+    "id": "75c5d77b-18d7-4fbc-9530-8327b361c1da",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T15:56:20Z"
+  },
+  {
+    "original_prompt": "buat marketplace modern",
+    "final_prompt": "Original request:\nbuat marketplace modern\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-marketplace-modern-2",
+    "id": "6e4f1022-890c-46ec-9fbf-9fb08e6f0f64",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T16:14:09Z"
+  },
+  {
+    "original_prompt": "buat sistem inventory gudang",
+    "final_prompt": "Original request:\nbuat sistem inventory gudang\n\nUse this confirmed MVP scope:\nTitle: Inventory MVP\n\nFeatures:\n- Item list\n- Add/edit/delete item\n- Stock quantity tracking\n- Low stock indicator\n- Simple local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm item schema and stock movement rules\n- Build item list and item form\n- Add stock adjustment behavior\n- Add selected storage or database persistence\n- Validate reporting and generated project contract\n\nTask list:\n- Confirm item schema\n- Confirm stock movement rules\n- Confirm storage type\n- Confirm database\n- Confirm roles\n- Generate implementation\n- Run validation\n\nResolved Design Decisions:\n- item_schema: buah buahan\n- stock_movement_rules: normal pada umunya, namun stok tidak boleh minus\n- storage_type: LocalStorage (Recommended)\n- database: Browser LocalStorage (Recommended for MVP)\n- roles: Single Admin Role (Recommended for MVP)\n- reporting_analytics: Simple summary metrics cards (Recommended)",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "inventory",
+      "intent": "build_app",
+      "app_type": "inventory",
+      "complexity": "high",
+      "feature_keywords": [
+        "items",
+        "stock",
+        "crud",
+        "reporting"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence",
+        "reporting"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Inventory MVP",
+      "features": [
+        "Item list",
+        "Add/edit/delete item",
+        "Stock quantity tracking",
+        "Low stock indicator",
+        "Simple local persistence"
+      ]
+    },
+    "missing_decision_keys": [
+      "item_schema",
+      "stock_movement_rules",
+      "storage_type",
+      "database",
+      "roles",
+      "reporting_analytics"
+    ],
+    "workspace_id": "buat-sistem-inventory-gudang",
+    "id": "34934859-ba2c-454b-9d57-9730cafe7972",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T16:20:16Z"
+  },
+  {
+    "original_prompt": "buat CRUD produk",
+    "final_prompt": "Original request:\nbuat CRUD produk\n\nUse this confirmed MVP scope:\nTitle: CRUD MVP\n\nFeatures:\n- One primary entity\n- List/create/edit/delete flow\n- Basic form validation\n- Local persistence\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Define the primary entity and fields\n- Build list and form screens\n- Add create, update, and delete behavior\n- Add the selected storage or persistence mode\n- Validate the generated project contract\n\nTask list:\n- Confirm schema fields\n- Confirm storage type\n- Confirm persistence\n- Confirm backend api\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "crud",
+      "intent": "build_app",
+      "app_type": "crud_app",
+      "complexity": "medium",
+      "feature_keywords": [
+        "crud",
+        "entities",
+        "database"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "data_persistence"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "CRUD MVP",
+      "features": [
+        "One primary entity",
+        "List/create/edit/delete flow",
+        "Basic form validation",
+        "Local persistence"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-crud-produk",
+    "id": "3f33b0bd-f7d2-42d6-b88e-f07ea5a6e6b8",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T16:25:20Z"
+  },
+  {
+    "original_prompt": "buat marketplace modern",
+    "final_prompt": "Original request:\nbuat marketplace modern\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-marketplace-modern-3",
+    "id": "4fb77d24-43a2-4122-acab-59a755bf62fb",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T16:43:14Z"
+  },
+  {
+    "original_prompt": "buat marketplace modern",
+    "final_prompt": "Original request:\nbuat marketplace modern\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-marketplace-modern-4",
+    "id": "b2d96a92-3f5f-40bf-b219-2b7bf2d45582",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T16:45:37Z"
+  },
+  {
+    "original_prompt": "buat Marketplace moderen",
+    "final_prompt": "Original request:\nbuat Marketplace moderen\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "marketplace",
+    "id": "bba005ed-6be7-4fe7-8a17-fe2623a994ea",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T17:05:46Z"
+  },
+  {
+    "original_prompt": "buat Marketplace moderen",
+    "final_prompt": "Original request:\nbuat Marketplace moderen\n\nUse this confirmed MVP scope:\nTitle: Marketplace MVP\n\nFeatures:\n- Product listing\n- Product detail\n- Cart\n- Simulated checkout\n- Simple admin product CRUD\n\nConstraints:\n- Build the smallest working MVP.\n- Target ecosystem: react-vite.\n- Build this as a React + Vite + TypeScript frontend app.\n- Render the working UI at the root route \"/\".\n- Use client-side state, mock data, or localStorage for MVP data.\n- Keep the implementation previewable in the browser.\n- Do not create server-side files for this MVP.\n- Do not import packages that are not already declared in package.json.\n\nImplementation plan:\n- Confirm product schema and buyer/admin scope\n- Build product listing and detail views\n- Add cart and simulated checkout flow\n- Add simple admin product management\n- Validate generated project contract\n\nTask list:\n- Confirm roles\n- Confirm product schema\n- Confirm cart checkout scope\n- Confirm payment\n- Confirm database\n- Generate implementation\n- Run validation",
+    "action": "use_recommended_mvp",
+    "decision": "ask_user_before_generate",
+    "signature": {
+      "domain": "marketplace",
+      "intent": "build_app",
+      "app_type": "marketplace",
+      "complexity": "high",
+      "feature_keywords": [
+        "products",
+        "cart",
+        "checkout",
+        "admin"
+      ],
+      "required_capabilities": [
+        "crud",
+        "state_management",
+        "product_catalog",
+        "cart",
+        "checkout_simulation"
+      ]
+    },
+    "recommended_mvp": {
+      "title": "Marketplace MVP",
+      "features": [
+        "Product listing",
+        "Product detail",
+        "Cart",
+        "Simulated checkout",
+        "Simple admin product CRUD"
+      ]
+    },
+    "missing_decision_keys": [],
+    "workspace_id": "buat-marketplace-moderen",
+    "id": "c38becd8-d7c5-4e8f-94fb-38eee5875bf2",
+    "schema_version": "p8-c3-a.v1",
+    "created_at": "2026-06-06T17:10:28Z"
   }
 ]

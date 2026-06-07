@@ -30,12 +30,12 @@ class TestSkepticAI(unittest.TestCase):
         self.assertEqual(_get_broad_match_type("build e-comerce"), "marketplace")
         self.assertEqual(_get_broad_match_type("ekomere"), "marketplace")
 
-        # Typos/Variations in saas
-        self.assertEqual(_get_broad_match_type("bikin sas"), "saas")
-        self.assertEqual(_get_broad_match_type("saas dashboard"), "saas")
+        # Domains without contracts are intentionally not classified here.
+        self.assertIsNone(_get_broad_match_type("bikin sas"))
+        self.assertEqual(_get_broad_match_type("saas dashboard"), "dashboard")
 
-        # Typos in lms/lsm
-        self.assertEqual(_get_broad_match_type("buat lsm"), "lms")
+        # Domains without contracts are intentionally not classified here.
+        self.assertIsNone(_get_broad_match_type("buat lsm"))
 
         # No match for simple apps
         self.assertIsNone(_get_broad_match_type("buat todo app"))
@@ -55,13 +55,15 @@ class TestSkepticAI(unittest.TestCase):
     def test_short_vague_prompt_heuristic(self):
         # Extremely short general app prompt
         sig_vague = build_plan_signature("buat aplikasi")
-        self.assertEqual(sig_vague.app_type, "crud_app")
-        self.assertEqual(sig_vague.complexity, ComplexityLevel.HIGH)
+        self.assertEqual(sig_vague.domain, "UNKNOWN_DOMAIN")
+        self.assertEqual(sig_vague.app_type, "unknown_domain")
+        self.assertEqual(sig_vague.complexity, ComplexityLevel.MEDIUM)
 
-        # Long specific app prompt (should not trigger vague heuristic)
+        # Long specific app prompt without a contract should stay unknown.
         sig_specific = build_plan_signature("buat aplikasi web portal untuk reservasi peminjaman buku perpustakaan sekolah")
-        self.assertEqual(sig_specific.app_type, "booking")
-        self.assertEqual(sig_specific.complexity, ComplexityLevel.HIGH)
+        self.assertEqual(sig_specific.domain, "UNKNOWN_DOMAIN")
+        self.assertEqual(sig_specific.app_type, "unknown_domain")
+        self.assertEqual(sig_specific.complexity, ComplexityLevel.MEDIUM)
 
     def test_decide_preflight_outcomes(self):
         # Typo prompt preflight decision
@@ -78,7 +80,7 @@ class TestSkepticAI(unittest.TestCase):
         res_vague = decide_preflight("buat aplikasi", sig_vague, scope_vague, [])
         self.assertEqual(res_vague.decision, BrainDecision.ASK_USER_BEFORE_GENERATE)
         self.assertTrue(res_vague.planning_required)
-        self.assertGreater(len(res_vague.scope_analysis.missing_decisions), 0)
+        self.assertEqual(len(res_vague.scope_analysis.missing_decisions), 0)
 
 
 if __name__ == "__main__":

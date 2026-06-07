@@ -33,6 +33,7 @@ class PreflightHistoryAction(str, Enum):
 class PreflightRequest(BaseModel):
     prompt: str = Field(..., description="Raw user generation prompt")
     project_id: str | None = Field(None, description="Optional workspace/project id for project-aware preflight")
+    discovery_session_id: str | None = Field(None, description="Optional discovery session id to restore before preflight")
 
 
 class PlanSignature(BaseModel):
@@ -126,8 +127,20 @@ class BrainDecisionResult(BaseModel):
     workspace_awareness: dict | None = None
     workspace_impact: dict | None = None
     change_scope: dict | None = None
+    discovery_session: dict | None = None
     subdomains: list[SubdomainSchema] = Field(default_factory=list)
     vertical_slices: list[VerticalSliceSchema] = Field(default_factory=list)
+
+
+class DiscoveryStartRequest(BaseModel):
+    prompt: str
+    project_id: str | None = None
+
+
+class DiscoveryAnswerRequest(BaseModel):
+    session_id: str
+    answer: str
+    project_id: str | None = None
 
 
 

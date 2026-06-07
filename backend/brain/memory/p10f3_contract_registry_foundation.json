@@ -1,0 +1,35 @@
+{
+  "phase": "P10-F3",
+  "status": "implemented",
+  "scope": "Contract Registry Foundation only",
+  "rules_followed": [
+    "no_git_commands",
+    "no_frontend_changes",
+    "no_runtime_launcher_changes",
+    "no_playwright_interaction_changes",
+    "no_reflection_changes",
+    "no_planner_redesign",
+    "no_app_type_registry"
+  ],
+  "created_files": [
+    "backend/validation/feature_contracts/capabilities.py",
+    "backend/brain/memory/p10f3_contract_registry_foundation.json"
+  ],
+  "modified_files": [
+    "backend/validation/feature_contracts/models.py",
+    "backend/validation/feature_contracts/registry.py",
+    "backend/validation/feature_contracts/runner.py",
+    "backend/validation/feature_contracts/__init__.py",
+    "backend/orchestrator/generation/orchestrator.py",
+    "backend/tests/test_feature_contracts.py"
+  ],
+  "architecture": {
+    "mapping": "Feature -> ContractCapability -> ContractDescriptor",
+    "example": {
+      "features": ["create_task", "edit_task", "delete_task"],
+      "capabilities": ["CREATE_ENTITY", "UPDATE_ENTITY", "DELETE_ENTITY"],
+      "selected_contracts": ["entity_create", "entity_update", "entity_delete"]
+    },
+    "execution": "No concrete contracts are executed unless a handler is registered; default descriptors only select and report future contracts."
+  }
+}

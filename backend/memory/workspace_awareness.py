@@ -1,11 +1,13 @@
 from datetime import datetime, timezone
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
 
 from backend.agent.tools import _safe_project_path
 
+logger = logging.getLogger(__name__)
 
 WORKSPACE_AWARENESS_SCHEMA_VERSION = "p10.workspace_awareness.v1"
 WORKSPACE_AWARENESS_RELATIVE_PATH = ".ai-agent/workspace_awareness.json"
@@ -323,6 +325,14 @@ class WorkspaceAwareness:
 
     @staticmethod
     def scan(project_id: str, run_id: str | None = None, prompt: str | None = None) -> dict[str, Any]:
+        project_state = None
+        try:
+            from backend.memory.project_memory import ProjectMemory
+
+            project_state = ProjectMemory.load_for(project_id, "workspace awareness")
+            logger.info("[ProjectState] Loaded for workspace awareness")
+        except Exception:
+            project_state = None
         root = _resolve_source_root(project_id, run_id)
         root.mkdir(parents=True, exist_ok=True)
         files: list[str] = []
@@ -334,6 +344,8 @@ class WorkspaceAwareness:
         files = sorted(files)
         known_files = set(files)
         stack = _detect_stack(root, files)
+        if project_state and project_state.get("ecosystem") not in {None, "", "unknown", "blank"}:
+            stack["ecosystem"] = project_state.get("ecosystem")
         structure = _detect_structure(files)
 
         dependency_graph: dict[str, list[str]] = {}
@@ -367,6 +379,12 @@ class WorkspaceAwareness:
             "project_id": project_id,
             "source_root": str(root.resolve()),
             "run_id": run_id,
+            "project_state": {
+                "project_type": (project_state or {}).get("project_type", "unknown"),
+                "domain": (project_state or {}).get("domain"),
+                "database": (project_state or {}).get("database"),
+                "supplier": (project_state or {}).get("supplier"),
+            },
             "created_at": _utc_now(),
             "updated_at": _utc_now(),
             "maturity": {
@@ -407,6 +425,7 @@ class WorkspaceAwareness:
     def build_context(project_id: str, run_id: str | None = None, prompt: str | None = None) -> str:
         awareness = WorkspaceAwareness.scan(project_id, run_id=run_id, prompt=prompt)
         stack = ", ".join(awareness["stack"].get("stack") or [])
+        project_state = awareness.get("project_state") or {}
         top_dirs = ", ".join(awareness["structure"].get("top_level") or [])
         patterns = awareness.get("patterns") or {}
         impact = awareness.get("impact_analysis") or {}
@@ -416,6 +435,8 @@ class WorkspaceAwareness:
             "Epistemic rule: Workspace Awareness is derived from a lightweight scan and carries confidence, not certainty.\n"
             f"Source root: {awareness.get('source_root')}\n"
             f"Stack: {stack}\n"
+            f"Project type: {project_state.get('project_type') or 'unknown'}\n"
+            f"Domain: {project_state.get('domain') or 'unknown'}\n"
             f"Files scanned: {awareness['files'].get('total')}\n"
             f"Top-level structure: {top_dirs or 'none'}\n"
             f"State management pattern: {', '.join(patterns.get('state_management') or [])}\n"

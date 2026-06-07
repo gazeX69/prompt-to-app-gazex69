@@ -1,0 +1,194 @@
+{
+  "contract_version": "v1",
+  "app_type": "crud_app",
+  "domain": "crud",
+  "complexity_default": "MEDIUM",
+  "keywords": [
+    "crud",
+    "crud besar",
+    "crud kompleks",
+    "complex crud",
+    "multi-entity crud"
+  ],
+  "features": ["crud", "entitas", "database"],
+  "feature_keywords": ["crud", "entities", "database"],
+  "capabilities": [
+    "crud",
+    "state_management",
+    "data_persistence"
+  ],
+  "required_capabilities": [
+    "crud",
+    "state_management",
+    "data_persistence"
+  ],
+  "decisions": [
+    "crud_scope",
+    "entity",
+    "schema_fields",
+    "storage_type",
+    "persistence",
+    "backend_api"
+  ],
+  "decision_keys": [
+    "crud_scope",
+    "entity",
+    "schema_fields",
+    "storage_type",
+    "persistence",
+    "backend_api"
+  ],
+  "decision_hints": {
+    "crud_scope": [
+      "todo",
+      "task",
+      "produk",
+      "product",
+      "barang",
+      "item",
+      "user",
+      "customer",
+      "employee",
+      "student",
+      "book",
+      "order",
+      "transaction",
+      "transaksi"
+    ],
+    "entity": [
+      "todo",
+      "task",
+      "produk",
+      "product",
+      "barang",
+      "item",
+      "user",
+      "customer",
+      "employee",
+      "student",
+      "book",
+      "order",
+      "transaction",
+      "transaksi"
+    ],
+    "schema_fields": [
+      "field",
+      "fields",
+      "kolom",
+      "atribut",
+      "name",
+      "nama",
+      "title",
+      "judul",
+      "description",
+      "deskripsi",
+      "status",
+      "price",
+      "harga",
+      "email"
+    ],
+    "storage_type": [
+      "local storage",
+      "localstorage",
+      "local state",
+      "state lokal",
+      "json",
+      "database",
+      "db",
+      "sql",
+      "mysql",
+      "postgres",
+      "sqlite",
+      "backend",
+      "api"
+    ],
+    "persistence": [
+      "local storage",
+      "localstorage",
+      "persist",
+      "persistent",
+      "persistence",
+      "simpan",
+      "database",
+      "db",
+      "sql",
+      "json"
+    ]
+  },
+  "mvp_features": [
+    "One primary entity",
+    "List/create/edit/delete flow",
+    "Basic form validation",
+    "Local persistence"
+  ],
+  "recommended_mvp_features": [
+    "One primary entity",
+    "List/create/edit/delete flow",
+    "Basic form validation",
+    "Local persistence"
+  ],
+  "implementation_plan": [
+    "Define the primary entity and fields",
+    "Build list and form screens",
+    "Add create, update, and delete behavior",
+    "Add the selected storage or persistence mode",
+    "Validate the generated project contract"
+  ],
+  "validation_rules": {
+    "expected_terms": [
+      "crud",
+      "record",
+      "item",
+      "create",
+      "add",
+      "edit",
+      "update",
+      "delete"
+    ],
+    "required_any_terms": ["create", "add", "delete", "edit", "update"],
+    "min_interactive": 2
+  },
+  "task_templates": [
+    {
+      "id": "crud_types",
+      "title": "Define CRUD entity model",
+      "description": "Create a primary entity type and seed records.",
+      "affected_files": ["src/types.ts", "src/data/seedRecords.ts"],
+      "dependencies": [],
+      "produces_artifacts": ["CrudEntity"],
+      "success_criteria": ["entity types exist", "seed records exist"]
+    },
+    {
+      "id": "crud_store",
+      "title": "Create CRUD state",
+      "description": "Implement localStorage-backed create, read, update, delete helpers.",
+      "affected_files": ["src/hooks/useCrudStore.ts"],
+      "dependencies": ["crud_types"],
+      "requires_artifacts": ["CrudEntity"],
+      "produces_artifacts": ["useCrudStore"],
+      "success_criteria": ["CRUD store exists", "localStorage persistence exists"]
+    },
+    {
+      "id": "crud_components",
+      "title": "Build CRUD interface",
+      "description": "Create list, form, edit, delete, and summary components.",
+      "affected_files": [
+        "src/components/CrudList.tsx",
+        "src/components/CrudForm.tsx"
+      ],
+      "dependencies": ["crud_store"],
+      "requires_artifacts": ["useCrudStore", "CrudEntity"],
+      "produces_artifacts": ["CrudPage"],
+      "success_criteria": ["list component renders", "form component renders"]
+    },
+    {
+      "id": "compose_crud_app",
+      "title": "Compose CRUD app shell",
+      "description": "Wire CRUD components into src/App.tsx.",
+      "affected_files": ["src/App.tsx"],
+      "dependencies": ["crud_components"],
+      "requires_artifacts": ["CrudPage"],
+      "success_criteria": ["CRUD app renders"]
+    }
+  ]
+}

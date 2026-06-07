@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any
@@ -7,6 +8,7 @@ from uuid import uuid4
 
 from backend.agent.tools import _safe_project_path
 
+logger = logging.getLogger(__name__)
 
 REFLECTION_SCHEMA_VERSION = "p11.reflection_engine.v1"
 REFLECTION_RELATIVE_PATH = ".ai-agent/reflection_engine.json"
@@ -380,10 +382,24 @@ class ReflectionEngine:
 
     @staticmethod
     def predictive_reflection(project_id: str, prompt: str, workspace_awareness: dict[str, Any] | None = None) -> dict[str, Any]:
+        project_state = None
+        try:
+            from backend.memory.project_memory import ProjectMemory
+
+            project_state = ProjectMemory.load_for(project_id, "reflection")
+            logger.info("[ProjectState] Loaded for reflection")
+        except Exception:
+            project_state = None
         impact = (workspace_awareness or {}).get("impact_analysis") or {}
         risk = impact.get("risk") or "unknown"
         prediction = {
             "prompt": prompt,
+            "project_state": {
+                "project_type": (project_state or {}).get("project_type", "unknown"),
+                "domain": (project_state or {}).get("domain"),
+                "database": (project_state or {}).get("database"),
+                "supplier": (project_state or {}).get("supplier"),
+            },
             "risk": risk,
             "confidence": impact.get("confidence", 0.35),
             "affected_files": impact.get("affected_files", []),

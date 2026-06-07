@@ -28,6 +28,11 @@ router = APIRouter()
 _generation_status_by_project: dict[str, dict] = {}
 
 
+def _runtime_status_is(status: str | None, *expected: str) -> bool:
+    normalized = str(status or "").upper()
+    return normalized in {item.upper() for item in expected}
+
+
 def _classify_generation_failure_stage(error: str | None) -> str:
     text = (error or "").lower()
     if "dev server" in text or "preview" in text or "runtime" in text or "health" in text:
@@ -201,16 +206,16 @@ async def generation_status(project_id: str) -> dict:
         runtime_status = get_runtime_status(project_id)
         if snapshot.get("runtime_run_id") and runtime_status.get("run_id") == snapshot.get("runtime_run_id"):
             runtime_state = runtime_status.get("status")
-            snapshot["runtime_port"] = runtime_status.get("port") if runtime_state == "running" else None
-            snapshot["runtime_url"] = runtime_status.get("url") if runtime_state == "running" else None
-            if runtime_state == "running":
+            snapshot["runtime_port"] = runtime_status.get("port") if _runtime_status_is(runtime_state, "RUNNING") else None
+            snapshot["runtime_url"] = runtime_status.get("url") if _runtime_status_is(runtime_state, "RUNNING") else None
+            if _runtime_status_is(runtime_state, "RUNNING"):
                 snapshot["phase"] = "runtime_ready"
                 snapshot["message"] = "Generation completed and runtime is ready."
-            elif runtime_state == "failed":
+            elif _runtime_status_is(runtime_state, "FAILED", "CRASHED"):
                 snapshot["status"] = "failed"
                 snapshot["phase"] = "runtime_failed"
                 snapshot["message"] = runtime_status.get("error") or "Runtime failed after generation completed."
-            elif runtime_state == "stopped":
+            elif _runtime_status_is(runtime_state, "STOPPED"):
                 snapshot["phase"] = "completed"
                 snapshot["message"] = "Generation completed; runtime is stopped."
         return snapshot
@@ -334,7 +339,7 @@ async def run_orchestrator_bg(req: GenerateRequest, generation_id: str | None = 
             return
 
         runtime_status = get_runtime_status(req.project_id)
-        runtime_running = runtime_status.get("status") == "running"
+        runtime_running = _runtime_status_is(runtime_status.get("status"), "RUNNING")
         detail = {
             "files_written": result.files_written,
             "repair_attempts": result.repair_attempts,

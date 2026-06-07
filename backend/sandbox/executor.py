@@ -53,7 +53,45 @@ import socket
 import urllib.request
 import urllib.error
 from dataclasses import dataclass
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, Union
+
+def is_pid_alive(pid: int) -> bool:
+    if pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+class MockPopen:
+    def __init__(self, pid: int):
+        self.pid = pid
+        self.returncode = None
+
+    def poll(self) -> Optional[int]:
+        if self.returncode is not None:
+            return self.returncode
+        if not is_pid_alive(self.pid):
+            self.returncode = 0
+            return self.returncode
+        return None
+
+    def kill(self) -> None:
+        if self.returncode is not None:
+            return
+        try:
+            if sys.platform == "win32":
+                subprocess.run(["taskkill", "/F", "/PID", str(self.pid)], capture_output=True)
+            else:
+                os.kill(self.pid, 9)
+            self.returncode = -9
+        except OSError:
+            self.returncode = 0
+
 
 @dataclass
 class RuntimeEntry:
@@ -66,15 +104,213 @@ class RuntimeEntry:
     runtime_type: str
     preview_url: Optional[str]
     process_status: str
-    popen: subprocess.Popen
+    popen: Union[subprocess.Popen, MockPopen]
     last_healthcheck: Optional[float] = None
     error: Optional[str] = None
+    stdout_tail: Optional[list[str]] = None
+    stderr_tail: Optional[list[str]] = None
 
 _runtime_registry: Dict[str, RuntimeEntry] = {}
 _runtime_status_snapshots: Dict[str, dict] = {}
 
+RUNTIME_STATES = {"ALLOCATED", "STARTING", "RUNNING", "STOPPING", "STOPPED", "FAILED", "CRASHED"}
+ACTIVE_RUNTIME_STATES = {"ALLOCATED", "STARTING", "RUNNING", "STOPPING"}
+
+
+def _normalize_runtime_status(status: str | None) -> str:
+    normalized = str(status or "").strip().upper()
+    legacy = {
+        "STARTING_PREVIEW": "STARTING",
+        "PREVIEW_READY": "RUNNING",
+        "READY": "RUNNING",
+        "STOP": "STOPPED",
+        "STOPPING": "STOPPING",
+        "STOPPED": "STOPPED",
+        "FAILED": "FAILED",
+        "FAILURE": "FAILED",
+        "CRASH": "CRASHED",
+        "CRASHED": "CRASHED",
+    }
+    normalized = legacy.get(normalized, normalized)
+    return normalized if normalized in RUNTIME_STATES else "STOPPED"
+
+
+def _runtime_status_is(status: str | None, *expected: str) -> bool:
+    expected_states = {_normalize_runtime_status(item) for item in expected}
+    return _normalize_runtime_status(status) in expected_states
+
+
+def _tail_lines(lines: list[str], limit: int = 20) -> list[str]:
+    return [str(line) for line in lines[-limit:]]
+
+
+def _attach_runtime_output_tail(entry: RuntimeEntry, stdout_lines: list[str], stderr_lines: list[str]) -> None:
+    entry.stdout_tail = _tail_lines(stdout_lines)
+    entry.stderr_tail = _tail_lines(stderr_lines)
+
+def _session_file_path(project_id: str) -> Path:
+    return WORKSPACE_ROOT / project_id / ".ai-agent" / "runtime_session.json"
+
+def _save_session_status_to_disk(status: dict) -> None:
+    try:
+        project_id = status.get("project_id")
+        if not project_id:
+            return
+        path = _session_file_path(str(project_id))
+        if not path.parent.is_dir():
+            path.parent.mkdir(parents=True, exist_ok=True)
+        data = {
+            "project_id": project_id,
+            "run_id": status.get("run_id"),
+            "pid": status.get("pid"),
+            "cwd": status.get("cwd"),
+            "port": str(status.get("port")) if status.get("port") is not None else None,
+            "started_at": status.get("started_at"),
+            "runtime_type": status.get("runtime_type") or "dev_server",
+            "preview_url": status.get("url") or status.get("preview_url"),
+            "status": _normalize_runtime_status(status.get("status")),
+            "last_healthcheck": status.get("last_healthcheck"),
+            "error": status.get("error"),
+            "stdout_tail": status.get("stdout_tail") if isinstance(status.get("stdout_tail"), list) else [],
+            "stderr_tail": status.get("stderr_tail") if isinstance(status.get("stderr_tail"), list) else [],
+        }
+        temp_path = path.with_suffix(path.suffix + ".tmp")
+        temp_path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        temp_path.replace(path)
+    except Exception as e:
+        logger.error(f"Failed to save runtime session to disk: {e}")
+
+
+def _save_session_to_disk(entry: RuntimeEntry) -> None:
+    _save_session_status_to_disk({
+        **_runtime_entry_to_status(entry),
+        "cwd": entry.cwd,
+        "runtime_type": entry.runtime_type,
+    })
+
+def _delete_session_from_disk(project_id: str) -> None:
+    try:
+        path = _session_file_path(project_id)
+        if path.is_file():
+            path.unlink()
+    except Exception as e:
+        logger.error(f"Failed to delete runtime session from disk for project {project_id}: {e}")
+
+def _entry_from_session_data(project_id: str, data: dict) -> RuntimeEntry | None:
+    pid = data.get("pid")
+    run_id = data.get("run_id")
+    port = data.get("port")
+    status = _normalize_runtime_status(data.get("status"))
+
+    if not pid or not run_id:
+        return None
+
+    if status in ACTIVE_RUNTIME_STATES and is_pid_alive(int(pid)):
+        logger.info(f"Recovering active runtime session for project {project_id}, PID {pid}, port {port}")
+        return RuntimeEntry(
+            project_id=project_id,
+            run_id=run_id,
+            process_pid=int(pid),
+            cwd=data.get("cwd", str((WORKSPACE_ROOT / project_id / run_id).resolve())),
+            assigned_port=str(port) if port else None,
+            started_at=data.get("started_at", time.time()),
+            runtime_type=data.get("runtime_type", "dev_server"),
+            preview_url=data.get("preview_url"),
+            process_status=status,
+            popen=MockPopen(int(pid)),
+            last_healthcheck=data.get("last_healthcheck"),
+            error=data.get("error"),
+            stdout_tail=data.get("stdout_tail") if isinstance(data.get("stdout_tail"), list) else [],
+            stderr_tail=data.get("stderr_tail") if isinstance(data.get("stderr_tail"), list) else [],
+        )
+
+    if status in ACTIVE_RUNTIME_STATES:
+        data["status"] = "CRASHED"
+        data["error"] = data.get("error") or "Runtime process is no longer alive."
+        data["last_healthcheck"] = time.time()
+        _save_session_status_to_disk(
+            {
+                "project_id": project_id,
+                "run_id": run_id,
+                "pid": pid,
+                "cwd": data.get("cwd"),
+                "port": port,
+                "url": data.get("preview_url"),
+                "started_at": data.get("started_at"),
+                "runtime_type": data.get("runtime_type"),
+                "status": "CRASHED",
+                "last_healthcheck": data.get("last_healthcheck"),
+                "error": data.get("error"),
+                "stdout_tail": data.get("stdout_tail") if isinstance(data.get("stdout_tail"), list) else [],
+                "stderr_tail": data.get("stderr_tail") if isinstance(data.get("stderr_tail"), list) else [],
+            }
+        )
+    return None
+
+
+def _status_from_session_data(project_id: str, data: dict) -> dict:
+    port = data.get("port")
+    return {
+        "project_id": project_id,
+        "run_id": data.get("run_id"),
+        "status": _normalize_runtime_status(data.get("status")),
+        "port": int(port) if port is not None else None,
+        "pid": data.get("pid"),
+        "url": data.get("preview_url"),
+        "started_at": data.get("started_at"),
+        "last_healthcheck": data.get("last_healthcheck"),
+        "error": data.get("error"),
+        "stdout_tail": data.get("stdout_tail") if isinstance(data.get("stdout_tail"), list) else [],
+        "stderr_tail": data.get("stderr_tail") if isinstance(data.get("stderr_tail"), list) else [],
+    }
+
+
+def _read_session_from_disk(project_id: str) -> dict | None:
+    session_file = _session_file_path(project_id)
+    if not session_file.is_file():
+        return None
+    try:
+        with open(session_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else None
+    except Exception as e:
+        logger.error(f"Failed to read runtime session from {session_file}: {e}")
+        return None
+
+
+def recover_single_session_from_disk(project_id: str) -> None:
+    """Recover a specific project's runtime session from disk if it exists and is alive."""
+    data = _read_session_from_disk(project_id)
+    if not data:
+        return
+
+    entry = _entry_from_session_data(project_id, data)
+    if entry:
+        _runtime_registry[project_id] = entry
+        _runtime_status_snapshots[project_id] = _runtime_entry_to_status(entry)
+        return
+
+    _runtime_registry.pop(project_id, None)
+    _runtime_status_snapshots[project_id] = _status_from_session_data(project_id, _read_session_from_disk(project_id) or data)
+
+def recover_sessions_from_disk() -> None:
+    """Scan workspaces and recover active runtime sessions."""
+    if not WORKSPACE_ROOT.exists():
+        return
+    for project_dir in WORKSPACE_ROOT.iterdir():
+        if not project_dir.is_dir():
+            continue
+        project_id = project_dir.name
+        session_file = _session_file_path(project_id)
+        if not session_file.is_file():
+            continue
+        try:
+            recover_single_session_from_disk(project_id)
+        except Exception as e:
+            logger.error(f"Failed to recover session from {session_file}: {e}")
+
 DEFAULT_TIMEOUT_SECONDS = 180
-NODE_ENTRYPOINT_CHECKS = "package.json scripts.start, scripts.dev, main, index.js, server.js"
+NODE_ENTRYPOINT_CHECKS = "package.json scripts.start, scripts.dev, main, index.js, server.js, process.env.PORT"
 
 
 async def _emit_runtime_lifecycle(
@@ -107,21 +343,28 @@ def _runtime_entry_to_status(entry: RuntimeEntry) -> dict:
     return {
         "project_id": entry.project_id,
         "run_id": entry.run_id,
-        "status": entry.process_status,
+        "status": _normalize_runtime_status(entry.process_status),
         "port": int(entry.assigned_port) if entry.assigned_port else None,
         "pid": entry.process_pid,
         "url": entry.preview_url,
         "started_at": entry.started_at,
         "last_healthcheck": entry.last_healthcheck,
         "error": entry.error,
+        "stdout_tail": _tail_lines(entry.stdout_tail or []),
+        "stderr_tail": _tail_lines(entry.stderr_tail or []),
     }
 
 
 def _record_runtime_status(entry: RuntimeEntry | dict) -> dict:
     status = _runtime_entry_to_status(entry) if isinstance(entry, RuntimeEntry) else entry
+    status = {**status, "status": _normalize_runtime_status(status.get("status"))}
     project_id = status.get("project_id")
     if project_id:
         _runtime_status_snapshots[project_id] = status
+        if isinstance(entry, RuntimeEntry):
+            _save_session_to_disk(entry)
+        else:
+            _save_session_status_to_disk(status)
     return status
 
 
@@ -129,10 +372,10 @@ def _fail_runtime_readback(project_id: str, entry: RuntimeEntry, error: str) -> 
     failed_status = {
         "project_id": entry.project_id,
         "run_id": entry.run_id,
-        "status": "failed",
-        "port": None,
+        "status": "FAILED",
+        "port": int(entry.assigned_port) if entry.assigned_port else None,
         "pid": entry.process_pid,
-        "url": None,
+        "url": entry.preview_url,
         "started_at": entry.started_at,
         "last_healthcheck": time.time(),
         "error": error,
@@ -152,7 +395,7 @@ def _refresh_runtime_entry_status(project_id: str, entry: RuntimeEntry) -> dict:
             f"Runtime process exited unexpectedly (Exit {exit_code})",
         )
 
-    if entry.process_status != "running":
+    if not _runtime_status_is(entry.process_status, "RUNNING"):
         return _runtime_entry_to_status(entry)
 
     if not entry.preview_url:
@@ -219,12 +462,14 @@ async def _emit_runtime_readback_failure(status: dict, entry: RuntimeEntry) -> N
 
 
 async def get_runtime_status_for_readback(project_id: str) -> tuple[dict, bool]:
+    if project_id not in _runtime_registry:
+        recover_single_session_from_disk(project_id)
     entry = _runtime_registry.get(project_id)
     if not entry:
         return get_runtime_status(project_id), False
 
     status = _refresh_runtime_entry_status(project_id, entry)
-    invalidated = status.get("status") == "failed" and _runtime_registry.get(project_id) is not entry
+    invalidated = _runtime_status_is(status.get("status"), "FAILED", "CRASHED") and _runtime_registry.get(project_id) is not entry
     if invalidated:
         await _emit_runtime_readback_failure(status, entry)
     return status, invalidated
@@ -232,6 +477,8 @@ async def get_runtime_status_for_readback(project_id: str) -> tuple[dict, bool]:
 
 def get_runtime_status(project_id: str | None = None) -> dict:
     if project_id:
+        if project_id not in _runtime_registry:
+            recover_single_session_from_disk(project_id)
         entry = _runtime_registry.get(project_id)
         if entry:
             return _refresh_runtime_entry_status(project_id, entry)
@@ -240,7 +487,7 @@ def get_runtime_status(project_id: str | None = None) -> dict:
         return {
             "project_id": project_id,
             "run_id": None,
-            "status": "stopped",
+            "status": "STOPPED",
             "port": None,
             "pid": None,
             "url": None,
@@ -249,11 +496,17 @@ def get_runtime_status(project_id: str | None = None) -> dict:
             "error": None,
         }
 
+    # First attempt to recover any active runtimes on disk not yet loaded in memory registry
+    try:
+        recover_sessions_from_disk()
+    except Exception:
+        pass
+
     return {
         "runtimes": [_refresh_runtime_entry_status(project_id, entry) for project_id, entry in list(_runtime_registry.items())]
     }
 
-def _kill_process_tree(popen: subprocess.Popen, project_id: str) -> None:
+def _kill_process_tree(popen: Union[subprocess.Popen, MockPopen], project_id: str) -> None:
     if popen.returncode is not None:
         return
     try:
@@ -266,10 +519,14 @@ def _kill_process_tree(popen: subprocess.Popen, project_id: str) -> None:
 
 
 async def stop_runtime(project_id: str) -> dict:
+    if project_id not in _runtime_registry:
+        recover_single_session_from_disk(project_id)
     entry = _runtime_registry.get(project_id)
     if not entry:
         return get_runtime_status(project_id)
 
+    entry.process_status = "STOPPING"
+    _record_runtime_status(entry)
     await emit_terminal_line(f"[RuntimeStop] stopping runtime PID {entry.process_pid}", "info", project_id)
     await _emit_runtime_lifecycle(
         "runtime.stopping",
@@ -287,7 +544,7 @@ async def stop_runtime(project_id: str) -> dict:
         port_released = await _wait_for_port_release(int(entry.assigned_port))
 
     if not exited or not port_released:
-        entry.process_status = "failed"
+        entry.process_status = "FAILED"
         entry.error = "Runtime stop failed" if not exited else "Runtime port did not release"
         _record_runtime_status(entry)
         await _emit_runtime_lifecycle(
@@ -303,7 +560,7 @@ async def stop_runtime(project_id: str) -> dict:
     stopped_status = {
         "project_id": entry.project_id,
         "run_id": entry.run_id,
-        "status": "stopped",
+        "status": "STOPPED",
         "port": int(entry.assigned_port) if entry.assigned_port else None,
         "pid": entry.process_pid,
         "url": entry.preview_url,
@@ -332,13 +589,15 @@ async def record_pre_runtime_failure(
     stage: str = "pre_runtime",
     run_id: str | None = None,
 ) -> dict:
+    if project_id not in _runtime_registry:
+        recover_single_session_from_disk(project_id)
     if project_id in _runtime_registry:
         await stop_runtime(project_id)
 
     status = {
         "project_id": project_id,
         "run_id": run_id,
-        "status": "failed",
+        "status": "FAILED",
         "port": None,
         "pid": None,
         "url": None,
@@ -460,6 +719,93 @@ def _read_package_json(path: Path) -> dict:
         raise ValueError(f"Invalid package.json: {exc}") from exc
 
 
+def _strip_cli_options(tokens: list[str], options_with_values: set[str], flags: set[str]) -> list[str]:
+    stripped: list[str] = []
+    skip_next = False
+    for token in tokens:
+        if skip_next:
+            skip_next = False
+            continue
+
+        option_name = token.split("=", 1)[0]
+        if option_name in options_with_values:
+            if "=" not in token:
+                skip_next = True
+            continue
+        if option_name in flags:
+            continue
+        stripped.append(token)
+    return stripped
+
+
+def _split_package_script(script: str) -> list[str]:
+    try:
+        return shlex.split(script, posix=sys.platform != "win32")
+    except ValueError:
+        return []
+
+
+def _npm_run_script_name(args: list[str]) -> str | None:
+    if len(args) < 3:
+        return None
+    if Path(str(args[0])).name.lower() not in {"npm", "npm.cmd"}:
+        return None
+    if str(args[1]).lower() != "run":
+        return None
+    script_name = str(args[2])
+    return script_name if script_name else None
+
+
+def _args_after_npm_double_dash(args: list[str]) -> list[str]:
+    try:
+        separator_index = args.index("--")
+    except ValueError:
+        return []
+    return [str(item) for item in args[separator_index + 1:]]
+
+
+def _normalize_vite_dev_command_args(run_path: Path, args: list[str], allocated_port: int) -> list[str]:
+    """Build one effective Vite command with one port, without editing package.json."""
+    script_name = _npm_run_script_name(args)
+    if not script_name:
+        return args
+
+    if not (run_path / "package.json").is_file():
+        return args
+    package = _read_package_json(run_path / "package.json")
+    scripts = package.get("scripts") if isinstance(package.get("scripts"), dict) else {}
+    script = scripts.get(script_name)
+    if not isinstance(script, str):
+        return args
+
+    script_tokens = _split_package_script(script)
+    if not script_tokens:
+        return args
+
+    executable = Path(script_tokens[0]).name.lower()
+    if executable not in {"vite", "vite.cmd"}:
+        return args
+
+    strip_value_options = {"--port", "-p", "--host"}
+    strip_flags = {"--strictPort"}
+    script_options = _strip_cli_options(script_tokens[1:], strip_value_options, strip_flags)
+    extra_options = _strip_cli_options(_args_after_npm_double_dash(args), strip_value_options, strip_flags)
+    normalized = [
+        "npm",
+        "exec",
+        "vite",
+        "--",
+        *script_options,
+        *extra_options,
+        "--host",
+        "127.0.0.1",
+        "--port",
+        str(allocated_port),
+        "--strictPort",
+    ]
+    return normalized
+
+
 def _extract_script_entrypoint(script: str) -> str | None:
     for match in re.finditer(r"(?P<entry>[\w./@-]+\.(?:mjs|cjs|js))", script):
         entry = match.group("entry").replace("\\", "/").lstrip("./")
@@ -533,10 +879,27 @@ def resolve_node_runtime_entrypoint(run_path: Path) -> dict:
     }
 
 
+def _node_entry_uses_env_port(run_path: Path, entry: str | None) -> bool:
+    if not entry:
+        return False
+    entry_path = run_path / entry
+    if not entry_path.is_file():
+        return False
+    try:
+        text = entry_path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return False
+    return "process.env.PORT" in text or "process.env['PORT']" in text or 'process.env["PORT"]' in text
+
+
 def validate_node_runtime_contract(project_id: str, run_id: str = None) -> str | None:
     run_path = _safe_project_path(project_id, run_id)
     result = resolve_node_runtime_entrypoint(run_path)
-    return None if result.get("ok") else str(result.get("error"))
+    if not result.get("ok"):
+        return str(result.get("error"))
+    if not _node_entry_uses_env_port(run_path, result.get("entry")):
+        return "Node runtime contract violation: server entrypoint must listen on process.env.PORT."
+    return None
 
 
 def resolve_node_runtime_command(project_id: str, run_id: str = None) -> list[str]:
@@ -624,6 +987,8 @@ def _start_dev_stream_reader_thread(
                 if not decoded.strip() and type_str != "info":
                     continue
                 lines_list.append(decoded)
+                if len(lines_list) > 100:
+                    del lines_list[:-100]
                 asyncio.run_coroutine_threadsafe(
                     emit_terminal_line(decoded, type_str, project_id),
                     loop,
@@ -780,6 +1145,8 @@ async def run_dev_server_array_async(
         return ExecuteResponse(success=False, command="dev", error="Runtime isolation error: run_id is strictly required", exit_code=-1)
 
     server_key = project_id
+    if server_key not in _runtime_registry:
+        recover_single_session_from_disk(server_key)
     if server_key in _runtime_registry:
         old_entry = _runtime_registry[server_key]
         msg = f"[RuntimeCleanup] killing stale runtime PID {old_entry.process_pid}"
@@ -797,6 +1164,9 @@ async def run_dev_server_array_async(
         
         if not await _wait_for_process_exit(old_entry.popen):
             err_msg = f"[RuntimeCleanup] Failed to kill PID {old_entry.process_pid}"
+            old_entry.process_status = "FAILED"
+            old_entry.error = err_msg
+            _record_runtime_status(old_entry)
             print(err_msg)
             await emit_terminal_line(err_msg, "stderr", project_id)
             await _emit_runtime_lifecycle(
@@ -810,6 +1180,9 @@ async def run_dev_server_array_async(
             return ExecuteResponse(success=False, command="dev", error="Failed to cleanup stale runtime process", exit_code=-1)
             
         msg = "[RuntimeCleanup] verified old runtime terminated"
+        old_entry.process_status = "STOPPED"
+        old_entry.error = None
+        _record_runtime_status(old_entry)
         print(msg)
         await emit_terminal_line(msg, "info", project_id)
         await _emit_runtime_lifecycle(
@@ -826,6 +1199,9 @@ async def run_dev_server_array_async(
             port = int(old_entry.assigned_port)
             if not await _wait_for_port_release(port):
                 err_msg = f"[RuntimeCleanup] Failed to release port {port}"
+                old_entry.process_status = "FAILED"
+                old_entry.error = err_msg
+                _record_runtime_status(old_entry)
                 print(err_msg)
                 await emit_terminal_line(err_msg, "stderr", project_id)
                 await _emit_runtime_lifecycle(
@@ -885,6 +1261,7 @@ async def run_dev_server_array_async(
             return ExecuteResponse(success=False, command="dev", error=str(e), exit_code=-1)
 
         args_with_port = [arg.replace("{port}", str(allocated_port)) for arg in args]
+        args_with_port = _normalize_vite_dev_command_args(project_path, args_with_port, allocated_port)
 
         exe = _resolve_npm_on_windows(args_with_port[0])
         if not exe:
@@ -907,6 +1284,7 @@ async def run_dev_server_array_async(
 
         display = " ".join(args_with_port)
         merged_env = {**os.environ, **(_MINIMAL_ENV if env_overrides is None else env_overrides)}
+        merged_env["PORT"] = str(allocated_port)
 
         if attempt == 0:
             await emit_agent_state("starting_preview", project_id)
@@ -944,10 +1322,12 @@ async def run_dev_server_array_async(
                 started_at=time.time(),
                 runtime_type="dev_server",
                 preview_url=None,
-                process_status="starting",
+                process_status="ALLOCATED",
                 popen=popen
             )
             _runtime_registry[server_key] = entry
+            _record_runtime_status(entry)
+            entry.process_status = "STARTING"
             _record_runtime_status(entry)
             
             msg_reg = f"[RuntimeRegistry] registered runtime port={allocated_port} pid={popen.pid}"
@@ -956,19 +1336,26 @@ async def run_dev_server_array_async(
 
             port_found = False
             selected_port = None
+            contract_violation = None
             compiled_pattern = re.compile(port_pattern) if port_pattern else re.compile(r'http://(?:localhost|127\.0\.0\.1):(\d+)')
 
             async def detect_port(line: str):
-                nonlocal port_found, selected_port
+                nonlocal port_found, selected_port, contract_violation
                 if port_found:
                     return
                 match = compiled_pattern.search(line)
                 if match:
                     port_found = True
                     selected_port = match.group(1)
+                    if str(selected_port) != str(allocated_port):
+                        contract_violation = (
+                            f"CONTRACT VIOLATION: allocated port {allocated_port}, "
+                            f"runtime reported port {selected_port}"
+                        )
+                        return
                     url = f"http://127.0.0.1:{selected_port}"
                     entry.assigned_port = selected_port
-                    entry.process_status = "starting"
+                    entry.process_status = "STARTING"
                     entry.last_healthcheck = time.time()
                     _record_runtime_status(entry)
                     await _emit_runtime_lifecycle(
@@ -986,7 +1373,7 @@ async def run_dev_server_array_async(
                     selected_port = str(allocated_port)
                     url = f"http://127.0.0.1:{selected_port}"
                     entry.assigned_port = selected_port
-                    entry.process_status = "starting"
+                    entry.process_status = "STARTING"
                     entry.last_healthcheck = time.time()
                     _record_runtime_status(entry)
                     await _emit_runtime_lifecycle(
@@ -1002,6 +1389,8 @@ async def run_dev_server_array_async(
 
             stdout_lines = []
             stderr_lines = []
+            entry.stdout_tail = stdout_lines
+            entry.stderr_tail = stderr_lines
             loop = asyncio.get_running_loop()
 
             _start_dev_stream_reader_thread(popen.stdout, 'stdout', project_id, stdout_lines, loop, detect_port, prefix=prefix)
@@ -1011,10 +1400,37 @@ async def run_dev_server_array_async(
             for _ in range(60):
                 if port_found:
                     url = f"http://127.0.0.1:{selected_port}"
+                    if contract_violation:
+                        entry.process_status = "FAILED"
+                        entry.last_healthcheck = time.time()
+                        entry.error = contract_violation
+                        _attach_runtime_output_tail(entry, stdout_lines, stderr_lines)
+                        _record_runtime_status(entry)
+                        await emit_terminal_line(f"[Runtime] {contract_violation}", "stderr", project_id)
+                        await _emit_runtime_lifecycle(
+                            "runtime.healthcheck.failed",
+                            project_id,
+                            run_id,
+                            contract_violation,
+                            selected_port=allocated_port,
+                            process_pid=popen.pid,
+                        )
+                        await emit_runtime_error(
+                            RuntimeErrorCode.RUNTIME_HEALTH_TIMEOUT,
+                            contract_violation,
+                            detail={"allocated_port": allocated_port, "runtime_port": selected_port},
+                            project_id=project_id,
+                            run_id=run_id,
+                            source="runtime",
+                        )
+                        _kill_process_tree(popen, project_id)
+                        if server_key in _runtime_registry:
+                            del _runtime_registry[server_key]
+                        return ExecuteResponse(success=False, command="dev", error=contract_violation, exit_code=-1)
                     verified, verify_error = await _wait_for_verified_runtime(url, run_id, project_id)
                     if verified:
                         entry.preview_url = url
-                        entry.process_status = "running"
+                        entry.process_status = "RUNNING"
                         entry.last_healthcheck = time.time()
                         entry.error = verify_error
                         _record_runtime_status(entry)
@@ -1039,10 +1455,11 @@ async def run_dev_server_array_async(
                         await emit_agent_state("preview_ready", project_id)
                         return ExecuteResponse(success=True, command="dev", exit_code=0)
 
-                    entry.process_status = "failed"
+                    entry.process_status = "FAILED"
                     runtime_error = f"Runtime health verification failed: {verify_error}"
                     entry.last_healthcheck = time.time()
                     entry.error = runtime_error
+                    _attach_runtime_output_tail(entry, stdout_lines, stderr_lines)
                     _record_runtime_status(entry)
                     await emit_terminal_line(f"[Runtime] {runtime_error}", "stderr", project_id)
                     await _emit_runtime_lifecycle(
@@ -1073,8 +1490,9 @@ async def run_dev_server_array_async(
                         break
                     err = f"Dev server crashed (Exit {popen.returncode})"
                     await emit_terminal_line(f"[Runtime] {err}", "stderr", project_id)
-                    entry.process_status = "failed"
+                    entry.process_status = "CRASHED"
                     entry.error = err
+                    _attach_runtime_output_tail(entry, stdout_lines, stderr_lines)
                     _record_runtime_status(entry)
                     await _emit_runtime_lifecycle(
                         "runtime.crashed",
@@ -1101,6 +1519,10 @@ async def run_dev_server_array_async(
                 msg_collision = "[RuntimeRetry] port collision detected"
                 print(msg_collision)
                 await emit_terminal_line(msg_collision, "warning", project_id)
+                entry.process_status = "FAILED"
+                entry.error = msg_collision
+                _attach_runtime_output_tail(entry, stdout_lines, stderr_lines)
+                _record_runtime_status(entry)
                 _kill_process_tree(popen, project_id)
                 if server_key in _runtime_registry:
                     del _runtime_registry[server_key]
@@ -1108,8 +1530,9 @@ async def run_dev_server_array_async(
 
             _kill_process_tree(popen, project_id)
             if server_key in _runtime_registry:
-                _runtime_registry[server_key].process_status = "failed"
+                _runtime_registry[server_key].process_status = "FAILED"
                 _runtime_registry[server_key].error = "Timed out waiting for dev server to become ready"
+                _attach_runtime_output_tail(_runtime_registry[server_key], stdout_lines, stderr_lines)
                 _record_runtime_status(_runtime_registry[server_key])
                 del _runtime_registry[server_key]
             err = "Timed out waiting for dev server to become ready"
@@ -1134,8 +1557,12 @@ async def run_dev_server_array_async(
 
         except Exception as e:
             if server_key in _runtime_registry:
-                _runtime_registry[server_key].process_status = "crashed"
+                _runtime_registry[server_key].process_status = "CRASHED"
                 _runtime_registry[server_key].error = f"Runtime spawn failed: {e}"
+                try:
+                    _attach_runtime_output_tail(_runtime_registry[server_key], stdout_lines, stderr_lines)
+                except NameError:
+                    pass
                 _record_runtime_status(_runtime_registry[server_key])
                 del _runtime_registry[server_key]
             import traceback
@@ -1149,3 +1576,10 @@ async def run_dev_server_array_async(
             return ExecuteResponse(success=False, command="dev", error=repr(e), exit_code=-1)
             
     return ExecuteResponse(success=False, command="dev", error="Max retries exceeded for port allocation", exit_code=-1)
+
+
+# Recover any existing active sessions on module load
+try:
+    recover_sessions_from_disk()
+except Exception as _e:
+    logger.error(f"Error recovering sessions on module load: {_e}")

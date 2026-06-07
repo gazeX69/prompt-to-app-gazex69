@@ -1,11 +1,15 @@
 from datetime import datetime, timezone
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Any, Optional
 
+from backend.brain.plan_signature import build_plan_signature
+from backend.brain.prompt_cleaning import clean_user_intent_prompt
 from backend.memory.db import get_connection
 
+logger = logging.getLogger(__name__)
 
 PROJECT_STATE_SCHEMA_VERSION = "p9.project_state.v1"
 PROJECT_STATE_RELATIVE_PATH = ".ai-agent/project_state.json"
@@ -100,11 +104,45 @@ def _project_type_defaults(app_type: str) -> list[str]:
         "marketplace": ["products", "cart", "checkout", "admin"],
         "inventory": ["inventory", "crud", "reports"],
         "todo": ["tasks", "crud"],
+        "crud": ["crud"],
         "crud_app": ["crud"],
         "dashboard": ["dashboard", "reports"],
         "pos": ["products", "cart", "payment", "reports"],
     }
     return defaults.get(app_type, [])
+
+
+def _is_new_app_request_against_existing_state(state: dict | None, prompt: str) -> bool:
+    if not state:
+        return False
+    existing_type = (state.get("project_type") or "unknown").strip().lower()
+    if existing_type == "unknown":
+        return False
+    try:
+        signature = build_plan_signature(clean_user_intent_prompt(prompt))
+    except Exception:
+        return False
+    requested_type = (getattr(signature, "app_type", "") or "").strip().lower()
+    explicit_new_app_types = {
+        "marketplace",
+        "inventory",
+        "dashboard",
+        "recruitment",
+        "finance",
+        "booking",
+        "pos",
+        "cms",
+        "lms",
+        "saas",
+        "social media",
+    }
+    if not requested_type or requested_type == "app" or requested_type == existing_type:
+        return False
+    if requested_type not in explicit_new_app_types:
+        return False
+    if getattr(signature, "intent", "") != "build_app":
+        return False
+    return True
 
 
 def _decision_hints(prompt: str) -> dict[str, str]:
@@ -193,15 +231,77 @@ class ProjectMemory:
         return state
 
     @staticmethod
+    def load_for(project_id: str, consumer: str, ecosystem: str | None = None) -> dict:
+        state = ProjectMemory.load_project_state(project_id)
+        if state is None:
+            state = _default_state(project_id, ecosystem or "unknown")
+            state = ProjectMemory.save_project_state(project_id, state)
+        logger.info("[ProjectState] Loaded for %s", consumer)
+        for key in ["project_type", "domain", "database", "supplier"]:
+            if key in state:
+                logger.info("[ProjectState] %s=%s", key, str(state.get(key)).lower() if isinstance(state.get(key), bool) else state.get(key))
+        return state
+
+    @staticmethod
+    def update_from_discovery_draft(
+        project_id: str,
+        draft_state: dict[str, Any],
+        *,
+        session_id: str | None = None,
+        ecosystem: str | None = None,
+    ) -> dict:
+        state = ProjectMemory.load_project_state(project_id) or _default_state(project_id, ecosystem or "unknown")
+        if ecosystem and state.get("ecosystem") in {None, "", "unknown", "blank"}:
+            state["ecosystem"] = ecosystem
+        allowed_top_level = {"project_type", "domain", "database", "supplier"}
+        for key in allowed_top_level:
+            if key in draft_state:
+                state[key] = draft_state[key]
+        if state.get("project_type") and state.get("project_type") != "unknown" and state.get("project_name") == project_id:
+            label = str(state["project_type"])
+            if state.get("domain"):
+                label = f"{state['domain']} {label}"
+            state["project_name"] = label.replace("_", " ").title()
+        decisions = dict(state.get("decisions") or {})
+        for key, value in draft_state.items():
+            if key != "project_type":
+                decisions[key] = value
+        state["decisions"] = decisions
+        features = list(state.get("features") or [])
+        if draft_state.get("domain"):
+            features.append(str(draft_state["domain"]))
+        if draft_state.get("project_type"):
+            features.extend(_project_type_defaults(str(draft_state["project_type"])))
+        state["features"] = _unique(features)
+        active_context = dict(state.get("active_context") or {})
+        active_context.update({
+            "last_action": "discovery",
+            "discovery_session_id": session_id,
+            "current_goal": "Discovery completed",
+            "confidence": max(float(active_context.get("confidence") or 0.0), 0.82),
+        })
+        state["active_context"] = active_context
+        maturity = dict(state.get("maturity") or {})
+        maturity["level_8_discovery_state_sync"] = True
+        state["maturity"] = maturity
+        logger.info("[ProjectState] Updated from discovery session")
+        return ProjectMemory.save_project_state(project_id, state)
+
+    @staticmethod
     def classify_action(project_id: str, prompt: str) -> dict:
         state = ProjectMemory.load_project_state(project_id)
-        text = (prompt or "").lower()
+        clean_prompt = clean_user_intent_prompt(prompt)
+        text = clean_prompt.lower()
         features = set((state or {}).get("features") or [])
         has_existing_project = bool(state and ((state.get("project_type") or "unknown") != "unknown" or features))
         modify_terms = ["tambah", "tambahkan", "ubah", "update", "edit", "hapus", "perbaiki", "fix", "add", "modify"]
         create_terms = ["buat", "build", "create", "make", "generate"]
+        resets_existing_state = _is_new_app_request_against_existing_state(state, clean_prompt)
 
-        if has_existing_project and any(term in text for term in modify_terms):
+        if resets_existing_state:
+            action = "create"
+            confidence = 0.91
+        elif has_existing_project and any(term in text for term in modify_terms):
             action = "modify"
             confidence = 0.86
         elif not has_existing_project and any(term in text for term in create_terms):
@@ -214,7 +314,7 @@ class ProjectMemory:
             action = "create"
             confidence = 0.58
 
-        requested_features = _feature_hints(prompt)
+        requested_features = _feature_hints(clean_prompt)
         duplicate_features = sorted(set(requested_features) & features)
         missing_features = sorted(set(requested_features) - features)
         return {
@@ -224,6 +324,8 @@ class ProjectMemory:
             "duplicate_features": duplicate_features,
             "missing_features": missing_features,
             "has_existing_project": has_existing_project,
+            "state_inheritance": "reset" if resets_existing_state else ("inherit" if has_existing_project else "none"),
+            "clean_prompt": clean_prompt,
         }
 
     @staticmethod
@@ -235,7 +337,8 @@ class ProjectMemory:
         success: bool = True,
     ) -> dict:
         state = ProjectMemory.load_project_state(project_id) or _default_state(project_id, ecosystem or "unknown")
-        action = ProjectMemory.classify_action(project_id, prompt)
+        clean_prompt = clean_user_intent_prompt(prompt)
+        action = ProjectMemory.classify_action(project_id, clean_prompt)
         if ecosystem:
             state["ecosystem"] = ecosystem
         if signature is not None:
@@ -248,17 +351,18 @@ class ProjectMemory:
             features.extend(_project_type_defaults(app_type or ""))
         else:
             features = []
-        features.extend(_feature_hints(prompt))
+        features.extend(_feature_hints(clean_prompt))
 
         state["features"] = _unique(list(state.get("features") or []) + features)
         state["decisions"] = {**(state.get("decisions") or {}), **_decision_hints(prompt)}
         state["active_context"] = {
-            "current_goal": prompt.strip()[:160] if prompt else None,
-            "last_prompt": prompt,
+            "current_goal": clean_prompt.strip()[:160] if clean_prompt else None,
+            "last_prompt": clean_prompt,
             "last_action": action["action"],
             "confidence": action["confidence"],
             "duplicate_features": action["duplicate_features"],
             "missing_features": action["missing_features"],
+            "state_inheritance": action.get("state_inheritance"),
         }
         state["status"] = "active" if success else "needs_attention"
         maturity = dict(state.get("maturity") or {})
@@ -282,6 +386,11 @@ class ProjectMemory:
         action = ProjectMemory.classify_action(project_id, prompt or "")
         features = ", ".join(state.get("features") or []) or "none recorded"
         decisions = state.get("decisions") or {}
+        discovered = {
+            key: state.get(key)
+            for key in ["domain", "database", "supplier"]
+            if key in state
+        }
         duplicate = ", ".join(action["duplicate_features"]) or "none"
         missing = ", ".join(action["missing_features"]) or "none"
         return (
@@ -289,6 +398,7 @@ class ProjectMemory:
             "Epistemic rule: Project State is the current best known state, not absolute truth.\n"
             f"Project: {state.get('project_name')} ({state.get('project_type')})\n"
             f"Ecosystem: {state.get('ecosystem')}\n"
+            f"Discovered state: {json.dumps(discovered, ensure_ascii=False)}\n"
             f"Existing features: {features}\n"
             f"Decisions: {json.dumps(decisions, ensure_ascii=False)}\n"
             f"Predicted action: {action['action']} (confidence={action['confidence']:.2f})\n"

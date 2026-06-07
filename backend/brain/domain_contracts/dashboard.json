@@ -1,0 +1,56 @@
+{
+  "app_type": "dashboard",
+  "domain": "dashboard",
+  "complexity_default": "HIGH",
+  "keywords": [
+    "dashboard",
+    "admin dashboard",
+    "dashboard admin"
+  ],
+  "feature_keywords": ["dashboard", "charts", "auth", "database", "admin"],
+  "required_capabilities": [
+    "state_management",
+    "data_persistence",
+    "reporting"
+  ],
+  "decision_keys": [
+    "authentication",
+    "database",
+    "backend_api",
+    "roles",
+    "reporting_analytics"
+  ],
+  "decision_hints": {
+    "reporting_analytics": [
+      "report",
+      "laporan",
+      "analytics",
+      "metric"
+    ]
+  },
+  "recommended_mvp_features": [
+    "Core list view",
+    "Primary detail view",
+    "Simple local state"
+  ],
+  "implementation_plan": [
+    "Confirm data model and persistence boundary",
+    "Confirm frontend-only versus backend/API behavior",
+    "Build the smallest working UI flow",
+    "Add safe local/mock persistence unless real backend is confirmed",
+    "Validate generated project contract"
+  ],
+  "validation_rules": {
+    "expected_terms": [
+      "dashboard",
+      "metric",
+      "analytics",
+      "report",
+      "chart",
+      "summary"
+    ],
+    "required_any_terms": ["dashboard", "metric", "summary"],
+    "min_interactive": 2
+  },
+  "task_templates": []
+}

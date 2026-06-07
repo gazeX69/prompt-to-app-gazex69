@@ -1,0 +1,53 @@
+{
+  "phase": "P10-E",
+  "status": "implemented",
+  "scope": "Dependency Resolution & Contract Repair Separation",
+  "created": [
+    "backend/core/dependency_resolution.py",
+    "backend/tests/test_dependency_resolution.py",
+    "backend/brain/memory/p10e_dependency_resolution_progress.json"
+  ],
+  "modified": [
+    "backend/templates/react_vite_contract.py",
+    "backend/orchestrator/project_orchestrator.py",
+    "backend/routes/workspaces.py",
+    "frontend/src/api/workspace.api.ts",
+    "frontend/src/panels/DebugObservatory.tsx"
+  ],
+  "behavior": {
+    "feature_dependency_missing": "routes through DependencyResolver and DependencyRepair, not React/Vite contract restore",
+    "framework_dependency_missing": "remains React/Vite contract failure",
+    "uuid_repair": "replace uuid import usage with crypto.randomUUID() when possible",
+    "observatory": "shows Dependency Health with detected imports, declared dependencies, missing dependencies, repair strategy, and repair result"
+  },
+  "validation": [
+    {
+      "command": "python -m pytest backend/tests/test_dependency_resolution.py",
+      "result": "not_run",
+      "reason": "pytest is not installed in C:\\Python314"
+    },
+    {
+      "command": "direct Python invocation of backend.tests.test_dependency_resolution test functions",
+      "result": "passed",
+      "cases": [
+        "uuid import is dependency failure, not contract failure",
+        "missing react is contract failure",
+        "missing vite is contract failure",
+        "uuid native repair resolves dependency issue"
+      ]
+    },
+    {
+      "command": "python -m unittest backend.tests.test_debug_observatory",
+      "result": "passed"
+    },
+    {
+      "command": "npm run build",
+      "working_directory": "frontend",
+      "result": "passed"
+    },
+    {
+      "command": "py_compile targeted changed backend files",
+      "result": "passed"
+    }
+  ]
+}

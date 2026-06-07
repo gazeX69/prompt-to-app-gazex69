@@ -57,6 +57,8 @@ class ReliabilityTracker:
             except ValueError:
                 # Fallback if standard format
                 dt = datetime.strptime(r["timestamp"], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
             parsed_events.append((r["event_type"], dt))
 
         uptime_seconds = 0.0

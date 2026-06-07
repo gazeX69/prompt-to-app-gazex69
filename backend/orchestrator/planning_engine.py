@@ -1,8 +1,20 @@
 import json
 import asyncio
+import logging
+from typing import Any
+from backend.brain.domain_contract_registry import DomainContractError, load_contract
+from backend.brain.plan_signature import build_plan_signature
+from backend.brain.prompt_cleaning import clean_user_intent_prompt
 from backend.services.ai_service import complete
 from backend.orchestrator.project_mapper import ProjectMap
 from backend.orchestrator.task_graph import ExecutionTask, TaskGraph, ValidationContract, PatchOperation
+
+logger = logging.getLogger(__name__)
+
+
+class PlanningFailure(RuntimeError):
+    pass
+
 
 class PlanningEngine:
     """
@@ -12,101 +24,80 @@ class PlanningEngine:
     @staticmethod
     def _deterministic_plan(prompt: str) -> TaskGraph | None:
         try:
-            from backend.brain.plan_signature import build_plan_signature
-
-            signature = build_plan_signature(prompt)
-        except Exception:
+            clean_prompt = clean_user_intent_prompt(prompt)
+            signature = build_plan_signature(clean_prompt)
+            if signature.app_type == "unknown_domain":
+                return None
+            contract = load_contract(signature.app_type)
+        except (DomainContractError, Exception):
             return None
 
         def make_task(
-            task_id: str,
-            title: str,
-            description: str,
-            affected_files: list[str],
-            dependencies: list[str] | None = None,
-            criteria: list[str] | None = None,
+            template: dict[str, Any],
         ) -> ExecutionTask:
+            affected_files = [str(path).lstrip("/\\") for path in template.get("affected_files") or []]
             return ExecutionTask(
-                id=task_id,
-                title=title,
-                description=description,
+                id=str(template.get("id") or ""),
+                title=str(template.get("title") or ""),
+                description=str(template.get("description") or ""),
                 affected_files=affected_files,
                 allowed_write_paths=affected_files,
                 forbidden_paths=["package.json", "vite.config.ts", "tsconfig.json", "tsconfig.app.json", "tsconfig.node.json", "index.html", "src/main.tsx"],
-                dependencies=dependencies or [],
+                dependencies=[str(dep) for dep in template.get("dependencies") or []],
+                produces_artifacts=[str(item) for item in template.get("produces_artifacts") or template.get("produces") or []],
+                requires_artifacts=[str(item) for item in template.get("requires_artifacts") or template.get("requires") or []],
                 validation_contract=ValidationContract(
-                    success_criteria=criteria or ["feature renders", "state updates correctly"],
+                    success_criteria=[str(item) for item in template.get("success_criteria") or ["feature renders", "state updates correctly"]],
                     runtime_proof_required=True,
                     artifact_proof_required=True,
                     verification_method="grep",
                 ),
             )
 
-        recipes = {
-            "marketplace": [
-                make_task(
-                    "types_and_seed_data",
-                    "Define marketplace data model",
-                    "Create Product, CartItem, Order, and checkout-related TypeScript types plus seeded products.",
-                    ["src/types.ts", "src/data/seedProducts.ts"],
-                    criteria=["Product type exists", "seed products exist"],
-                ),
-                make_task(
-                    "marketplace_store",
-                    "Create marketplace state store",
-                    "Implement localStorage-backed product, cart, quantity, checkout, and admin CRUD state helpers.",
-                    ["src/hooks/useMarketplaceStore.ts"],
-                    ["types_and_seed_data"],
-                    ["cart state exists", "localStorage persistence exists"],
-                ),
-                make_task(
-                    "marketplace_components",
-                    "Build marketplace UI components",
-                    "Create product browsing, cart, checkout simulation, and admin product management components.",
-                    ["src/components/ProductCatalog.tsx", "src/components/CartPanel.tsx", "src/components/AdminPanel.tsx"],
-                    ["marketplace_store"],
-                    ["product list renders", "cart controls render", "admin CRUD renders"],
-                ),
-                make_task(
-                    "compose_marketplace_app",
-                    "Compose marketplace app shell",
-                    "Wire the marketplace components into src/App.tsx with responsive navigation and visible MVP flows.",
-                    ["src/App.tsx"],
-                    ["marketplace_components"],
-                    ["marketplace app renders"],
-                ),
-            ],
-            "inventory": [
-                make_task("inventory_types", "Define inventory model", "Create item and stock movement types plus seed inventory.", ["src/types.ts", "src/data/seedInventory.ts"]),
-                make_task("inventory_store", "Create inventory state", "Implement localStorage-backed item CRUD, stock adjustment, and low-stock helpers.", ["src/hooks/useInventoryStore.ts"], ["inventory_types"]),
-                make_task("inventory_components", "Build inventory screens", "Create item table, item form, stock summary, and low-stock indicators.", ["src/components/InventoryTable.tsx", "src/components/InventoryForm.tsx", "src/components/InventorySummary.tsx"], ["inventory_store"]),
-                make_task("compose_inventory_app", "Compose inventory app shell", "Wire inventory screens into src/App.tsx.", ["src/App.tsx"], ["inventory_components"]),
-            ],
-            "crud_app": [
-                make_task("crud_types", "Define CRUD entity model", "Create a primary entity type and seed records.", ["src/types.ts", "src/data/seedRecords.ts"]),
-                make_task("crud_store", "Create CRUD state", "Implement localStorage-backed create, read, update, delete helpers.", ["src/hooks/useCrudStore.ts"], ["crud_types"]),
-                make_task("crud_components", "Build CRUD interface", "Create list, form, edit, delete, and summary components.", ["src/components/CrudList.tsx", "src/components/CrudForm.tsx"], ["crud_store"]),
-                make_task("compose_crud_app", "Compose CRUD app shell", "Wire CRUD components into src/App.tsx.", ["src/App.tsx"], ["crud_components"]),
-            ],
-        }
-
-        tasks = recipes.get(signature.app_type)
-        if not tasks:
+        task_templates = contract.get("task_templates") or []
+        if not task_templates:
             return None
 
         graph = TaskGraph()
-        for task in tasks:
-            graph.add_task(task)
+        for template in task_templates:
+            task = make_task(template)
+            if task.id:
+                graph.add_task(task)
+        if not graph.tasks:
+            return None
         return graph
 
     @staticmethod
     async def create_plan(prompt: str, ecosystem_label: str, project_map: ProjectMap) -> TaskGraph:
-        # Clean prompt of Task list and Implementation plan to let planning engine map clean, feature-based tasks
-        clean_prompt = prompt
-        if "Task list:" in clean_prompt:
-            clean_prompt = clean_prompt.split("Task list:")[0].strip()
-        if "Implementation plan:" in clean_prompt:
-            clean_prompt = clean_prompt.split("Implementation plan:")[0].strip()
+        clean_prompt = clean_user_intent_prompt(prompt)
+        signature = build_plan_signature(clean_prompt)
+        logger.info(
+            "[Planning] intent=%s app_type=%s domain=%s clean_prompt=%r",
+            signature.intent,
+            signature.app_type,
+            signature.domain,
+            clean_prompt,
+        )
+
+        llm_reason = "unknown_domain"
+        if signature.app_type != "unknown_domain":
+            deterministic = PlanningEngine._deterministic_plan(clean_prompt)
+            if deterministic is not None and len(deterministic.tasks) > 0:
+                logger.info(
+                    "[Planning] contract_deterministic_plan_used app_type=%s domain=%s tasks=%s",
+                    signature.app_type,
+                    signature.domain,
+                    len(deterministic.tasks),
+                )
+                return deterministic
+            llm_reason = "deterministic_plan_unavailable"
+
+        logger.info(
+            "[Planning] llm_planner_used app_type=%s domain=%s reason=%s",
+            signature.app_type,
+            signature.domain,
+            llm_reason,
+        )
 
         system_prompt = (
             "You are an AI Orchestration Planner.\n"
@@ -208,6 +199,8 @@ class PlanningEngine:
                     allowed_write_paths=allowed_paths,
                     forbidden_paths=forbidden_paths,
                     dependencies=t_data.get("dependencies", []),
+                    produces_artifacts=[str(item) for item in t_data.get("produces_artifacts", [])],
+                    requires_artifacts=[str(item) for item in t_data.get("requires_artifacts", [])],
                     validation_contract=val_contract
                 )
                 
@@ -228,19 +221,39 @@ class PlanningEngine:
             return graph
             
         except Exception as e:
-            deterministic = PlanningEngine._deterministic_plan(prompt)
+            deterministic = PlanningEngine._deterministic_plan(clean_prompt)
             if deterministic is not None:
+                logger.warning(
+                    "[Planning] deterministic_fallback_used app_type=%s domain=%s reason=%s",
+                    signature.app_type,
+                    signature.domain,
+                    e,
+                )
                 return deterministic
 
-            # Fallback task if planner fails to respond with valid JSON
-            import traceback
-            traceback.print_exc()
-            graph = TaskGraph()
-            task = ExecutionTask(
-                id="fallback_task",
-                title="Fallback Monolithic Generation",
-                description=f"Planner failed to parse JSON: {e}. Executing standard fallback generation.",
-                validation_contract=ValidationContract(success_criteria=["fallback_success"])
+            if signature.app_type == "hello_world" and "hello world" in clean_prompt.lower():
+                logger.warning("[Planning] hello_world_simple_fallback_used reason=%s", e)
+                graph = TaskGraph()
+                graph.add_task(ExecutionTask(
+                    id="hello_world_fallback",
+                    title="Render Hello World",
+                    description=f"Planner failed to parse JSON: {e}. Generating explicit hello world only.",
+                    affected_files=["src/App.tsx"],
+                    allowed_write_paths=["src/App.tsx"],
+                    forbidden_paths=["package.json", "vite.config.ts", "tsconfig.json", "tsconfig.app.json", "tsconfig.node.json", "index.html", "src/main.tsx"],
+                    validation_contract=ValidationContract(success_criteria=["hello world renders"]),
+                ))
+                return graph
+
+            logger.error(
+                "[Planning] monolithic_fallback_blocked intent=%s app_type=%s domain=%s clean_prompt=%r reason=%s",
+                signature.intent,
+                signature.app_type,
+                signature.domain,
+                clean_prompt,
+                e,
             )
-            graph.add_task(task)
-            return graph
+            raise PlanningFailure(
+                f"Planner failed to produce valid JSON for {signature.app_type}; deterministic fallback unavailable. "
+                "Unsafe monolithic fallback is blocked."
+            ) from e

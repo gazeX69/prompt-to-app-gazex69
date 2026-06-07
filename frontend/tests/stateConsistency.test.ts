@@ -49,8 +49,8 @@ assert.equal(
 
 assert.equal(
   getPostGenerationRefreshAction({ status: "failed" }),
-  "reload_runs_only",
-  "failed generation refresh must update run status without replacing the active successful tree",
+  "reload_workspace_data",
+  "failed generation refresh must hydrate the latest inspectable files without replacing an active successful tree",
 )
 
 assert.equal(
@@ -75,6 +75,12 @@ assert.equal(
   selectHydrationRunId(runs, "run_failed_newer"),
   "run_success_active",
   "failed run IDs must not become the hydration source",
+)
+
+assert.equal(
+  selectHydrationRunId([{ run_id: "run_failed_only", status: "failed", active: false }], null),
+  "run_failed_only",
+  "latest failed run should hydrate explorer when no successful run exists",
 )
 
 console.log("P8-C5-H frontend state consistency helpers passed")
